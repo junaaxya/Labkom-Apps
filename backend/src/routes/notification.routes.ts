@@ -1,0 +1,34 @@
+import { Router, Request, Response } from "express";
+import { authenticate } from "../middlewares/auth.middleware";
+import {
+  getMyNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+} from "../controllers/notification.controller";
+import { sseManager } from "../services/sse.service";
+
+const router = Router();
+
+router.use(authenticate);
+
+router.get("/stream", (req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  res.write(`event: connected\ndata: ${JSON.stringify({ status: "ok" })}\n\n`);
+
+  sseManager.addClient(req.user!.userId, res);
+});
+
+router.get("/", getMyNotifications);
+router.get("/unread-count", getUnreadCount);
+router.patch("/read-all", markAllAsRead);
+router.patch("/:id/read", markAsRead);
+router.delete("/:id", deleteNotification);
+
+export default router;

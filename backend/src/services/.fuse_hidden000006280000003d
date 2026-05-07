@@ -1,0 +1,136 @@
+import prisma from "../config/database";
+
+export class LogbookService {
+  static async getAllLogbooks(filters?: { labId?: string; status?: string }) {
+    const where: any = {};
+    if (filters?.labId) where.labId = filters.labId;
+    if (filters?.status) where.status = filters.status;
+
+    return prisma.logbook.findMany({
+      where,
+      include: {
+        lab: { select: { id: true, name: true } },
+        schedule: { select: { id: true, title: true, day: true, startTime: true, endTime: true } },
+        officialCheckinBy: { select: { id: true, name: true } },
+        officialCheckoutBy: { select: { id: true, name: true } },
+        keyHolder: { select: { id: true, name: true } },
+        conditionSubmittedBy: { select: { id: true, name: true } },
+        verifiedBy: { select: { id: true, name: true } },
+        condition: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+  }
+
+  static async getLogbookById(id: string) {
+    const logbook = await prisma.logbook.findUnique({
+      where: { id },
+      include: {
+        lab: true,
+        schedule: { include: { lecturer: { select: { id: true, name: true } } } },
+        officialCheckinBy: { select: { id: true, name: true } },
+        officialCheckoutBy: { select: { id: true, name: true } },
+        keyHolder: { select: { id: true, name: true } },
+        conditionSubmittedBy: { select: { id: true, name: true } },
+        verifiedBy: { select: { id: true, name: true } },
+        condition: true,
+      },
+    });
+    if (!logbook) throw new Error("Logbook tidak ditemukan");
+    return logbook;
+  }
+
+  static async checkin(data: { labId: string; scheduleId?: string; userId: string; sessionType?: string }) {
+    return prisma.logbook.create({
+      data: {
+        labId: data.labId,
+        scheduleId: data.scheduleId,
+        sessionType: (data.sessionType as any) || "PRAKTIKUM",
+        officialCheckinById: data.userId,
+        officialCheckinAt: new Date(),
+        status: "CHECKED_IN",
+      },
+      include: { lab: { select: { id: true, name: true } } },
+    });
+  }
+
+  static async takeKey(logbookId: string, userId: string) {
+    const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
+    if (!logbook) throw new Error("Logbook tidak ditemukan");
+    if (logbook.status !== "CHECKED_IN") throw new Error("Status logbook harus CHECKED_IN");
+
+    return prisma.logbook.update({
+      where: { id: logbookId },
+      data: {
+        keyHolderId: userId,
+        keyTakenAt: new Date(),
+        status: "IN_USE",
+      },
+    });
+  }
+
+  static async submitCondition(logbookId: string, userId: string, userRole: string, conditionData: any) {
+    const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
+    if (!logbook) throw new Error("Logbook tidak ditemukan");
+
+    const privilegedRoles = ["KOORDINATOR_LAB", "ASISTEN_LAB", "DOSEN"];
+    if (!privilegedRoles.includes(userRole)) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new Error("User tidak ditemukan");
+
+      const isKeyHolder = logbook.keyHolderId === userId;
+      if (!user.isKetuaKelas && !isKeyHolder) {
+        throw new Error("Hanya ketua kelas atau pemegang kunci yang dapat mengisi kondisi akhir lab.");
+      }
+    }
+
+    await prisma.logbookCondition.create({
+      data: {
+        logbookId,
+        ...conditionData,
+      },
+    });
+
+    return prisma.logbook.update({
+      where: { id: logbookId },
+      data: {
+        conditionSubmittedById: userId,
+        conditionSubmittedAt: new Date(),
+        status: "CONDITION_SUBMITTED",
+      },
+    });
+  }
+
+  static async verify(logbookId: string, userId: string) {
+    const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
+    if (!logbook) throw new Error("Logbook tidak ditemukan");
+    if (logbook.status !== "CONDITION_SUBMITTED") {
+      throw new Error("Kondisi belum disubmit");
+    }
+
+    return prisma.logbook.update({
+      where: { id: logbookId },
+      data: {
+        verifiedById: userId,
+        verifiedAt: new Date(),
+        status: "WAITING_VERIFICATION",
+      },
+    });
+  }
+
+  static async checkout(logbookId: string, userId: string) {
+    const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
+    if (!logbook) throw new Error("Logbook tidak ditemukan");
+
+    return prisma.logbook.update({
+      where: { id: logbookId },
+      data: {
+        officialCheckoutById: userId,
+        officialCheckoutAt: new Date(),
+        keyReturnedAt: new Date(),
+        status: "COMPLETED",
+      },
+    });
+  }
+}

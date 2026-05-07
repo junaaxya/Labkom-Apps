@@ -1,0 +1,159 @@
+import cron from "node-cron";
+import prisma from "../config/database";
+import { notificationService } from "./notification.service";
+
+const DAYS_MAP: Record<string, number> = {
+  MINGGU: 0,
+  SENIN: 1,
+  SELASA: 2,
+  RABU: 3,
+  KAMIS: 4,
+  JUMAT: 5,
+  SABTU: 6,
+};
+
+function getCurrentDayEnum(): string {
+  const dayIndex = new Date().getDay();
+  return Object.entries(DAYS_MAP).find(([, v]) => v === dayIndex)?.[0] || "SENIN";
+}
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+async function checkScheduleReminders() {
+  const now = new Date();
+  const currentDay = getCurrentDayEnum();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const targetMinutes = currentMinutes + 15;
+
+  const schedules = await prisma.schedule.findMany({
+    where: {
+      day: currentDay as any,
+      isActive: true,
+      status: "SCHEDULED",
+    },
+    include: {
+      lab: { select: { name: true } },
+      assistant: { select: { id: true } },
+    },
+  });
+
+  for (const schedule of schedules) {
+    const startMinutes = timeToMinutes(schedule.startTime);
+    if (startMinutes >= targetMinutes - 1 && startMinutes <= targetMinutes + 1) {
+      const recipients: string[] = [];
+      if (schedule.assistant?.id) recipients.push(schedule.assistant.id);
+
+      for (const userId of recipients) {
+        await notificationService.notifyScheduleReminder(
+          userId,
+          schedule.title,
+          schedule.lab.name,
+          schedule.startTime
+        );
+      }
+    }
+  }
+}
+
+async function checkKeyNotReturned() {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+  const overdueKeys = await prisma.key.findMany({
+    where: {
+      status: "BORROWED",
+      currentHolderId: { not: null },
+      updatedAt: { lt: twoHoursAgo },
+    },
+    include: {
+      lab: { select: { name: true } },
+    },
+  });
+
+  for (const key of overdueKeys) {
+    if (key.currentHolderId) {
+      const alreadyNotified = await prisma.notification.findFirst({
+        where: {
+          userId: key.currentHolderId,
+          type: "KEY_NOT_RETURNED",
+          createdAt: { gt: new Date(Date.now() - 4 * 60 * 60 * 1000) },
+          metadata: { path: ["keyCode"], equals: key.keyCode },
+        },
+      });
+
+      if (!alreadyNotified) {
+        await notificationService.notifyKeyNotReturned(
+          key.currentHolderId,
+          key.keyCode,
+          key.lab.name
+        );
+      }
+    }
+  }
+}
+
+async function checkAttendanceReminder() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const currentDay = getCurrentDayEnum();
+  if (currentDay === "MINGGU" || currentDay === "SABTU") return;
+
+  const assistants = await prisma.user.findMany({
+    where: { role: "ASISTEN_LAB", isActive: true },
+    select: { id: true },
+  });
+
+  for (const asleb of assistants) {
+    const todayAttendance = await prisma.attendance.findFirst({
+      where: {
+        userId: asleb.id,
+        createdAt: { gte: today },
+      },
+    });
+
+    if (!todayAttendance) {
+      const alreadyNotified = await prisma.notification.findFirst({
+        where: {
+          userId: asleb.id,
+          type: "ATTENDANCE_REMINDER",
+          createdAt: { gte: today },
+        },
+      });
+
+      if (!alreadyNotified) {
+        await notificationService.notifyAttendanceReminder(asleb.id);
+      }
+    }
+  }
+}
+
+async function cleanupOldNotifications() {
+  await notificationService.cleanup(30);
+}
+
+export function startCronJobs() {
+  // Every 5 minutes: check schedule reminders
+  cron.schedule("*/5 * * * *", () => {
+    checkScheduleReminders().catch(console.error);
+  });
+
+  // Every 30 minutes: check keys not returned
+  cron.schedule("*/30 * * * *", () => {
+    checkKeyNotReturned().catch(console.error);
+  });
+
+  // Weekdays at 08:30: attendance reminder
+  cron.schedule("30 8 * * 1-5", () => {
+    checkAttendanceReminder().catch(console.error);
+  });
+
+  // Daily at 02:00: cleanup old notifications
+  cron.schedule("0 2 * * *", () => {
+    cleanupOldNotifications().catch(console.error);
+  });
+
+  console.log("[CRON] Scheduled jobs started");
+}
