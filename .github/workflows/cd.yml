@@ -120,4 +120,13 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.images.yml --env-file .env.images up -d backend frontend
 
       - name: Health check backend
-        run: curl -fsS http://127.0.0.1:8004/api/v1/health
+        run: |
+          for i in {1..12}; do
+            if curl -fsS http://127.0.0.1:8004/api/v1/health; then
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "Backend health check failed after retries"
+          exit 1
