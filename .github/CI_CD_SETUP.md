@@ -46,9 +46,9 @@ Saat setup runner, tambahkan label `labkom`.
 ## Deploy flow
 1. Push ke branch `main`
 2. GitHub Actions build image backend & frontend
-3. Image dipush ke `ghcr.io/<owner>/labkom-apps/backend:latest`
+3. Image dipush ke GHCR dengan tag commit SHA (mis. `sha-<commit>`)
 4. Job deploy dikirim ke self-hosted runner di server
-5. Runner pull image terbaru
+5. Runner pull image yang persis cocok dengan commit workflow tersebut
 6. Runner jalankan `npx prisma migrate deploy`
 7. Runner restart backend/frontend
 8. Runner hit healthcheck backend
@@ -57,7 +57,7 @@ Saat setup runner, tambahkan label `labkom`.
 ```bash
 cd /srv/apps/labkom-apps/deploy
 export IMAGE_NAMESPACE=ghcr.io/<owner>/labkom-apps
-export IMAGE_TAG=latest
+export IMAGE_TAG=sha-<commit>
 docker compose -f docker-compose.yml -f docker-compose.images.yml pull backend frontend
 docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm backend sh -lc 'npx prisma migrate deploy'
 docker compose -f docker-compose.yml -f docker-compose.images.yml up -d backend frontend
@@ -81,5 +81,5 @@ docker compose -f docker-compose.yml -f docker-compose.images.yml up -d backend 
 ## Catatan penting
 - Untuk production, gunakan `prisma migrate deploy`, bukan `db push`
 - Seed tidak dijalankan otomatis saat deploy
-- Workflow saat ini push image `latest` untuk `main`
-- Next step yang lebih rapi: deploy pakai tag SHA, bukan `latest`
+- Workflow deploy memakai tag image berbasis commit SHA agar image yang dideploy pasti cocok dengan commit yang membangun workflow
+- Ini menghindari race condition / cache ambiguity yang sering terjadi saat memakai `latest`

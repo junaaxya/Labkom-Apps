@@ -18,7 +18,7 @@ jobs:
       packages: write
     outputs:
       image_namespace: ${{ steps.vars.outputs.image_namespace }}
-      image_tag: latest
+      image_tag: sha-${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,6 +102,7 @@ jobs:
           IMAGE_NAMESPACE=${{ needs.docker.outputs.image_namespace }}
           IMAGE_TAG=${{ needs.docker.outputs.image_tag }}
           EOF
+          cat /srv/apps/labkom-apps/deploy/.env.images
 
       - name: Pull latest images
         run: |
