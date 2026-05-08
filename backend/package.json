@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Labkom - Sistem Manajemen Laboratorium Backend API",
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "npx --yes tsx prisma/seed.ts"
   },
   "main": "dist/server.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "npx --yes tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
