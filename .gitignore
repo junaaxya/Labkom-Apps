@@ -76,7 +76,9 @@ backend/uploads/
 *.pyc
 
 # Prisma
-backend/prisma/migrations/
+# Keep migrations versioned for production deploys
+!backend/prisma/migrations/
+!backend/prisma/migrations/**
 
 # Next.js
 frontend/.next/
