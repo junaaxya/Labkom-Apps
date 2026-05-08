@@ -11,9 +11,11 @@ import {
   TbSun, 
   TbLogout, 
   TbSettings, 
-  TbUser 
+  TbUser,
+  TbMenu2,
 } from "react-icons/tb";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
+import { useSidebar } from "@/providers/sidebar-context";
 import type { User } from "@/types";
 
 interface NeoTopbarProps {
@@ -24,6 +26,7 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { toggleSidebar } = useSidebar();
   
   const segments = pathname.split('/').filter(Boolean);
   
@@ -52,6 +55,13 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
           </div>
           
           <div className="md:hidden flex items-center gap-3">
+            <button
+              onClick={toggleSidebar}
+              className="w-11 h-11 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
+              aria-label="Buka menu"
+            >
+              <TbMenu2 className="w-5 h-5 text-[#1a1a1a]" />
+            </button>
             <h2 className="font-heading font-bold text-lg text-[#1a1a1a]">
               Labkom
             </h2>
@@ -69,10 +79,10 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
           </div>
 
           <div className="hidden sm:flex items-center gap-2 mr-2">
-            <button onClick={handleFullscreen} className="w-10 h-10 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all">
+            <button onClick={handleFullscreen} className="w-11 h-11 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all">
               <TbMaximize className="w-5 h-5 text-[#1a1a1a]" />
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all">
+            <button className="w-11 h-11 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all">
               <TbSun className="w-5 h-5 text-[#1a1a1a]" />
             </button>
           </div>

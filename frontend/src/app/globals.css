@@ -433,3 +433,29 @@
     border-radius: 0.5rem;
   }
 }
+
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #5a5a5a;
+    border-radius: 2px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #5a5a5a transparent;
+  }
+}
+
+@media (hover: none) {
+  .neo-btn:hover,
+  .neo-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

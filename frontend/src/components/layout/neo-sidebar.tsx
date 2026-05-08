@@ -36,7 +36,10 @@ import {
   TbCalendarStats,
   TbCalendarClock,
   TbArrowsExchange,
+  TbX,
 } from "react-icons/tb";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSidebar } from "@/providers/sidebar-context";
 
 interface MenuItem {
   label: string;
@@ -113,9 +116,14 @@ interface NeoSidebarProps {
   userName: string;
 }
 
-const sidebarVariants = {
+const desktopSidebarVariants = {
   closed: { width: 72 },
   open: { width: 280 },
+};
+
+const mobileDrawerVariants = {
+  closed: { x: "-100%" },
+  open: { x: 0 },
 };
 
 const menuItemVariants = {
@@ -128,11 +136,13 @@ const menuItemVariants = {
 };
 
 export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isDesktopOpen, setIsDesktopOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isBottom, setIsBottom] = useState(false);
   const scrollRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const isMobile = useIsMobile();
+  const { isOpen: isMobileOpen, closeSidebar } = useSidebar();
 
   let menuItems = menuByRole[role] || menuByRole.MAHASISWA;
   if (role === "MAHASISWA" && isKetuaKelas) {
@@ -146,6 +156,8 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
     return acc;
   }, {} as Record<string, MenuItem[]>);
 
+  const isExpanded = isMobile ? isMobileOpen : isDesktopOpen;
+
   useEffect(() => {
     const checkScroll = () => {
       if (scrollRef.current) {
@@ -154,12 +166,11 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
         setIsBottom(scrollHeight - scrollTop <= clientHeight + 10);
       }
     };
-    
+
     checkScroll();
-    
-    window.addEventListener('resize', checkScroll);
-    return () => window.removeEventListener('resize', checkScroll);
-  }, [isOpen, menuItems]);
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, [isExpanded, menuItems]);
 
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {
     const target = e.currentTarget;
@@ -167,167 +178,212 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
     setIsBottom(target.scrollHeight - target.scrollTop <= target.clientHeight + 10);
   };
 
-  return (
+  useEffect(() => {
+    if (isMobile) closeSidebar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const sidebarContent = (
     <>
-      <motion.aside
-        className="fixed left-0 top-0 h-full z-40 flex flex-col neo-border-sm bg-steel-blue overflow-hidden shadow-[4px_0px_0px_#1a1a1a]"
-        style={{ backgroundColor: "#4b607f" }}
-        variants={sidebarVariants}
-        animate={isOpen ? "open" : "closed"}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        onMouseEnter={() => setIsOpen(true)}
-        onMouseLeave={() => setIsOpen(false)}
-      >
-        <div className="flex items-center gap-3 p-4 border-b-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#f3701e] neo-border-sm text-white font-heading font-bold text-lg neo-hover shadow-[2px_2px_0px_#1a1a1a]"
-          >
-            L
-          </button>
+      <div className="flex items-center gap-3 p-4 border-b-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
+        <button
+          onClick={isMobile ? closeSidebar : () => setIsDesktopOpen(!isDesktopOpen)}
+          className="w-11 h-11 flex items-center justify-center rounded-lg bg-[#f3701e] neo-border-sm text-white font-heading font-bold text-lg neo-hover shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0"
+          aria-label={isMobile ? "Tutup menu" : "Toggle menu"}
+        >
+          {isMobile && isMobileOpen ? <TbX className="w-5 h-5" /> : "L"}
+        </button>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="text-white font-heading font-bold text-xl whitespace-nowrap tracking-wide"
+            >
+              Labkom
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="relative flex-1 overflow-hidden flex flex-col">
+        <div
+          className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#4b607f] to-transparent z-10 transition-opacity duration-300 pointer-events-none ${
+            isScrolled ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <nav
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#1a1a1a] scrollbar-track-transparent"
+        >
+          {Object.entries(groupedMenu).map(([group, items], groupIndex) => (
+            <div key={group} className="space-y-1 relative">
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="px-3 mb-2"
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#e8d8c9]/60">
+                      {group}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {!isExpanded && groupIndex > 0 && (
+                <div className="w-6 h-px bg-white/10 mx-auto my-3" />
+              )}
+
+              {items.map((item, i) => {
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href + "/");
+                const Icon = item.icon;
+                return (
+                  <motion.div
+                    key={item.href}
+                    custom={i}
+                    variants={menuItemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="relative group/item"
+                  >
+                    {isActive && !isExpanded && (
+                      <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#f3701e]" />
+                    )}
+
+                    {isActive && isExpanded && (
+                      <div className="absolute -left-3 top-2 bottom-2 w-1 bg-[#f3701e] rounded-r" />
+                    )}
+
+                    <Link
+                      href={item.href}
+                      className={`
+                        flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-lg transition-all duration-150 relative
+                        ${
+                          isActive
+                            ? "bg-[#f3701e] text-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] font-bold"
+                            : "text-white/80 hover:bg-[#3b4d66] hover:text-white"
+                        }
+                      `}
+                    >
+                      <Icon
+                        className="flex-shrink-0 w-5 h-5 relative z-10"
+                        strokeWidth={isActive ? 2.5 : 2}
+                      />
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.span
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            className="text-sm whitespace-nowrap overflow-hidden relative z-10"
+                          >
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </Link>
+
+                    {!isExpanded && !isMobile && (
+                      <div className="absolute left-14 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#1a1a1a] text-white text-xs font-bold rounded neo-border-sm opacity-0 invisible group-hover/item:opacity-100 group-hover/item:visible transition-all z-50 whitespace-nowrap shadow-[2px_2px_0px_#f3701e]">
+                        {item.label}
+                        <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a1a] border-l-2 border-b-2 border-[#1a1a1a] rotate-45"></div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#4b607f] to-transparent z-10 transition-opacity duration-300 pointer-events-none ${
+            !isBottom ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </div>
+
+      <div className="p-4 border-t-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[#e8d8c9] neo-border-sm flex items-center justify-center text-sm font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[#22c55e] rounded-full border-2 border-[#1a1a1a]"></div>
+          </div>
+
           <AnimatePresence>
-            {isOpen && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="text-white font-heading font-bold text-xl whitespace-nowrap tracking-wide"
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="overflow-hidden"
               >
-                Labkom
-              </motion.span>
+                <p className="text-white text-sm font-bold truncate max-w-[150px] leading-tight">
+                  {userName}
+                </p>
+                <div className="inline-block px-1.5 py-0.5 mt-1 bg-[#1a1a1a] rounded text-[10px] font-bold text-[#f3701e] uppercase tracking-wider">
+                  {role.replace("_", " ")}
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
+      </div>
+    </>
+  );
 
-        <div className="relative flex-1 overflow-hidden flex flex-col">
-          <div className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#4b607f] to-transparent z-10 transition-opacity duration-300 pointer-events-none ${isScrolled ? 'opacity-100' : 'opacity-0'}`} />
-          
-          <nav 
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#1a1a1a] scrollbar-track-transparent"
-          >
-            {Object.entries(groupedMenu).map(([group, items], groupIndex) => (
-              <div key={group} className="space-y-1 relative">
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="px-3 mb-2"
-                    >
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#e8d8c9]/60">
-                        {group}
-                      </span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-                {!isOpen && groupIndex > 0 && (
-                  <div className="w-6 h-px bg-white/10 mx-auto my-3" />
-                )}
-
-                {items.map((item, i) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                  const Icon = item.icon;
-                  return (
-                    <motion.div
-                      key={item.href}
-                      custom={i}
-                      variants={menuItemVariants}
-                      initial="hidden"
-                      animate="visible"
-                      className="relative group/item"
-                    >
-                      {isActive && !isOpen && (
-                        <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#f3701e]" />
-                      )}
-                      
-                      {isActive && isOpen && (
-                        <div className="absolute -left-3 top-2 bottom-2 w-1 bg-[#f3701e] rounded-r" />
-                      )}
-
-                      <Link
-                        href={item.href}
-                        className={`
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative
-                          ${isActive
-                            ? "bg-[#f3701e] text-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] font-bold"
-                            : "text-white/80 hover:bg-[#3b4d66] hover:text-white"
-                          }
-                        `}
-                      >
-                        <Icon className="flex-shrink-0 w-5 h-5 relative z-10" strokeWidth={isActive ? 2.5 : 2} />
-                        <AnimatePresence>
-                          {isOpen && (
-                            <motion.span
-                              initial={{ opacity: 0, width: 0 }}
-                              animate={{ opacity: 1, width: "auto" }}
-                              exit={{ opacity: 0, width: 0 }}
-                              className="text-sm whitespace-nowrap overflow-hidden relative z-10"
-                            >
-                              {item.label}
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </Link>
-
-                      {!isOpen && (
-                        <div className="absolute left-14 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#1a1a1a] text-white text-xs font-bold rounded neo-border-sm opacity-0 invisible group-hover/item:opacity-100 group-hover/item:visible transition-all z-50 whitespace-nowrap shadow-[2px_2px_0px_#f3701e]">
-                          {item.label}
-                          <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a1a] border-l-2 border-b-2 border-[#1a1a1a] rotate-45"></div>
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
-          
-          <div className={`absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#4b607f] to-transparent z-10 transition-opacity duration-300 pointer-events-none ${!isBottom ? 'opacity-100' : 'opacity-0'}`} />
-        </div>
-
-        <div className="p-4 border-t-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-lg bg-[#e8d8c9] neo-border-sm flex items-center justify-center text-sm font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[#22c55e] rounded-full border-2 border-[#1a1a1a]"></div>
-            </div>
-            
-            <AnimatePresence>
-              {isOpen && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <p className="text-white text-sm font-bold truncate max-w-[150px] leading-tight">
-                    {userName}
-                  </p>
-                  <div className="inline-block px-1.5 py-0.5 mt-1 bg-[#1a1a1a] rounded text-[10px] font-bold text-[#f3701e] uppercase tracking-wider">
-                    {role.replace("_", " ")}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
+  return (
+    <>
+      <motion.aside
+        className="hidden lg:flex fixed left-0 top-0 h-full z-40 flex-col neo-border-sm bg-steel-blue overflow-hidden shadow-[4px_0px_0px_#1a1a1a]"
+        style={{ backgroundColor: "#4b607f" }}
+        variants={desktopSidebarVariants}
+        animate={isDesktopOpen ? "open" : "closed"}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        onMouseEnter={() => setIsDesktopOpen(true)}
+        onMouseLeave={() => setIsDesktopOpen(false)}
+      >
+        {sidebarContent}
       </motion.aside>
 
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-[#1a1a1a]/40 backdrop-blur-sm z-30 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isMobileOpen && (
+          <>
+            <motion.div
+              key="mobile-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-[#1a1a1a]/50 backdrop-blur-sm z-30 lg:hidden"
+              onClick={closeSidebar}
+              aria-hidden="true"
+            />
+
+            <motion.aside
+              key="mobile-drawer"
+              className="fixed left-0 top-0 h-full z-40 flex flex-col neo-border-sm overflow-hidden shadow-[4px_0px_0px_#1a1a1a] w-[280px] lg:hidden"
+              style={{ backgroundColor: "#4b607f" }}
+              variants={mobileDrawerVariants}
+              initial="closed"
+              animate="open"
+              exit="closed"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              {sidebarContent}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
