@@ -227,24 +227,24 @@ export default function TicketsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Ticketing Kerusakan</h1>
-          <p className="text-[#5a5a5a] mt-1 font-medium">Laporkan & kelola kerusakan perangkat lab</p>
+          <p className="text-sm sm:text-base text-[#5a5a5a] mt-1 font-medium leading-relaxed">Laporkan & kelola kerusakan perangkat lab</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 bg-[#f3701e] text-white neo-btn flex items-center gap-2 font-bold"
+          className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 bg-[#f3701e] text-white neo-btn flex items-center justify-center gap-2 font-bold"
         >
           <TbPlus size={20} strokeWidth={2.2} />
           Buat Ticket
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <motion.div whileHover={{ y: -2 }} className="neo-card p-4 border-l-4 border-l-blue-500 flex items-center gap-3 transition-transform">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-4 min-h-[112px] border-l-4 border-l-blue-500 flex items-center gap-3 transition-transform">
           <div className="w-12 h-12 rounded-full bg-blue-100 border-2 border-[#1a1a1a] flex items-center justify-center text-blue-500">
             <TbFolderOpen size={24} strokeWidth={2.2} />
           </div>
@@ -254,7 +254,7 @@ export default function TicketsPage() {
           </div>
         </motion.div>
         
-        <motion.div whileHover={{ y: -2 }} className="neo-card p-4 border-l-4 border-l-yellow-500 flex items-center gap-3 transition-transform">
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-4 min-h-[112px] border-l-4 border-l-yellow-500 flex items-center gap-3 transition-transform">
           <div className="w-12 h-12 rounded-full bg-yellow-100 border-2 border-[#1a1a1a] flex items-center justify-center text-yellow-500">
             <TbClock size={24} strokeWidth={2.2} />
           </div>
@@ -264,7 +264,7 @@ export default function TicketsPage() {
           </div>
         </motion.div>
 
-        <motion.div whileHover={{ y: -2 }} className="neo-card p-4 border-l-4 border-l-green-500 flex items-center gap-3 transition-transform">
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-4 min-h-[112px] border-l-4 border-l-green-500 flex items-center gap-3 transition-transform">
           <div className="w-12 h-12 rounded-full bg-green-100 border-2 border-[#1a1a1a] flex items-center justify-center text-green-500">
             <TbCheck size={24} strokeWidth={2.2} />
           </div>
@@ -274,7 +274,7 @@ export default function TicketsPage() {
           </div>
         </motion.div>
 
-        <motion.div whileHover={{ y: -2 }} className="neo-card p-4 border-l-4 border-l-red-500 flex items-center gap-3 transition-transform">
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-4 min-h-[112px] border-l-4 border-l-red-500 flex items-center gap-3 transition-transform">
           <div className="w-12 h-12 rounded-full bg-red-100 border-2 border-[#1a1a1a] flex items-center justify-center text-red-500">
             <TbX size={24} strokeWidth={2.2} />
           </div>
@@ -285,7 +285,7 @@ export default function TicketsPage() {
         </motion.div>
       </div>
 
-      <motion.div whileHover={{ y: -2 }} className="neo-card p-4 border-l-4 border-l-[#4b607f] flex items-center justify-center gap-3 transition-transform">
+      <motion.div whileHover={{ y: -2 }} className="neo-card p-4 min-h-[104px] border-l-4 border-l-[#4b607f] flex items-center justify-center gap-3 transition-transform">
          <div className="w-12 h-12 rounded-full bg-[#e8d8c9] border-2 border-[#1a1a1a] flex items-center justify-center text-[#4b607f]">
             <TbTicket size={24} strokeWidth={2.2} />
           </div>
@@ -295,12 +295,12 @@ export default function TicketsPage() {
           </div>
       </motion.div>
 
-      <div className="neo-border-sm rounded-xl p-3 bg-white flex flex-wrap gap-2">
+      <div className="neo-border-sm rounded-xl p-3 bg-white grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
         {(["ALL", "OPEN", "IN_PROGRESS", "RESOLVED", "REJECTED"] as const).map((s) => (
           <button
             key={s}
             onClick={() => handleChangeStatus(s)}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`min-h-[44px] px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 text-center ${
               selectedStatus === s ? "bg-[#4b607f] text-white neo-border-sm neo-shadow" : "bg-[#f5ede6] text-[#1a1a1a] neo-border-sm hover:bg-[#e8d8c9] hover:-translate-y-0.5"
             }`}
           >
@@ -336,23 +336,23 @@ export default function TicketsPage() {
               className="neo-border-sm rounded-lg p-4 bg-white hover:shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200 cursor-pointer flex flex-col gap-3"
             >
               <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] border-2 border-[#1a1a1a] flex items-center justify-center text-2xl shadow-[2px_2px_0px_#1a1a1a]">
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0 w-full">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#e8d8c9] border-2 border-[#1a1a1a] flex items-center justify-center text-xl sm:text-2xl shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
                     {categoryIcon(ticket.category)}
                   </div>
-                  <div>
-                    <p className="font-bold text-base text-[#1a1a1a] font-heading">{ticket.title}</p>
-                    <p className="text-xs font-medium text-[#5a5a5a] mt-1 flex items-center gap-1.5 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-base text-[#1a1a1a] font-heading leading-tight truncate">{ticket.title}</p>
+                    <p className="text-xs font-medium text-[#5a5a5a] mt-2 flex items-center gap-1.5 flex-wrap leading-relaxed">
                       <span className="bg-[#f5ede6] px-2 py-0.5 rounded border border-[#1a1a1a]">{ticket.lab?.name || "Lab"}</span>
                       {ticket.pc?.pcCode && <span className="bg-[#f5ede6] px-2 py-0.5 rounded border border-[#1a1a1a]">{ticket.pc.pcCode}</span>}
-                      <span>•</span>
-                      <span>oleh <span className="font-bold text-[#1a1a1a]">{ticket.reporter?.name || "-"}</span></span>
-                      <span>•</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="w-full sm:w-auto truncate">oleh <span className="font-bold text-[#1a1a1a]">{ticket.reporter?.name || "-"}</span></span>
+                      <span className="hidden sm:inline">•</span>
                       <span>{new Date(ticket.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-center">
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-center w-full sm:w-auto pl-14 sm:pl-0">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${priorityConfig[ticket.priority]?.color || "bg-gray-200 text-gray-700"}`}>
                     {priorityConfig[ticket.priority]?.label || ticket.priority}
                   </span>
@@ -362,9 +362,9 @@ export default function TicketsPage() {
                 </div>
               </div>
               {ticket.assignee && (
-                <div className="ml-16 bg-[#f5ede6] border-2 border-[#1a1a1a] rounded-lg px-3 py-2 inline-block">
-                  <p className="text-xs font-bold text-[#1a1a1a] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 border border-[#1a1a1a]"></span>
+                <div className="sm:ml-16 bg-[#f5ede6] border-2 border-[#1a1a1a] rounded-lg px-3 py-2 inline-block min-w-0">
+                  <p className="text-xs font-bold text-[#1a1a1a] flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-green-500 border border-[#1a1a1a] flex-shrink-0"></span>
                     Ditangani oleh: {ticket.assignee.name}
                   </p>
                 </div>
@@ -374,18 +374,18 @@ export default function TicketsPage() {
         )}
       </div>
 
-      <div className="flex items-center justify-between neo-card p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr] items-center gap-3 neo-card p-4">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handlePrev}
           disabled={page <= 1}
-          className="px-4 py-2 bg-white font-bold flex items-center gap-2 neo-btn disabled:opacity-50 disabled:hover:scale-100"
+          className="min-h-[44px] px-3 sm:px-4 py-2 bg-white font-bold flex items-center justify-center gap-2 neo-btn disabled:opacity-50 disabled:hover:scale-100"
         >
           <TbChevronLeft strokeWidth={2.5} />
           Sebelumnya
         </motion.button>
-        <p className="text-sm font-bold text-[#1a1a1a] bg-[#e8d8c9] px-4 py-2 rounded-lg border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
+        <p className="col-span-2 sm:col-span-1 sm:row-start-1 sm:col-start-2 order-first sm:order-none text-center text-sm font-bold text-[#1a1a1a] bg-[#e8d8c9] px-4 py-2 rounded-lg border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
           Halaman {pagination.page} / {pagination.totalPages}
         </p>
         <motion.button
@@ -393,7 +393,7 @@ export default function TicketsPage() {
           whileTap={{ scale: 0.98 }}
           onClick={handleNext}
           disabled={page >= pagination.totalPages}
-          className="px-4 py-2 bg-white font-bold flex items-center gap-2 neo-btn disabled:opacity-50 disabled:hover:scale-100"
+          className="min-h-[44px] px-3 sm:px-4 py-2 bg-white font-bold flex items-center justify-center gap-2 neo-btn disabled:opacity-50 disabled:hover:scale-100"
         >
           Selanjutnya
           <TbChevronRight strokeWidth={2.5} />
@@ -442,7 +442,7 @@ export default function TicketsPage() {
                     className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lab ID</label>
                     <input
@@ -469,7 +469,7 @@ export default function TicketsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">PC (Opsional)</label>
                     <input
@@ -514,12 +514,12 @@ export default function TicketsPage() {
                     maxFiles={3}
                   />
                 </div>
-                <div className="flex gap-4 pt-4 border-t-2 border-[#1a1a1a] mt-6">
-                  <motion.button type="submit" disabled={submitting} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 py-3 bg-[#4b607f] text-white neo-btn disabled:opacity-50 font-bold text-lg flex items-center justify-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t-2 border-[#1a1a1a] mt-6">
+                  <motion.button type="submit" disabled={submitting} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#4b607f] text-white neo-btn disabled:opacity-50 font-bold text-base sm:text-lg flex items-center justify-center gap-2">
                     <TbCheck size={20} strokeWidth={2.5} />
                     {submitting ? "Mengirim..." : "Kirim Ticket"}
                   </motion.button>
-                  <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowCreateModal(false)} className="flex-1 py-3 bg-[#f5ede6] text-[#1a1a1a] neo-btn font-bold text-lg flex items-center justify-center gap-2">
+                  <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowCreateModal(false)} className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#f5ede6] text-[#1a1a1a] neo-btn font-bold text-base sm:text-lg flex items-center justify-center gap-2">
                     <TbX size={20} strokeWidth={2.5} />
                     Batal
                   </motion.button>

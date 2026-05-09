@@ -220,81 +220,81 @@ export default function MissionsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0">
             <TbTarget size={24} className="text-[#f3701e]" strokeWidth={2.2} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Mission System</h1>
-            <p className="text-[#5a5a5a] font-medium mt-1">Kerjakan misi, kumpulkan poin!</p>
+            <p className="text-sm sm:text-base text-[#5a5a5a] font-medium mt-1 leading-relaxed">Kerjakan misi, kumpulkan poin!</p>
           </div>
         </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowCreateModal(true)}
-          className="px-5 py-3 bg-[#f3701e] text-white neo-btn flex items-center gap-2 font-bold"
+          className="w-full sm:w-auto min-h-[44px] px-5 py-3 bg-[#f3701e] text-white neo-btn flex items-center justify-center gap-2 font-bold"
         >
           <TbPlus size={20} strokeWidth={2.2} />
           Buat Misi
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white mb-1">
             <TbClipboardList size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-[#1a1a1a]">{stats.total}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#1a1a1a]">{stats.total}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Total</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1 neo-border-sm">
             <TbInbox size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-green-600">{stats.open}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-green-600">{stats.open}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Open</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-1 neo-border-sm">
             <TbUsers size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-blue-600">{stats.taken}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-blue-600">{stats.taken}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Taken</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 mb-1 neo-border-sm">
             <TbChecklist size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-yellow-600">{stats.submitted}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-yellow-600">{stats.submitted}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Submitted</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-[#4b607f]/10 flex items-center justify-center text-[#4b607f] mb-1 neo-border-sm">
             <TbCheck size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-[#4b607f]">{stats.approved}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#4b607f]">{stats.approved}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Approved</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-5 flex flex-col items-center justify-center gap-2">
+        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-1 neo-border-sm">
             <TbX size={20} strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-red-600">{stats.rejected}</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-red-600">{stats.rejected}</p>
           <p className="text-sm font-bold text-[#5a5a5a]">Rejected</p>
         </motion.div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         <button
           onClick={() => setTab("missions")}
-          className={`px-6 py-3 font-bold text-sm transition-all flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 sm:px-6 py-3 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
             tab === "missions" ? "bg-[#4b607f] text-white neo-btn" : "bg-white text-[#1a1a1a] neo-btn border-2 border-transparent hover:border-[#1a1a1a]"
           }`}
         >
@@ -303,7 +303,7 @@ export default function MissionsPage() {
         </button>
         <button
           onClick={() => setTab("my")}
-          className={`px-6 py-3 font-bold text-sm transition-all flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 sm:px-6 py-3 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
             tab === "my" ? "bg-[#4b607f] text-white neo-btn" : "bg-white text-[#1a1a1a] neo-btn border-2 border-transparent hover:border-[#1a1a1a]"
           }`}
         >
@@ -317,7 +317,7 @@ export default function MissionsPage() {
         </button>
         <button
           onClick={() => setTab("leaderboard")}
-          className={`px-6 py-3 font-bold text-sm transition-all flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 sm:px-6 py-3 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
             tab === "leaderboard" ? "bg-[#4b607f] text-white neo-btn" : "bg-white text-[#1a1a1a] neo-btn border-2 border-transparent hover:border-[#1a1a1a]"
           }`}
         >
@@ -334,7 +334,7 @@ export default function MissionsPage() {
               <p className="font-bold text-[#1a1a1a]">Memuat misi...</p>
             </div>
           ) : missions.length === 0 ? (
-            <div className="md:col-span-2 lg:col-span-3 neo-card p-16 text-center flex flex-col items-center justify-center gap-3">
+              <div className="md:col-span-2 lg:col-span-3 neo-card p-8 sm:p-16 text-center flex flex-col items-center justify-center gap-3">
               <div className="w-16 h-16 rounded-full bg-[#f3701e]/10 flex items-center justify-center text-[#f3701e] mb-2 neo-border">
                 <TbTarget size={32} strokeWidth={2.2} />
               </div>
@@ -359,10 +359,10 @@ export default function MissionsPage() {
                 className="neo-card neo-card-hover relative overflow-hidden flex flex-col"
               >
                 <div className={`h-1.5 w-full absolute top-0 left-0 ${statusConfig[mission.status]?.color.split(' ')[0] || "bg-gray-300"}`}></div>
-                <div className="p-5 flex-1 flex flex-col">
+                <div className="p-4 sm:p-5 flex-1 flex flex-col">
                   <div className="flex items-start justify-between mb-3 gap-2">
-                    <h3 className="font-heading font-bold text-lg text-[#1a1a1a] leading-tight line-clamp-2">{mission.title}</h3>
-                    <span className={`neo-badge px-2.5 py-1 text-[10px] font-bold whitespace-nowrap ${statusConfig[mission.status]?.color || "bg-gray-300 text-black neo-border-sm"}`}>
+                    <h3 className="font-heading font-bold text-base sm:text-lg text-[#1a1a1a] leading-tight line-clamp-2 min-w-0">{mission.title}</h3>
+                    <span className={`neo-badge px-2.5 py-1 text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${statusConfig[mission.status]?.color || "bg-gray-300 text-black neo-border-sm"}`}>
                       {statusConfig[mission.status]?.label || mission.status}
                     </span>
                   </div>
@@ -376,7 +376,7 @@ export default function MissionsPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between pt-4 border-t-2 border-[#1a1a1a]/10">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t-2 border-[#1a1a1a]/10">
                       <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg neo-border-sm">
                         <TbTrophy size={16} strokeWidth={2.2} />
                         <span className="font-bold">{mission.points} Poin</span>
@@ -388,7 +388,7 @@ export default function MissionsPage() {
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleClaimMission(mission.id)}
                           disabled={claimingId === mission.id}
-                          className="px-4 py-2 bg-[#4b607f] text-white neo-btn text-sm font-bold disabled:opacity-50"
+                          className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-[#4b607f] text-white neo-btn text-sm font-bold disabled:opacity-50 flex items-center justify-center"
                         >
                           {claimingId === mission.id ? "Memproses..." : "Klaim"}
                         </motion.button>
@@ -396,11 +396,11 @@ export default function MissionsPage() {
                     </div>
                     
                     {mission.claimedBy && (
-                      <div className="flex items-center gap-2 mt-2 bg-gray-50 p-2 rounded-lg neo-border-sm">
-                        <div className="w-6 h-6 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-[10px] font-bold">
+                      <div className="flex items-center gap-2 mt-2 bg-gray-50 p-2 rounded-lg neo-border-sm min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
                           {mission.claimedBy.charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-xs font-bold text-[#1a1a1a]">Dikerjakan oleh: <span className="text-[#4b607f]">{mission.claimedBy}</span></p>
+                        <p className="text-xs font-bold text-[#1a1a1a] min-w-0 truncate">Dikerjakan oleh: <span className="text-[#4b607f]">{mission.claimedBy}</span></p>
                       </div>
                     )}
                   </div>
@@ -438,8 +438,8 @@ export default function MissionsPage() {
                   }`}></div>
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-3 gap-2">
-                      <h3 className="font-heading font-bold text-lg text-[#1a1a1a] leading-tight">{claim.mission.title}</h3>
-                      <span className={`neo-badge px-2.5 py-1 text-[10px] font-bold whitespace-nowrap ${
+                      <h3 className="font-heading font-bold text-base sm:text-lg text-[#1a1a1a] leading-tight line-clamp-2 min-w-0">{claim.mission.title}</h3>
+                      <span className={`neo-badge px-2.5 py-1 text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${
                         claim.status === "TAKEN" ? "bg-blue-500 text-white neo-border-sm" :
                         claim.status === "SUBMITTED" ? "bg-yellow-500 text-white neo-border-sm" :
                         claim.status === "APPROVED" ? "bg-green-500 text-white neo-border-sm" :
@@ -452,7 +452,7 @@ export default function MissionsPage() {
                       </span>
                     </div>
                     <p className="text-sm text-[#5a5a5a] mb-4 line-clamp-2">{claim.mission.description}</p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg neo-border-sm">
                         <TbTrophy size={14} strokeWidth={2.2} />
                         <span className="font-bold text-sm">{claim.mission.points} Poin</span>
@@ -462,7 +462,7 @@ export default function MissionsPage() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => openSubmitProof(claim)}
-                          className="px-4 py-2 bg-[#f3701e] text-white neo-btn text-sm font-bold flex items-center gap-2"
+                          className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-[#f3701e] text-white neo-btn text-sm font-bold flex items-center justify-center gap-2"
                         >
                           <TbUpload size={16} strokeWidth={2.2} />
                           Submit Bukti
@@ -489,7 +489,7 @@ export default function MissionsPage() {
             <div className="w-10 h-10 rounded-xl bg-[#f3701e] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a]">
               <TbTrophy size={24} className="text-white" strokeWidth={2.2} />
             </div>
-            <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Top Achievers</h2>
+            <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">Top Achievers</h2>
           </div>
           <div className="space-y-4">
             {leaderboard.map((user, i) => (
@@ -498,28 +498,28 @@ export default function MissionsPage() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className={`flex items-center justify-between p-4 bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] ${
+                className={`flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] ${
                   i === 0 ? "border-[#f3701e] ring-2 ring-[#f3701e]/20" : ""
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 flex flex-col items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a] ${
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 flex flex-col items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0 ${
                     i === 0 ? "bg-[#FFD700]" : i === 1 ? "bg-[#C0C0C0]" : i === 2 ? "bg-[#CD7F32]" : "bg-white"
                   }`}>
                     <span className="font-heading font-bold text-lg text-[#1a1a1a] leading-none">{i + 1}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#4b607f] flex items-center justify-center text-white text-sm font-bold neo-border-sm">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#4b607f] flex items-center justify-center text-white text-sm font-bold neo-border-sm flex-shrink-0">
                       {(user.avatar || user.name || user.userName || "?").charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-bold text-lg text-[#1a1a1a] leading-tight">{user.name || user.userName || "Unknown User"}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold text-base sm:text-lg text-[#1a1a1a] leading-tight truncate">{user.name || user.userName || "Unknown User"}</p>
                       {i === 0 && <p className="text-xs font-bold text-[#f3701e]">🌟 Top Performer</p>}
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="px-4 py-2 bg-[#1a1a1a] text-white font-heading font-bold text-lg neo-border shadow-[2px_2px_0px_#f3701e]">
+                <div className="flex flex-col items-end flex-shrink-0">
+                  <span className="px-3 sm:px-4 py-2 bg-[#1a1a1a] text-white font-heading font-bold text-base sm:text-lg neo-border shadow-[2px_2px_0px_#f3701e]">
                     {user.points ?? user.totalPoints ?? 0}
                   </span>
                   <span className="text-[10px] font-bold text-[#5a5a5a] uppercase tracking-wider mt-1">Total Points</span>
@@ -597,7 +597,7 @@ export default function MissionsPage() {
                     className="w-full px-4 py-3 min-h-[120px] neo-input focus:outline-none text-base font-medium resize-none placeholder:text-gray-400"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-2 uppercase tracking-wide">Reward Poin</label>
                     <div className="relative">
@@ -630,13 +630,13 @@ export default function MissionsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-4 pt-4 border-t-2 border-[#1a1a1a]/10">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t-2 border-[#1a1a1a]/10">
                   <motion.button 
                     type="submit" 
                     disabled={submittingCreate} 
                     whileHover={{ scale: 1.02 }} 
                     whileTap={{ scale: 0.98 }} 
-                    className="flex-1 py-4 bg-[#f3701e] text-white neo-btn disabled:opacity-50 text-lg font-bold flex justify-center items-center gap-2"
+                    className="w-full sm:flex-1 min-h-[44px] py-4 bg-[#f3701e] text-white neo-btn disabled:opacity-50 text-base sm:text-lg font-bold flex justify-center items-center gap-2"
                   >
                     {submittingCreate ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -650,7 +650,7 @@ export default function MissionsPage() {
                     whileHover={{ scale: 1.02 }} 
                     whileTap={{ scale: 0.98 }} 
                     onClick={() => setShowCreateModal(false)} 
-                    className="px-6 py-4 bg-white text-[#1a1a1a] neo-btn text-lg font-bold"
+                    className="w-full sm:w-auto min-h-[44px] px-6 py-4 bg-white text-[#1a1a1a] neo-btn text-base sm:text-lg font-bold"
                   >
                     Batal
                   </motion.button>
@@ -716,14 +716,14 @@ export default function MissionsPage() {
                   />
                 </div>
 
-                <div className="flex gap-4 pt-4 border-t-2 border-[#1a1a1a]/10">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t-2 border-[#1a1a1a]/10">
                   <motion.button
                     type="button"
                     onClick={handleSubmitProof}
                     disabled={submittingProof || (proofPhotos.length === 0 && !proofNote.trim())}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex-1 py-4 bg-[#f3701e] text-white neo-btn disabled:opacity-50 text-lg font-bold flex justify-center items-center gap-2"
+                    className="w-full sm:flex-1 min-h-[44px] py-4 bg-[#f3701e] text-white neo-btn disabled:opacity-50 text-base sm:text-lg font-bold flex justify-center items-center gap-2"
                   >
                     {submittingProof ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -737,7 +737,7 @@ export default function MissionsPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowSubmitModal(false)}
-                    className="px-6 py-4 bg-white text-[#1a1a1a] neo-btn text-lg font-bold"
+                    className="w-full sm:w-auto min-h-[44px] px-6 py-4 bg-white text-[#1a1a1a] neo-btn text-base sm:text-lg font-bold"
                   >
                     Batal
                   </motion.button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TbDeviceDesktop, TbTicket, TbRefresh, TbLoader2, TbX } from "react-icons/tb";
 import api from "@/services/api";
@@ -26,6 +26,23 @@ interface PCNode {
   col: number;
   user?: string;
   lastIssue?: string;
+}
+
+interface LabPcResponse {
+  id: string;
+  pcCode?: string;
+  name?: string;
+  status?: PCStatus;
+  agentStatus?: AgentStatus;
+  currentUser?: string;
+  lastIssue?: string;
+}
+
+interface TicketSummary {
+  id: string;
+  title?: string;
+  description?: string;
+  status: string;
 }
 
 const statusConfig: Record<PCStatus, { label: string; color: string; bg: string }> = {
@@ -60,40 +77,32 @@ export default function LabMapPage() {
   const [pcs, setPcs] = useState<PCNode[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingLabs, setLoadingLabs] = useState(true);
-  const [pcTickets, setPcTickets] = useState<any[]>([]);
+  const [pcTickets, setPcTickets] = useState<TicketSummary[]>([]);
 
-  useEffect(() => {
-    fetchLabs();
-  }, []);
-
-  useEffect(() => {
-    if (selectedLabId) fetchPCs();
-  }, [selectedLabId]);
-
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     setLoadingLabs(true);
     try {
       const res = await api.get<{ data: Lab[] }>("/labs");
       const labList = res.data || [];
       setLabs(labList);
-      if (labList.length > 0 && !selectedLabId) {
-        setSelectedLabId(labList[0].id);
+      if (labList.length > 0) {
+        setSelectedLabId((current) => current || labList[0].id);
       }
     } catch {
       setLabs([]);
     } finally {
       setLoadingLabs(false);
     }
-  };
+  }, []);
 
-  const fetchPCs = async () => {
+  const fetchPCs = useCallback(async () => {
     if (!selectedLabId) return;
     setRefreshing(true);
     try {
-      const labRes = await api.get<{ data: { pcs: any[] } }>(`/labs/${selectedLabId}`);
+      const labRes = await api.get<{ data: { pcs: LabPcResponse[] } }>(`/labs/${selectedLabId}`);
       const pcsData = labRes.data?.pcs || [];
       const cols = Math.min(Math.ceil(Math.sqrt(pcsData.length)), 6) || 4;
-      const mapped: PCNode[] = pcsData.map((pc: any, idx: number) => ({
+      const mapped: PCNode[] = pcsData.map((pc, idx) => ({
         id: pc.id,
         pcCode: pc.pcCode || `PC-${idx + 1}`,
         name: pc.name || `PC ${idx + 1}`,
@@ -110,12 +119,25 @@ export default function LabMapPage() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [selectedLabId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchLabs();
+    });
+  }, [fetchLabs]);
+
+  useEffect(() => {
+    if (!selectedLabId) return;
+    queueMicrotask(() => {
+      void fetchPCs();
+    });
+  }, [fetchPCs, selectedLabId]);
 
   const handlePCClick = async (pc: PCNode) => {
     setSelectedPC(pc);
     try {
-      const res = await api.get<{ data: any[] }>(`/tickets?pcId=${pc.id}&limit=5`);
+      const res = await api.get<{ data: TicketSummary[] }>(`/tickets?pcId=${pc.id}&limit=5`);
       setPcTickets(res.data || []);
     } catch {
       setPcTickets([]);
@@ -166,21 +188,21 @@ export default function LabMapPage() {
           whileTap={{ scale: 0.95 }}
           onClick={fetchPCs}
           disabled={refreshing}
-          className="neo-btn px-4 py-2.5 bg-[#4b607f] text-white font-bold text-sm flex items-center gap-2 disabled:opacity-50"
+          className="neo-btn w-full sm:w-auto min-h-[44px] px-4 py-2.5 bg-[#4b607f] text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {refreshing ? <TbLoader2 className="animate-spin" size={18} /> : <TbRefresh size={18} strokeWidth={2.2} />}
           Refresh
         </motion.button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
         {labs.map((lab) => (
           <motion.button
             key={lab.id}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setSelectedLabId(lab.id)}
-            className={`neo-btn px-5 py-2.5 font-bold text-sm transition-all duration-200 ${
+            className={`neo-btn min-h-[44px] px-4 sm:px-5 py-2.5 font-bold text-sm transition-all duration-200 flex items-center justify-center text-center ${
               selectedLabId === lab.id
                 ? "bg-[#4b607f] text-white shadow-[4px_4px_0px_#1a1a1a]"
                 : "bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_#1a1a1a] hover:-translate-y-0.5"
@@ -191,10 +213,10 @@ export default function LabMapPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
         <button
           onClick={() => setStatusFilter("ALL")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#1a1a1a] transition-all ${
+          className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#1a1a1a] transition-all flex items-center justify-center text-center ${
             statusFilter === "ALL" ? "bg-[#1a1a1a] text-white" : "bg-white text-[#1a1a1a] hover:bg-[#f5ede6]"
           }`}
         >
@@ -207,7 +229,7 @@ export default function LabMapPage() {
             <button
               key={key}
               onClick={() => setStatusFilter(key as PCStatus)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#1a1a1a] transition-all ${
+              className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#1a1a1a] transition-all flex items-center justify-center text-center ${
                 statusFilter === key ? `${cfg.bg} text-white` : "bg-white text-[#1a1a1a] hover:bg-[#f5ede6]"
               }`}
             >
@@ -217,16 +239,16 @@ export default function LabMapPage() {
         })}
       </div>
 
-      <div className="neo-card p-4 sm:p-6 bg-white">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-heading text-lg font-bold text-[#1a1a1a]">
+      <div className="neo-card p-4 sm:p-6 bg-white overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <h2 className="font-heading text-lg font-bold text-[#1a1a1a] leading-tight">
             Denah {selectedLab?.name || "Lab"}
           </h2>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: "#3b82f6" }} /> Online</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: "#6b7280" }} /> Offline</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: "#eab308" }} /> Maintenance</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: "#ef4444" }} /> Rusak</span>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 text-xs">
+            <span className="flex items-center gap-1.5 min-h-[28px]"><span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: "#3b82f6" }} /> Online</span>
+            <span className="flex items-center gap-1.5 min-h-[28px]"><span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: "#6b7280" }} /> Offline</span>
+            <span className="flex items-center gap-1.5 min-h-[28px]"><span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: "#eab308" }} /> Maintenance</span>
+            <span className="flex items-center gap-1.5 min-h-[28px]"><span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: "#ef4444" }} /> Rusak</span>
           </div>
         </div>
 
@@ -237,34 +259,36 @@ export default function LabMapPage() {
             <p className="text-xs text-[#9ca3af] mt-1">Tambahkan PC melalui halaman Manajemen Lab</p>
           </div>
         ) : (
-          <div
-            className="grid gap-3 mx-auto"
-            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, maxWidth: `${cols * 120}px` }}
-          >
-            {filteredPCs.map((pc) => (
-              <motion.div
-                key={pc.id}
-                whileHover={{ scale: 1.08, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handlePCClick(pc)}
-                onMouseEnter={() => setHoveredPC(pc)}
-                onMouseLeave={() => setHoveredPC(null)}
-                className="relative cursor-pointer"
-              >
-                <div
-                  className="aspect-square rounded-xl border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] flex flex-col items-center justify-center gap-1 transition-all duration-200 hover:shadow-[4px_4px_0px_#1a1a1a]"
-                  style={{ backgroundColor: getNodeColor(pc) }}
+          <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 overscroll-x-contain">
+            <div
+              className="grid gap-2.5 sm:gap-3 mx-auto min-w-[320px]"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(56px, 1fr))`, maxWidth: `${cols * 112}px` }}
+            >
+              {filteredPCs.map((pc) => (
+                <motion.div
+                  key={pc.id}
+                  whileHover={{ scale: 1.08, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handlePCClick(pc)}
+                  onMouseEnter={() => setHoveredPC(pc)}
+                  onMouseLeave={() => setHoveredPC(null)}
+                  className="relative cursor-pointer min-w-0"
                 >
-                  <TbDeviceDesktop size={22} className="text-white" strokeWidth={2} />
-                  <span className="text-[10px] font-bold text-white/90 leading-none">{pc.pcCode}</span>
-                </div>
-                {hoveredPC?.id === pc.id && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#1a1a1a] text-white text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap z-50 shadow-lg">
-                    {pc.name} • {statusConfig[pc.status].label}
+                  <div
+                    className="min-h-[56px] sm:min-h-[72px] aspect-square rounded-xl border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] flex flex-col items-center justify-center gap-1 transition-all duration-200 hover:shadow-[4px_4px_0px_#1a1a1a]"
+                    style={{ backgroundColor: getNodeColor(pc) }}
+                  >
+                    <TbDeviceDesktop size={20} className="text-white sm:w-[22px] sm:h-[22px]" strokeWidth={2} />
+                    <span className="max-w-full px-1 text-[9px] sm:text-[10px] font-bold text-white/90 leading-none truncate">{pc.pcCode}</span>
                   </div>
-                )}
-              </motion.div>
-            ))}
+                  {hoveredPC?.id === pc.id && (
+                    <div className="hidden sm:block absolute -top-10 left-1/2 -translate-x-1/2 bg-[#1a1a1a] text-white text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap z-50 shadow-lg">
+                      {pc.name} • {statusConfig[pc.status].label}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -285,7 +309,7 @@ export default function LabMapPage() {
               onClick={(e) => e.stopPropagation()}
               className="neo-card w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-start gap-3 mb-6">
                 <div
                   className="w-12 h-12 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: getNodeColor(selectedPC) }}
@@ -297,7 +321,7 @@ export default function LabMapPage() {
                   <p className="text-xs text-[#5a5a5a] font-medium">{selectedPC.pcCode}</p>
                 </div>
                 <span
-                  className="px-3 py-1 rounded-lg text-xs font-bold text-white border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0"
+                  className="hidden sm:inline-flex px-3 py-1 rounded-lg text-xs font-bold text-white border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0"
                   style={{ backgroundColor: getNodeColor(selectedPC) }}
                 >
                   {statusConfig[selectedPC.status].label}
@@ -312,24 +336,24 @@ export default function LabMapPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex justify-between p-3 bg-[#f5ede6] rounded-lg neo-border-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-1 p-3 bg-[#f5ede6] rounded-lg neo-border-sm">
                   <span className="text-xs font-bold text-[#5a5a5a] uppercase tracking-wider">Posisi</span>
                   <span className="text-sm font-bold text-[#1a1a1a]">Baris {selectedPC.row + 1}, Kolom {selectedPC.col + 1}</span>
                 </div>
                 {selectedPC.agentStatus && (
-                  <div className="flex justify-between p-3 bg-[#f5ede6] rounded-lg neo-border-sm">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 p-3 bg-[#f5ede6] rounded-lg neo-border-sm">
                     <span className="text-xs font-bold text-[#5a5a5a] uppercase tracking-wider">Agent</span>
                     <span className="text-sm font-bold text-[#4b607f]">{selectedPC.agentStatus}</span>
                   </div>
                 )}
                 {selectedPC.user && (
-                  <div className="flex justify-between p-3 bg-blue-50 rounded-lg neo-border-sm border-blue-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 p-3 bg-blue-50 rounded-lg neo-border-sm border-blue-200">
                     <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Pengguna</span>
                     <span className="text-sm font-bold text-[#4b607f]">{selectedPC.user}</span>
                   </div>
                 )}
                 {selectedPC.lastIssue && (
-                  <div className="flex justify-between p-3 bg-red-50 rounded-lg neo-border-sm border-red-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 p-3 bg-red-50 rounded-lg neo-border-sm border-red-200">
                     <span className="text-sm font-bold text-red-700 uppercase tracking-wider">Masalah</span>
                     <span className="text-sm font-bold text-red-600">{selectedPC.lastIssue}</span>
                   </div>
@@ -342,8 +366,8 @@ export default function LabMapPage() {
                     <TbTicket size={18} className="text-[#f3701e]" strokeWidth={2.2} /> Riwayat Tiket
                   </p>
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                    {pcTickets.map((t: any) => (
-                      <div key={t.id} className="flex items-center justify-between text-sm p-3 bg-white neo-border-sm rounded-lg hover:bg-[#fcf8f4] transition-colors duration-200">
+                    {pcTickets.map((t) => (
+                      <div key={t.id} className="flex items-start sm:items-center justify-between gap-2 text-sm p-3 bg-white neo-border-sm rounded-lg hover:bg-[#fcf8f4] transition-colors duration-200">
                         <span className="truncate flex-1 font-medium text-[#1a1a1a] pr-2">{t.title || t.description?.slice(0, 30)}</span>
                         <span className={`px-2 py-1 rounded-md text-[10px] font-bold shadow-[1px_1px_0px_#1a1a1a] border-2 ${
                           t.status === "RESOLVED" ? "bg-green-100 text-green-700 border-green-700" :
@@ -360,7 +384,7 @@ export default function LabMapPage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedPC(null)}
-                  className="w-full sm:flex-1 py-3 bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200 neo-btn font-bold text-sm"
+                  className="w-full sm:flex-1 min-h-[44px] py-3 bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200 neo-btn font-bold text-sm"
                 >
                   Tutup
                 </motion.button>
@@ -368,7 +392,7 @@ export default function LabMapPage() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full sm:flex-1 py-3 bg-[#f3701e] hover:bg-[#d95f10] transition-colors duration-200 text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
+                    className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#f3701e] hover:bg-[#d95f10] transition-colors duration-200 text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
                   >
                     <TbTicket size={18} strokeWidth={2.2} /> Buat Ticket
                   </motion.button>
