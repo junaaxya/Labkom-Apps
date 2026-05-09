@@ -63,10 +63,12 @@ node dist/server.js  # Run (tsx broken under Bun 1.3.12)
 
 **Framework:** Next.js 15 with App Router, client-side rendering (`"use client"`)
 
+**PWA Status:** ✅ Production-ready PWA with mobile-first responsive design (May 2026 refactor)
+
 ```
 frontend/src/
 ├── app/(auth)/          # Login, register pages
-├── app/(dashboard)/     # All dashboard pages (route group)
+├── app/(dashboard)/     # All dashboard pages (route group) — 43 pages total
 │   ├── dashboard/       # Main dashboard (role-based views)
 │   ├── pc-monitoring/   # PC Agent real-time monitoring
 │   ├── lab-map/         # Interactive lab PC grid map
@@ -85,16 +87,37 @@ frontend/src/
 │   ├── notifications/   # Notification center
 │   ├── reports/         # Monthly reports
 │   └── ...              # 30+ other pages
-├── components/layout/   # NeoSidebar, DashboardLayout
+├── app/offline/         # PWA offline fallback page
+├── components/layout/   # DashboardLayout, NeoSidebar, NeoTopbar
+├── components/pwa/      # OfflineIndicator, InstallPrompt, SWRegistration
+├── components/ui/       # MobileCard, ResponsiveList, TouchTarget, etc.
 ├── services/api.ts      # Fetch wrapper with JWT auth
-└── types/index.ts       # Shared TypeScript interfaces
+├── types/index.ts       # Shared TypeScript interfaces
+└── public/
+    ├── manifest.json    # PWA manifest
+    └── sw.js            # Service worker
 ```
 
-**Design System:** Neo-brutalist style
+**Design System:** Neo-brutalist style (mobile-first responsive)
 - Classes: `neo-card`, `neo-btn`, `neo-input`, `neo-border`, `neo-badge`
-- Colors: `#1a1a1a` (black), `#5a5a5a` (gray), `#4b607f` (blue-gray), `#f3701e` (orange accent), `#f5ede6` (cream), `#e8d8c9` (warm gray)
-- Font: `font-heading` for titles
+- Colors: `#1a1a1a` (black), `#5a5a5a` (gray), `#4b607f` (steel blue), `#f3701e` (orange accent), `#f5ede6` (cream), `#e8d8c9` (warm gray)
+- Font: Clash Display (headings), Inter (body)
 - Animations: framer-motion
+- Touch targets: Minimum 44px (WCAG 2.1 Level AAA)
+- Safe area insets: PWA fullscreen support (notch/home indicator)
+
+**Responsive Breakpoints:**
+- Mobile: 320px–640px (sm:)
+- Tablet: 768px (md:)
+- Desktop: 1024px (lg:)
+- Large desktop: 1280px (xl:)
+
+**PWA Features:**
+- ✅ Offline indicator (fixed top banner)
+- ✅ Install prompt (bottom sheet, 7-day cooldown)
+- ✅ Service worker (offline fallback, precache)
+- ✅ Manifest (standalone mode, theme colors)
+- ✅ Safe area insets (notch/home indicator clearance)
 
 **Build:**
 ```bash
@@ -445,6 +468,17 @@ PC Monitoring Dashboard, Remote Action API (command queue), Hardware Inventory, 
 ### Phase 5 — Advanced AI ✅
 AI Assistant (context-aware, 20+ intents, conversation memory), Predictive Maintenance (risk scoring, maintenance schedule, trends), Smart Scheduling AI (optimal slots, heatmap, load balancing, conflict detection)
 
+### Phase 6 — PWA Mobile-First Refactor ✅ (May 2026)
+**Complete responsive transformation for production PWA deployment:**
+- Core Layout: Safe area insets, mobile sidebar (GPU-accelerated, 60fps), mobile topbar (full-screen search)
+- Tables → Mobile Cards: 6 pages converted (users, attendance, inventory, predictive) with MobileCard component
+- Forms: 12 pages refactored (min-h-[44px] inputs, w-full sm:w-auto buttons)
+- Modals: 39 modals refactored (responsive padding, touch-friendly close)
+- Typography: Consistent scale across 43 pages (text-2xl sm:text-3xl lg:text-4xl)
+- Dashboard: Stat cards (min-h-[120px]), responsive grids
+- PWA: Manifest, service worker, offline indicator, install prompt
+- **Total:** 59 files changed, 2,629 insertions, 892 deletions
+
 ### Deferred to v2.0+
 Smart Lock (ESP32, MQTT), Face Recognition Attendance, WebSocket real-time, Advanced IoT
 
@@ -479,6 +513,7 @@ Smart Lock (ESP32, MQTT), Face Recognition Attendance, WebSocket real-time, Adva
 7. **Key access**: Mahasiswa/Ketua kelas can only take key if there's an active schedule AND they're authorized.
 8. **GPS attendance**: Asleb attendance requires valid GPS location.
 9. **Ticket → Mission**: Tickets can become missions for gamification points.
+10. **PWA Mobile-First**: All pages responsive (320px–1280px+), touch targets ≥44px, safe area insets for fullscreen mode.
 
 ---
 
@@ -491,6 +526,7 @@ Web Management (DONE)
 → Interactive Lab Map (DONE)
 → Notification (DONE)
 → PC Agent (DONE)
+→ PWA Mobile-First (DONE)
 → Smart Lock (v2.0)
 → AI & Face Recognition (v2.0)
 ```
