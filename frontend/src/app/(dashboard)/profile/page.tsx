@@ -49,6 +49,7 @@ export default function ProfilePage() {
   const [semester, setSemester] = useState("");
   const [className, setClassName] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -61,6 +62,10 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatar, profile?.avatar]);
+
   const fetchProfile = async () => {
     try {
       const res = await api.get<{ data: ProfileData }>("/auth/profile");
@@ -70,6 +75,7 @@ export default function ProfilePage() {
       setSemester(res.data.semester || "");
       setClassName(res.data.className || "");
       setAvatar(res.data.avatar || "");
+      setAvatarLoadFailed(false);
     } catch {
       toast.error("Gagal memuat profil");
     } finally {
@@ -90,6 +96,7 @@ export default function ProfilePage() {
       });
       setProfile(res.data);
       setAvatar(res.data.avatar || "");
+      setAvatarLoadFailed(false);
       localStorage.setItem("user", JSON.stringify(res.data));
       toast.success("Profil berhasil diperbarui");
     } catch (err: any) {
@@ -140,7 +147,8 @@ export default function ProfilePage() {
   }
 
   const initial = (profile?.name || "U").charAt(0).toUpperCase();
-  const avatarUrl = toUploadDisplayUrl(avatar || profile?.avatar || "");
+  const profileAvatar = (avatar || profile?.avatar || "").trim();
+  const avatarUrl = profileAvatar ? toUploadDisplayUrl(profileAvatar) : "";
 
   const infoPills = [
     { icon: TbSchool, label: "Semester", value: profile?.semester || "-", color: "bg-[#4b607f]" },
@@ -159,12 +167,15 @@ export default function ProfilePage() {
           />
           <div className="absolute -bottom-12 left-6 sm:left-8">
             <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
-              {avatarUrl ? (
+              {avatarUrl && !avatarLoadFailed ? (
                 <img
+                  key={avatarUrl}
                   src={avatarUrl}
                   alt={`Foto profil ${profile?.name || "User"}`}
                   className="w-full h-full rounded-[14px] object-cover"
                   referrerPolicy="no-referrer"
+                  onLoad={() => setAvatarLoadFailed(false)}
+                  onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
                 <span className="font-heading text-4xl font-bold text-white">{initial}</span>
@@ -233,6 +244,7 @@ export default function ProfilePage() {
               <SinglePhotoUpload
                 value={avatar}
                 onChange={(url) => {
+                  setAvatarLoadFailed(false);
                   setAvatar(url);
                   setProfile((current) => (current ? { ...current, avatar: url } : current));
                 }}
