@@ -1,3 +1,5 @@
+import path from "path";
+
 function requireEnv(key: string, fallback?: string): string {
   const value = process.env[key];
   if (value) return value;
@@ -8,6 +10,10 @@ function requireEnv(key: string, fallback?: string): string {
   return fallback || "";
 }
 
+const defaultUploadDir = process.env.NODE_ENV === "production"
+  ? "/app/uploads"
+  : path.resolve(process.cwd(), "uploads");
+
 export const config = {
   port: parseInt(process.env.PORT || "5000", 10),
   nodeEnv: process.env.NODE_ENV || "development",
@@ -15,7 +21,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
   appUrl: process.env.APP_URL || "http://localhost:3000",
-  uploadDir: process.env.UPLOAD_DIR || "/app/uploads",
+  uploadDir: process.env.UPLOAD_DIR || defaultUploadDir,
   databaseUrl: requireEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/lab_management?schema=public"),
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",

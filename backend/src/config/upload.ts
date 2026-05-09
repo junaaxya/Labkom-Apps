@@ -2,7 +2,11 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
-export const uploadRoot = path.resolve(process.env.UPLOAD_DIR || "/app/uploads");
+const defaultUploadRoot = process.env.NODE_ENV === "production"
+  ? "/app/uploads"
+  : path.resolve(process.cwd(), "uploads");
+
+export const uploadRoot = path.resolve(process.env.UPLOAD_DIR || defaultUploadRoot);
 
 export const uploadCategories = ["avatars", "tickets", "evidence", "conditions", "tasks", "templates", "general"] as const;
 export type UploadCategory = (typeof uploadCategories)[number];
