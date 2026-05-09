@@ -2,11 +2,9 @@
 
 import { useState, useRef } from "react";
 import { TbPhoto, TbX, TbUpload } from "react-icons/tb";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || (() => {
-  throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
-})();
-const STATIC_BASE = process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || (() => {
   throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
 })();
 
@@ -76,11 +74,6 @@ export function PhotoUpload({
     onChange(value.filter((_, i) => i !== index));
   };
 
-  const toFullUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    return `${STATIC_BASE}${url}`;
-  };
-
   return (
     <div className="space-y-2">
       {label && <label className="text-sm font-bold text-[#1a1a1a]">{label}</label>}
@@ -89,7 +82,7 @@ export function PhotoUpload({
         <div className="flex flex-wrap gap-2">
           {value.map((url, i) => (
             <div key={i} className="relative w-20 h-20 rounded-lg border-2 border-[#1a1a1a] overflow-hidden group">
-              <img src={toFullUrl(url)} alt="" className="w-full h-full object-cover" />
+              <img src={toUploadDisplayUrl(url)} alt="" className="w-full h-full object-cover" />
               {!disabled && (
                 <button
                   type="button"
@@ -196,11 +189,6 @@ export function SinglePhotoUpload({
     }
   };
 
-  const toFullUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    return `${STATIC_BASE}${url}`;
-  };
-
   return (
     <div className="space-y-2">
       {label && <label className="text-sm font-bold text-[#1a1a1a]">{label}</label>}
@@ -208,7 +196,7 @@ export function SinglePhotoUpload({
       <div className="flex items-center gap-3">
         {value && (
           <div className="relative w-16 h-16 rounded-full border-2 border-[#1a1a1a] overflow-hidden">
-            <img src={toFullUrl(value)} alt="" className="w-full h-full object-cover" />
+            <img src={toUploadDisplayUrl(value)} alt="" className="w-full h-full object-cover" />
           </div>
         )}
 

@@ -20,6 +20,7 @@ import {
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { SinglePhotoUpload } from "@/components/ui/photo-upload";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 
 interface ProfileData {
   id: string;
@@ -139,6 +140,7 @@ export default function ProfilePage() {
   }
 
   const initial = (profile?.name || "U").charAt(0).toUpperCase();
+  const avatarUrl = toUploadDisplayUrl(avatar || profile?.avatar || "");
 
   const infoPills = [
     { icon: TbSchool, label: "Semester", value: profile?.semester || "-", color: "bg-[#4b607f]" },
@@ -157,7 +159,16 @@ export default function ProfilePage() {
           />
           <div className="absolute -bottom-12 left-6 sm:left-8">
             <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
-              <span className="font-heading text-4xl font-bold text-white">{initial}</span>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`Foto profil ${profile?.name || "User"}`}
+                  className="w-full h-full rounded-[14px] object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="font-heading text-4xl font-bold text-white">{initial}</span>
+              )}
             </div>
           </div>
         </div>
@@ -219,7 +230,15 @@ export default function ProfilePage() {
             
           <form onSubmit={handleUpdateProfile} className="p-6 flex-1 flex flex-col">
             <div className="space-y-4 flex-1">
-              <SinglePhotoUpload value={avatar} onChange={(url) => setAvatar(url)} category="avatars" label="Foto Profil" />
+              <SinglePhotoUpload
+                value={avatar}
+                onChange={(url) => {
+                  setAvatar(url);
+                  setProfile((current) => (current ? { ...current, avatar: url } : current));
+                }}
+                category="avatars"
+                label="Foto Profil"
+              />
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Nama Lengkap</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="neo-input w-full min-h-[44px] bg-white px-4 py-3" placeholder="Masukkan nama lengkap" />

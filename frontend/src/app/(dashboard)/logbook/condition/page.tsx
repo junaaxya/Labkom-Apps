@@ -17,7 +17,7 @@ import api from "@/services/api";
 import Link from "next/link";
 import { useToast } from "@/providers/toast-provider";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:5000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
 type Lab = { id: string; name: string };
 type Condition = { id: string; labId: string; lab: Lab; fotoBukti: string[]; verified: boolean; submittedBy?: { name: string } };
@@ -86,7 +86,7 @@ export default function LogbookConditionPage() {
     try {
       const formData = new FormData();
       photos.forEach((p) => formData.append("photos", p));
-      const uploadRes = await fetch(`${API_BASE}/api/v1/upload/condition-photos`, {
+      const uploadRes = await fetch(`${API_BASE}/upload/condition-photos`, {
         method: "POST",
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         body: formData,

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { TbCertificate, TbDownload, TbPlus, TbTrophy, TbCalendarCheck, TbTarget, TbLoader2, TbPhoto, TbTrash, TbUpload, TbX } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 
 interface Certificate {
   id: string;
@@ -314,7 +315,7 @@ export default function CertificatesPage() {
                 <div key={tmpl.id} className="neo-card p-4 space-y-3">
                   <div className="aspect-[1.414/1] rounded-lg border-2 border-[#1a1a1a] overflow-hidden bg-[#f5ede6]">
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "")}${tmpl.imageUrl}`}
+                      src={toUploadDisplayUrl(tmpl.imageUrl)}
                       alt={tmpl.name}
                       className="w-full h-full object-cover"
                     />

@@ -18,8 +18,7 @@ import {
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:5000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
 type UserContext = {
   id?: string;
@@ -233,7 +232,7 @@ export default function ScanKeyActionPage({
       const fd = new FormData();
       photos.forEach((f) => fd.append("photos", f));
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/v1/upload/condition-photos`, {
+    const res = await fetch(`${API_BASE}/upload/condition-photos`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,

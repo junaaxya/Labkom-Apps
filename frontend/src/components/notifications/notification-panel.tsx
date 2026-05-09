@@ -105,10 +105,7 @@ export function NotificationPanel() {
     if (!token) return;
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-    const es = new EventSource(`${apiBase}/notifications/stream`, {
-      // @ts-expect-error EventSource doesn't support headers natively
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const es = new EventSource(`${apiBase}/notifications/stream?token=${encodeURIComponent(token)}`);
 
     es.addEventListener("notification", (event) => {
       const data = JSON.parse(event.data);

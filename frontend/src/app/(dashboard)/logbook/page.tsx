@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 import {
   TbArrowRight,
   TbBook2,
@@ -93,9 +94,6 @@ type PaginatedLogbookResponse = {
   total?: number;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:5000";
-
 function asArray<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
   if (raw && typeof raw === "object") {
@@ -107,9 +105,7 @@ function asArray<T>(raw: unknown): T[] {
 }
 
 function toPhotoUrl(path: string): string {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  return `${API_BASE}${path}`;
+  return toUploadDisplayUrl(path);
 }
 
 function formatDateTime(value?: string | null): string {
