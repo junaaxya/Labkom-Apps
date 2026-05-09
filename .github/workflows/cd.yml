@@ -44,7 +44,7 @@ jobs:
           images: ${{ steps.vars.outputs.image_namespace }}/backend
           tags: |
             type=ref,event=branch
-            type=sha
+            type=raw,value=sha-${{ github.sha }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Extract frontend metadata
@@ -54,7 +54,7 @@ jobs:
           images: ${{ steps.vars.outputs.image_namespace }}/frontend
           tags: |
             type=ref,event=branch
-            type=sha
+            type=raw,value=sha-${{ github.sha }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push backend image
