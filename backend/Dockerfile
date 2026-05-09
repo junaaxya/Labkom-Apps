@@ -21,7 +21,8 @@ COPY --from=builder --chown=labkom:nodejs /app/dist ./dist
 COPY --from=builder --chown=labkom:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=labkom:nodejs /app/package*.json ./
 COPY --from=builder --chown=labkom:nodejs /app/prisma ./prisma
-RUN mkdir -p uploads && chown labkom:nodejs uploads
+ENV UPLOAD_DIR=/app/uploads
+RUN mkdir -p /app/uploads && chown labkom:nodejs /app/uploads
 USER labkom
 EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

@@ -1,31 +1,26 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
-import path from "path";
 import { CertificateController } from "../controllers/certificate.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
+import { createUploadFilename, getImageExtension, getUploadCategoryDir, uploadLimits } from "../config/upload";
 
 const templateStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.join(__dirname, "../../uploads/templates"));
+    cb(null, getUploadCategoryDir("templates"));
   },
   filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `template-${uniqueSuffix}${ext}`);
+    cb(null, createUploadFilename("template", file.mimetype));
   },
 });
 
 const uploadTemplate = multer({
   storage: templateStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: uploadLimits.templates },
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png/;
-    const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mimeOk = allowed.test(file.mimetype);
-    if (extOk && mimeOk) {
+    if (getImageExtension(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Hanya file gambar (jpg, png) yang diizinkan"));
+      cb(new Error("Hanya file gambar JPG, PNG, atau WebP yang diizinkan"));
     }
   },
 });

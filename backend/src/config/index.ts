@@ -15,6 +15,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
   appUrl: process.env.APP_URL || "http://localhost:3000",
+  uploadDir: process.env.UPLOAD_DIR || "/app/uploads",
   databaseUrl: requireEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/lab_management?schema=public"),
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",

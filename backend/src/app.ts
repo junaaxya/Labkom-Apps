@@ -3,15 +3,21 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import compression from "compression";
-import path from "path";
 import { config } from "./config";
+import { ensureUploadDirectories, getUploadCategoryDir } from "./config/upload";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import routes from "./routes";
 
 const app = express();
 
+ensureUploadDirectories();
+
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
 // Compression
 app.use(compression());
@@ -35,7 +41,19 @@ if (config.nodeEnv === "development") {
   app.use(morgan("combined"));
 }
 
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use(
+  "/uploads/avatars",
+  express.static(getUploadCategoryDir("avatars"), {
+    dotfiles: "deny",
+    index: false,
+    fallthrough: false,
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 app.use("/api/v1", routes);
 

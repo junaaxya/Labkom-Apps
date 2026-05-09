@@ -11,9 +11,7 @@ import { sseManager } from "../services/sse.service";
 
 const router = Router();
 
-router.use(authenticate);
-
-router.get("/stream", (req: Request, res: Response) => {
+router.get("/stream", authenticate, (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -24,6 +22,8 @@ router.get("/stream", (req: Request, res: Response) => {
 
   sseManager.addClient(req.user!.userId, res);
 });
+
+router.use(authenticate);
 
 router.get("/", getMyNotifications);
 router.get("/unread-count", getUnreadCount);

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { CertificateService } from "../services/certificate.service";
+import { toUploadUrl } from "../config/upload";
 
 function getParam(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0];
@@ -119,7 +120,7 @@ export class CertificateController {
         res.status(400).json({ success: false, message: "name dan type wajib diisi" });
         return;
       }
-      const imageUrl = `/uploads/templates/${file.filename}`;
+      const imageUrl = toUploadUrl("templates", file.filename);
       const template = await CertificateService.createTemplate(name, type, imageUrl);
       res.status(201).json({ success: true, message: "Template berhasil diupload", data: template });
     } catch (error: any) {

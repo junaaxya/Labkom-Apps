@@ -1,68 +1,80 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { authenticate } from "../middlewares/auth.middleware";
+import {
+  createUploadFilename,
+  ensureUploadDirectories,
+  getImageExtension,
+  getUploadCategoryDir,
+  isUploadCategory,
+  toUploadUrl,
+  uploadCategories,
+  uploadLimits,
+  type UploadCategory,
+} from "../config/upload";
 
-const UPLOAD_ROOT = path.join(__dirname, "../../uploads");
-const ALLOWED_CATEGORIES = ["conditions", "avatars", "tickets", "tasks", "evidence", "general"] as const;
-type UploadCategory = (typeof ALLOWED_CATEGORIES)[number];
+ensureUploadDirectories();
 
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-const conditionStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_ROOT, "conditions"));
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `condition-${uniqueSuffix}${ext}`);
-  },
-});
-
-const genericStorage = multer.diskStorage({
-  destination: (req, _file, cb) => {
-    const category = (req.query.category as string) || "general";
-    // Validate category BEFORE writing file to prevent path traversal
-    if (!ALLOWED_CATEGORIES.includes(category as UploadCategory)) {
-      return cb(new Error(`Kategori tidak valid. Gunakan: ${ALLOWED_CATEGORIES.join(", ")}`), "");
-    }
-    const dir = path.join(UPLOAD_ROOT, category);
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
-
-function imageFilter(_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) {
-  const allowed = /jpeg|jpg|png|webp/;
-  const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mimeOk = allowed.test(file.mimetype);
-  if (extOk && mimeOk) {
-    cb(null, true);
-  } else {
-    cb(new Error("Hanya file gambar (jpg, png, webp) yang diizinkan"));
+function resolveCategory(req: Request, fallback: UploadCategory): UploadCategory {
+  const rawCategory = (req.query.category as string | undefined) || fallback;
+  if (!isUploadCategory(rawCategory)) {
+    throw new Error(`Kategori tidak valid. Gunakan: ${uploadCategories.join(", ")}`);
   }
+  return rawCategory;
 }
 
-const conditionUpload = multer({
-  storage: conditionStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: imageFilter,
-});
+function createImageUpload(fallbackCategory: UploadCategory, maxFiles: number) {
+  return multer({
+    storage: multer.diskStorage({
+      destination: (req, _file, cb) => {
+        try {
+          const category = resolveCategory(req, fallbackCategory);
+          cb(null, getUploadCategoryDir(category));
+        } catch (error) {
+          cb(error as Error, "");
+        }
+      },
+      filename: (req, file, cb) => {
+        try {
+          const category = resolveCategory(req, fallbackCategory);
+          cb(null, createUploadFilename(category.slice(0, -1) || category, file.mimetype));
+        } catch (error) {
+          cb(error as Error, "");
+        }
+      },
+    }),
+    limits: {
+      fileSize: uploadLimits[fallbackCategory],
+      files: maxFiles,
+    },
+    fileFilter: (_req, file, cb) => {
+      if (getImageExtension(file.mimetype)) {
+        cb(null, true);
+        return;
+      }
+      cb(new Error("Hanya file gambar JPG, PNG, atau WebP yang diizinkan"));
+    },
+  });
+}
 
-const genericUpload = multer({
-  storage: genericStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: imageFilter,
-});
+function handleMulterError(error: Error, _req: Request, res: Response, next: NextFunction): void {
+  if (!error) {
+    next();
+    return;
+  }
+
+  if (error instanceof multer.MulterError) {
+    const message = error.code === "LIMIT_FILE_SIZE" ? "Ukuran file terlalu besar" : error.message;
+    res.status(400).json({ success: false, message });
+    return;
+  }
+
+  res.status(400).json({ success: false, message: error.message || "Upload gagal" });
+}
+
+const conditionUpload = createImageUpload("conditions", 5);
+const genericUpload = createImageUpload("general", 5);
+const avatarUpload = createImageUpload("avatars", 1);
 
 const router = Router();
 
@@ -70,13 +82,15 @@ router.post(
   "/condition-photos",
   authenticate,
   conditionUpload.array("photos", 5),
+  handleMulterError,
   (req: Request, res: Response): void => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
-    const urls = files.map((f) => `/uploads/conditions/${f.filename}`);
+
+    const urls = files.map((file) => toUploadUrl("conditions", file.filename));
     res.json({ success: true, data: { urls } });
   }
 );
@@ -85,18 +99,16 @@ router.post(
   "/photos",
   authenticate,
   genericUpload.array("photos", 5),
+  handleMulterError,
   (req: Request, res: Response): void => {
-    const category = (req.query.category as string) || "general";
-    if (!ALLOWED_CATEGORIES.includes(category as UploadCategory)) {
-      res.status(400).json({ success: false, message: `Kategori tidak valid. Gunakan: ${ALLOWED_CATEGORIES.join(", ")}` });
-      return;
-    }
+    const category = resolveCategory(req, "general");
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
-    const urls = files.map((f) => `/uploads/${category}/${f.filename}`);
+
+    const urls = files.map((file) => toUploadUrl(category, file.filename));
     res.json({ success: true, data: { urls } });
   }
 );
@@ -104,16 +116,16 @@ router.post(
 router.post(
   "/avatar",
   authenticate,
-  genericUpload.single("photo"),
+  avatarUpload.single("photo"),
+  handleMulterError,
   (req: Request, res: Response): void => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
-    const category = (req.query.category as string) || "avatars";
-    const url = `/uploads/${category}/${file.filename}`;
-    res.json({ success: true, data: { url } });
+
+    res.json({ success: true, data: { url: toUploadUrl("avatars", file.filename) } });
   }
 );
 

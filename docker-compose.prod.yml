@@ -39,13 +39,14 @@ services:
       NODE_ENV: production
       CORS_ORIGIN: ${FRONTEND_URL:-http://localhost:3000}
       APP_URL: ${FRONTEND_URL:-http://localhost:3000}
+      UPLOAD_DIR: /app/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
     volumes:
-      - uploads_data:/app/uploads
+      - /mnt/data/apps/labkom-apps/uploads:/app/uploads
     restart: unless-stopped
 
   # Frontend
@@ -77,4 +78,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  uploads_data:

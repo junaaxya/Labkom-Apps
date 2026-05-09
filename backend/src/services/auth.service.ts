@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/database";
 import { config } from "../config";
+import { safeDeleteUpload } from "../config/upload";
 import type { LoginInput, RegisterInput } from "../validators/auth.validator";
 
 export class AuthService {
@@ -109,6 +110,9 @@ export class AuthService {
   }
 
   static async updateProfile(userId: string, data: { name?: string; phone?: string; avatar?: string; semester?: string; className?: string }) {
+    const existing = await prisma.user.findUnique({ where: { id: userId }, select: { avatar: true } });
+    if (!existing) throw new Error("User tidak ditemukan");
+
     const user = await prisma.user.update({
       where: { id: userId },
       data,
@@ -129,6 +133,10 @@ export class AuthService {
         updatedAt: true,
       },
     });
+
+    if (data.avatar && existing.avatar && existing.avatar !== data.avatar) {
+      safeDeleteUpload(existing.avatar, ["avatars"]);
+    }
 
     return user;
   }

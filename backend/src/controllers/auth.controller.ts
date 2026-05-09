@@ -3,10 +3,26 @@ import { AuthService } from "../services/auth.service";
 import { loginSchema, registerSchema } from "../validators/auth.validator";
 import { z } from "zod";
 
+const avatarSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!value) return false;
+
+      if (value.startsWith("/uploads/avatars/")) {
+        return value.split("/").filter(Boolean).length === 3;
+      }
+
+      return z.string().url().safeParse(value).success;
+    },
+    { message: "Avatar harus berupa URL valid atau path /uploads/avatars/..." }
+  );
+
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional(),
-  avatar: z.string().url().optional(),
+  avatar: avatarSchema.optional(),
   semester: z.string().optional(),
   className: z.string().optional(),
 });

@@ -1,8 +1,8 @@
 import prisma from "../config/database";
 import PDFDocument from "pdfkit";
-import path from "path";
 import fs from "fs";
 import { CertificateType } from "@prisma/client";
+import { getUploadPath, parseUploadUrl, safeDeleteUpload } from "../config/upload";
 
 export class CertificateService {
   static async generateMonthlyBest(month: string, issuedById: string) {
@@ -219,7 +219,12 @@ export class CertificateService {
     },
     imageUrl: string
   ): Promise<Buffer> {
-    const imagePath = path.join(__dirname, "../../", imageUrl);
+    const parsedImage = parseUploadUrl(imageUrl);
+    if (!parsedImage) {
+      return this.generateDefaultPDF(cert);
+    }
+
+    const imagePath = getUploadPath(parsedImage.category, parsedImage.filename);
 
     if (!fs.existsSync(imagePath)) {
       return this.generateDefaultPDF(cert);
@@ -363,10 +368,7 @@ export class CertificateService {
     const template = await prisma.certificateTemplate.findUnique({ where: { id: templateId } });
     if (!template) throw new Error("Template tidak ditemukan");
 
-    const imagePath = path.join(__dirname, "../../", template.imageUrl);
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath);
-    }
+    safeDeleteUpload(template.imageUrl, ["templates"]);
 
     return prisma.certificateTemplate.delete({ where: { id: templateId } });
   }
