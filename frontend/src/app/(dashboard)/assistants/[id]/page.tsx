@@ -144,7 +144,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-3">
         <motion.button
           whileHover={{ scale: 1.03 }}
@@ -155,12 +155,12 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
           <TbArrowLeft className="w-6 h-6" strokeWidth={2.2} />
         </motion.button>
         <div>
-          <h1 className="text-3xl font-heading font-bold text-[#1a1a1a]">Detail Asisten Lab</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-[#1a1a1a] tracking-tight">Detail Asisten Lab</h1>
           <p className="text-sm text-[#5a5a5a]">Ringkasan performa, absensi, dan daily tasks</p>
         </div>
       </div>
 
-      <div className="neo-card p-6 bg-[#e8d8c9]">
+      <div className="neo-card p-4 sm:p-6 bg-[#e8d8c9]">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="w-16 h-16 rounded-xl neo-border bg-white flex items-center justify-center text-2xl font-heading font-bold text-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a]">
             {user?.name?.charAt(0)?.toUpperCase() || "?"}

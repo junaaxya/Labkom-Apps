@@ -114,13 +114,13 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold font-heading text-[#1a1a1a]">
+          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] tracking-tight">
             AI Assistant
           </h1>
-          <p className="text-[#4b607f] mt-1">
+          <p className="text-[#4b607f] mt-1 text-sm sm:text-base leading-relaxed">
             Tanya apa saja tentang lab — status, jadwal, tiket, dan lainnya
           </p>
         </div>
@@ -156,14 +156,14 @@ export default function AIAssistantPage() {
               <div className="w-20 h-20 bg-[#f5ede6] neo-border-sm flex items-center justify-center mb-4 shadow-[2px_2px_0px_#1a1a1a]">
                 <TbRobot strokeWidth={2.2} className="w-10 h-10 text-[#4b607f]" />
               </div>
-              <h3 className="font-heading font-bold text-2xl text-[#1a1a1a] mb-2">
+              <h3 className="font-heading font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-2 tracking-tight">
                 Halo! Saya Labkom AI Assistant
               </h3>
-              <p className="text-[#4b607f] mb-8 max-w-md text-base">
+              <p className="text-[#4b607f] mb-6 sm:mb-8 max-w-md text-sm sm:text-base leading-relaxed">
                 Saya bisa membantu kamu dengan informasi lab secara real-time.
                 Coba tanyakan sesuatu!
               </p>
-              <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
                 {[
                   "Status lab sekarang",
                   "Jadwal hari ini",

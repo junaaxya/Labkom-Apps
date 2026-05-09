@@ -121,7 +121,7 @@ export default function LoginPage() {
             >
               <TbFlask className="text-white text-3xl" />
             </motion.div>
-            <h1 className="font-heading text-4xl font-bold text-[#1a1a1a] drop-shadow-[2px_2px_0_var(--color-orange)]">Labkom</h1>
+            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a] drop-shadow-[2px_2px_0_var(--color-orange)]">Labkom</h1>
             <p className="text-[#1a1a1a] font-medium mt-2 bg-white inline-block px-3 py-1 neo-border-sm rounded-md shadow-[2px_2px_0_#1a1a1a]">Sistem Manajemen Laboratorium</p>
           </div>
 
@@ -165,13 +165,13 @@ export default function LoginPage() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#5a5a5a] group-focus-within:text-[var(--color-steel-blue)] transition-colors">
                     <TbMail className="text-xl" />
                   </div>
-                  <input
+                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="nama@email.com"
                     required
-                    className="w-full pl-11 pr-4 py-3 neo-input focus:outline-none text-sm transition-all"
+                    className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />
                 </div>
               </div>
@@ -184,13 +184,13 @@ export default function LoginPage() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#5a5a5a] group-focus-within:text-[var(--color-steel-blue)] transition-colors">
                     <TbLock className="text-xl" />
                   </div>
-                  <input
+                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password"
                     required
-                    className="w-full pl-11 pr-12 py-3 neo-input focus:outline-none text-sm transition-all"
+                    className="w-full pl-11 pr-12 py-3 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />
                   <button
                     type="button"
@@ -208,7 +208,7 @@ export default function LoginPage() {
                   disabled={isLoading}
                   whileHover={!isLoading ? { scale: 1.02, y: -2, boxShadow: "5px 5px 0px #1a1a1a" } : {}}
                   whileTap={!isLoading ? { scale: 0.98, y: 0, boxShadow: "1px 1px 0px #1a1a1a" } : {}}
-                  className="w-full py-3.5 bg-[var(--color-orange)] text-[#1a1a1a] neo-btn flex items-center justify-center gap-2 disabled:opacity-70 disabled:bg-[#d4c4b5] disabled:cursor-not-allowed transition-all"
+                   className="w-full py-3.5 min-h-[44px] bg-[var(--color-orange)] text-[#1a1a1a] neo-btn flex items-center justify-center gap-2 disabled:opacity-70 disabled:bg-[#d4c4b5] disabled:cursor-not-allowed transition-all"
                 >
                   {isLoading ? (
                     <>

@@ -168,13 +168,13 @@ export default function TaskHistoryPage() {
   }, [filteredTasks]);
 
   return (
-    <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8 border-b-2 border-[#1a1a1a] pb-6">
+    <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4 sm:mb-6 border-b-2 border-[#1a1a1a] pb-4 sm:pb-6">
         <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] text-[#1a1a1a] flex items-center justify-center neo-border-sm shrink-0">
           <TbListCheck size={28} strokeWidth={2.2} />
         </div>
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Riwayat Tugas</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Riwayat Tugas</h1>
           <p className="text-[#4b607f] font-medium mt-1">
             Daftar seluruh tugas harian asisten laboratorium
             {user?.name ? ` — ${user.name}` : ""}

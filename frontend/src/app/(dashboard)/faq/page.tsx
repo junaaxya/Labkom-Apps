@@ -104,7 +104,7 @@ export default function FAQPage() {
     <div className="h-[calc(100vh-120px)] flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">FAQ Bot</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">FAQ Bot</h1>
           <p className="text-[#4b607f] mt-1 text-lg">Tanya apa saja tentang lab</p>
         </div>
         <button
@@ -119,7 +119,7 @@ export default function FAQPage() {
       {showFAQList ? (
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
           {categories.map((cat) => (
-            <div key={cat} className="neo-card p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
+            <div key={cat} className="neo-card p-4 sm:p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
               <div className="flex items-center gap-3 mb-4 border-b-2 border-[#1a1a1a]/10 pb-3">
                 <div className="bg-[#f5ede6] p-2 rounded-lg border-2 border-[#1a1a1a]">
                   <TbMessageCircle strokeWidth={2.2} className="w-5 h-5 text-[#4b607f]" />

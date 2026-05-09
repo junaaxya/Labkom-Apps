@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TbCertificate, TbDownload, TbPlus, TbTrophy, TbCalendarCheck, TbTarget, TbLoader2, TbPhoto, TbTrash, TbUpload } from "react-icons/tb";
+import { TbCertificate, TbDownload, TbPlus, TbTrophy, TbCalendarCheck, TbTarget, TbLoader2, TbPhoto, TbTrash, TbUpload, TbX } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 
@@ -205,14 +205,14 @@ export default function CertificatesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] text-[#1a1a1a] flex items-center justify-center neo-border-sm">
             <TbCertificate size={28} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">Sertifikat</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Sertifikat</h1>
             <p className="text-sm text-[#5a5a5a]">Kelola sertifikat & template</p>
           </div>
         </div>
@@ -340,9 +340,14 @@ export default function CertificatesPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="neo-card w-full max-w-md p-6 bg-white shadow-[6px_6px_0px_#1a1a1a]">
-            <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-6">Generate Sertifikat</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="neo-card w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Generate Sertifikat</h2>
+              <button onClick={() => setShowModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+                <TbX className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
@@ -405,9 +410,14 @@ export default function CertificatesPage() {
       )}
 
       {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="neo-card w-full max-w-lg p-6 bg-white shadow-[6px_6px_0px_#1a1a1a]">
-            <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-6">Upload Template Sertifikat</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowTemplateModal(false); setTemplateFile(null); setTemplatePreview(null); }}>
+          <div className="neo-card w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Upload Template Sertifikat</h2>
+              <button onClick={() => { setShowTemplateModal(false); setTemplateFile(null); setTemplatePreview(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+                <TbX className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div className="space-y-2">

@@ -84,13 +84,13 @@ export default function EnergyPage() {
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] tracking-tight">
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
             Energy Dashboard
           </h1>
-          <p className="text-[#5a5a5a] mt-1 font-medium">Estimasi konsumsi listrik & rekomendasi hemat energi</p>
+          <p className="text-[#5a5a5a] mt-1 text-sm sm:text-base font-medium leading-relaxed">Estimasi konsumsi listrik & rekomendasi hemat energi</p>
         </div>
         <button onClick={fetchEnergy} className="neo-btn px-6 py-3 bg-white text-[#1a1a1a] flex items-center justify-center gap-2 font-bold hover:bg-[#f5ede6] transition-colors">
           <TbRefresh className="w-5 h-5" /> Refresh Data
@@ -98,13 +98,13 @@ export default function EnergyPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 sm:gap-5">
         <div className="neo-card-hover p-5 flex items-center gap-4 cursor-default">
           <div className="w-14 h-14 rounded-full bg-[#eab308] neo-border-sm flex items-center justify-center shrink-0">
             <TbBolt className="w-7 h-7 text-[#1a1a1a]" />
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-[#1a1a1a] leading-none">{data.total.totalActiveWatt}W</p>
+            <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] leading-none">{data.total.totalActiveWatt}W</p>
             <p className="text-xs font-bold text-[#5a5a5a] mt-2 uppercase tracking-wider">Daya Aktif</p>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function EnergyPage() {
             <TbBulb className="w-7 h-7 text-white" />
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-[#1a1a1a] leading-none">{data.total.totalMonthlyKwh} <span className="text-lg">kWh</span></p>
+            <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] leading-none">{data.total.totalMonthlyKwh} <span className="text-base sm:text-lg">kWh</span></p>
             <p className="text-xs font-bold text-[#5a5a5a] mt-2 uppercase tracking-wider">Est. Bulanan</p>
           </div>
         </div>
@@ -124,7 +124,7 @@ export default function EnergyPage() {
             <TbCurrencyDollar className="w-7 h-7 text-white" />
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-[#1a1a1a] leading-none">Rp {data.total.totalMonthlyCost.toLocaleString()}</p>
+            <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] leading-none">Rp {data.total.totalMonthlyCost.toLocaleString()}</p>
             <p className="text-xs font-bold text-[#5a5a5a] mt-2 uppercase tracking-wider">Est. Biaya/Bulan</p>
           </div>
         </div>
@@ -135,8 +135,8 @@ export default function EnergyPage() {
           </div>
           <div>
             <div className="flex items-end gap-1">
-              <p className="font-heading text-3xl font-bold text-[#1a1a1a] leading-none">{usagePercent}</p>
-              <span className="font-heading text-xl font-bold text-[#1a1a1a] leading-none mb-0.5">%</span>
+              <p className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] leading-none">{usagePercent}</p>
+              <span className="font-heading text-lg sm:text-xl font-bold text-[#1a1a1a] leading-none mb-0.5">%</span>
             </div>
             <p className="text-xs font-bold text-[#5a5a5a] mt-2 uppercase tracking-wider">Utilisasi PC</p>
           </div>

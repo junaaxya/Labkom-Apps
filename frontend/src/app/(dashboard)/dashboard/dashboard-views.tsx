@@ -144,7 +144,7 @@ function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className={`neo-card p-5 bg-white border-l-4 ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
+      className={`neo-card p-4 sm:p-5 bg-white border-l-4 min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -153,7 +153,7 @@ function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 + (index * 0.05) }}
-            className="font-heading text-4xl font-bold text-[#1a1a1a]"
+            className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a]"
           >
             {item.value}
           </motion.p>
@@ -175,14 +175,14 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
       transition={{ duration: 0.4, delay }}
       className="neo-card bg-white flex flex-col h-full overflow-hidden"
     >
-      <div className="px-5 py-4 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-3 sm:py-4 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-5 h-5 text-[#f3701e]" strokeWidth={2.5} />}
-          <h3 className="font-heading text-lg font-bold text-[#1a1a1a]">{title}</h3>
+          <h3 className="font-heading text-base sm:text-lg font-bold text-[#1a1a1a] tracking-tight">{title}</h3>
         </div>
         {action}
       </div>
-      <div className="p-5 flex-1">{children}</div>
+      <div className="p-4 sm:p-5 flex-1">{children}</div>
     </motion.div>
   );
 }
@@ -241,10 +241,10 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
           </div>
         </div>
         
-        <h1 className="font-heading text-4xl md:text-5xl font-bold text-[#1a1a1a] mt-4 mb-2">
+        <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold text-[#1a1a1a] mt-4 mb-2 tracking-tight">
           {greeting}, <span className="text-[#4b607f]">{firstName}</span>! 👋
         </h1>
-        <p className="text-base text-[#5a5a5a] max-w-2xl font-medium">{subtitle}</p>
+        <p className="text-sm sm:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -284,8 +284,8 @@ export function KoordinatorDashboard({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       {pcAgentStats && (
         <motion.div
@@ -334,7 +334,7 @@ export function KoordinatorDashboard({
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section title="Status Lab" icon={TbBuildingWarehouse} delay={0.1}>
           <div className="space-y-3">
             {labs.map((lab) => {
@@ -345,7 +345,7 @@ export function KoordinatorDashboard({
               return (
                 <div key={lab.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] hover:bg-[#f5ede6] transition-colors">
                   <div className="flex items-center justify-between gap-3 mb-2">
-                    <p className="font-bold text-[#1a1a1a] text-lg">{lab.name}</p>
+                    <p className="font-bold text-[#1a1a1a] text-sm sm:text-base leading-tight">{lab.name}</p>
                     <span className="neo-badge px-3 py-1 text-xs bg-[#e8d8c9] text-[#1a1a1a] font-bold">{lab.status}</span>
                   </div>
                   
@@ -403,7 +403,7 @@ export function KoordinatorDashboard({
         </Section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section title="AI Insights + Health Score" icon={TbBrain} delay={0.25}>
           <div className="space-y-4">
             <div className="p-4 rounded-xl neo-border-sm bg-[#1a1a1a] text-white flex items-center justify-between shadow-[4px_4px_0px_#f3701e] hover:-translate-y-1 transition-transform">
@@ -413,7 +413,7 @@ export function KoordinatorDashboard({
                 </div>
                 <div>
                   <p className="font-bold text-sm text-gray-300">Lab Health Score</p>
-                  <p className="font-heading text-3xl font-bold mt-1">
+                  <p className="font-heading text-2xl sm:text-3xl font-bold mt-1">
                     {health ? `${health.score}` : "-"}
                     {health && <span className="text-sm font-medium text-[#f3701e] ml-2 uppercase tracking-widest">{health.level}</span>}
                   </p>
@@ -568,9 +568,9 @@ export function AsistenDashboard({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
         <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
             {shifts.map((shift) => (
@@ -581,7 +581,7 @@ export function AsistenDashboard({
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <TbCalendarEvent className="w-4 h-4 text-[#5a5a5a]" />
-                  <p className="font-heading text-xl font-bold text-[#1a1a1a]">{shift.startTime || "-"} <span className="text-[#5a5a5a] text-sm mx-1">s/d</span> {shift.endTime || "-"}</p>
+                  <p className="font-heading text-lg sm:text-xl font-bold text-[#1a1a1a]">{shift.startTime || "-"} <span className="text-[#5a5a5a] text-sm mx-1">s/d</span> {shift.endTime || "-"}</p>
                 </div>
               </div>
             ))}
@@ -626,7 +626,7 @@ export function AsistenDashboard({
             </motion.div>
             
             <div className="relative z-10 mt-4">
-              <p className="font-heading text-6xl font-bold text-white drop-shadow-md">
+                <p className="font-heading text-4xl sm:text-6xl font-bold text-white drop-shadow-md">
                 #{myRank > 0 ? myRank : "-"}
               </p>
               <p className="text-sm font-bold uppercase tracking-widest text-[#f3701e] mt-2">Peringkat Anda</p>
@@ -685,9 +685,9 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500" },
   ];
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section 
           title="Jadwal Lab Hari Ini" 
           icon={TbCalendarEvent} 
@@ -706,7 +706,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
                   <p className="text-xs font-medium text-[#5a5a5a]">s/d {schedule.endTime}</p>
                 </div>
                 <div>
-                  <p className="font-bold text-[#1a1a1a] text-base mb-1">{schedule.title}</p>
+                  <p className="font-bold text-[#1a1a1a] text-sm sm:text-base mb-1 leading-tight">{schedule.title}</p>
                   <div className="flex items-center gap-2">
                     <span className="neo-badge px-2 py-0.5 text-[10px] bg-[#4b607f] text-white uppercase tracking-wider">
                       {schedule.lab?.name || "Lab"}

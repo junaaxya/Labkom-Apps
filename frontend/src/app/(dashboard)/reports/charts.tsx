@@ -18,6 +18,14 @@ interface ReportData {
 
 const COLORS = ["#4b607f", "#f3701e", "#22c55e", "#eab308", "#8b5cf6", "#ef4444"];
 
+const getPieChartLabel = (name: string, percent: number) => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  if (isMobile) {
+    return percent > 0.15 ? `${(percent * 100).toFixed(0)}%` : '';
+  }
+  return `${name} ${(percent * 100).toFixed(0)}%`;
+};
+
 export default function RechartsCharts({ report }: { report: ReportData }) {
   const summaryData = [
     { name: "Logbook", total: report.logbooks.total, completed: report.logbooks.completed },
@@ -33,9 +41,9 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="neo-card p-5">
+      <div className="neo-card p-4 sm:p-5">
         <h3 className="font-heading font-bold text-sm text-[#1a1a1a] mb-4">Ringkasan Performa</h3>
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={250} className="text-xs sm:text-sm">
           <BarChart data={summaryData} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e8d8c9" />
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#5a5a5a" }} />
@@ -54,10 +62,10 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="neo-card p-5">
+      <div className="neo-card p-4 sm:p-5">
         <h3 className="font-heading font-bold text-sm text-[#1a1a1a] mb-4">Ticket per Kategori</h3>
         {report.ticketsByCategory.length > 0 ? (
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={250} className="text-xs sm:text-sm">
             <PieChart>
               <Pie
                 data={report.ticketsByCategory}
@@ -66,7 +74,7 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }: any) => getPieChartLabel(name, percent)}
                 labelLine={false}
               >
                 {report.ticketsByCategory.map((_, idx) => (
@@ -89,10 +97,10 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
         )}
       </div>
 
-      <div className="neo-card p-5">
+      <div className="neo-card p-4 sm:p-5">
         <h3 className="font-heading font-bold text-sm text-[#1a1a1a] mb-4">Penggunaan Lab</h3>
         {report.labUsage.length > 0 ? (
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={250} className="text-xs sm:text-sm">
             <BarChart data={report.labUsage} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e8d8c9" />
               <XAxis type="number" tick={{ fontSize: 12, fill: "#5a5a5a" }} />
@@ -113,10 +121,10 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
         )}
       </div>
 
-      <div className="neo-card p-5">
+      <div className="neo-card p-4 sm:p-5">
         <h3 className="font-heading font-bold text-sm text-[#1a1a1a] mb-4">Top Asisten (Radar)</h3>
         {radarData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={250} className="text-xs sm:text-sm">
             <RadarChart data={radarData}>
               <PolarGrid stroke="#e8d8c9" />
               <PolarAngleAxis dataKey="name" tick={{ fontSize: 11, fill: "#5a5a5a" }} />

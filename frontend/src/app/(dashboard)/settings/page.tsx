@@ -156,14 +156,14 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] text-[#1a1a1a] flex items-center justify-center neo-border-sm shrink-0">
           <TbSettings size={28} strokeWidth={2.2} />
         </div>
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Pengaturan</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Pengaturan</h1>
           <p className="text-[#4b607f] font-medium mt-1">Kelola integrasi dan konfigurasi sistem</p>
         </div>
       </div>
@@ -188,7 +188,7 @@ export default function SettingsPage() {
 
       {/* Tab Content */}
       {activeTab === "integrasi" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* WhatsApp Bot Section */}
           <div className="neo-card p-6 sm:p-8 space-y-6 bg-white neo-card-hover transition-all duration-200 flex flex-col shadow-[4px_4px_0px_#1a1a1a]">
             <div className="flex items-start justify-between gap-4 border-b-2 border-[#1a1a1a] pb-6">
@@ -224,14 +224,14 @@ export default function SettingsPage() {
                     placeholder="Nomor (628xxx)"
                     value={testPhone}
                     onChange={(e) => setTestPhone(e.target.value)}
-                    className="neo-input w-full bg-white"
+                    className="neo-input w-full min-h-[44px] bg-white"
                   />
                   <input
                     type="text"
                     placeholder="Pesan test"
                     value={testMessage}
                     onChange={(e) => setTestMessage(e.target.value)}
-                    className="neo-input w-full bg-white"
+                    className="neo-input w-full min-h-[44px] bg-white"
                   />
                   <button onClick={sendTestWA} disabled={loading.test} className="neo-btn bg-[#25D366] hover:bg-[#1da851] transition-colors duration-200 text-white w-full flex items-center justify-center gap-2 font-bold">
                     {loading.test ? <TbLoader2 className="w-5 h-5 animate-spin" strokeWidth={2.2} /> : <TbSend className="w-5 h-5" strokeWidth={2.2} />}

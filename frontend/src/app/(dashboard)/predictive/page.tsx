@@ -15,6 +15,7 @@ import {
   TbDeviceDesktop,
 } from "react-icons/tb";
 import api from "@/services/api";
+import { MobileCard } from "@/components/ui/mobile-card";
 
 interface RiskFactor {
   name: string;
@@ -140,9 +141,9 @@ export default function PredictivePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-heading text-[#1a1a1a]">
+        <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] tracking-tight">
           Predictive Maintenance
         </h1>
         <p className="text-[#4b607f] mt-1">
@@ -195,29 +196,29 @@ export default function PredictivePage() {
                     {health.score}
                   </span>
                 </div>
-                <h2 className="text-3xl font-bold font-heading mb-2">{health.level}</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold font-heading mb-2 tracking-tight">{health.level}</h2>
                 <p className="text-[#4b607f] text-lg max-w-2xl mx-auto">{health.summary}</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="neo-card p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                <div className="neo-card p-4 sm:p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
                   <TbDeviceDesktop className="w-10 h-10 mx-auto text-[#4b607f] mb-3" />
-                  <div className="text-4xl font-bold font-heading mb-1">{health.metrics.totalPCs}</div>
+                  <div className="text-3xl sm:text-4xl font-bold font-heading mb-1">{health.metrics.totalPCs}</div>
                   <div className="text-sm font-bold text-[#4b607f]">Total PC</div>
                 </div>
-                <div className="neo-card p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
+                <div className="neo-card p-4 sm:p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
                   <TbCircleCheck className="w-10 h-10 mx-auto text-green-500 mb-3" />
-                  <div className="text-4xl font-bold font-heading text-green-600 mb-1">{health.metrics.healthyPCs}</div>
+                  <div className="text-3xl sm:text-4xl font-bold font-heading text-green-600 mb-1">{health.metrics.healthyPCs}</div>
                   <div className="text-sm font-bold text-[#4b607f]">Healthy</div>
                 </div>
-                <div className="neo-card p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
+                <div className="neo-card p-4 sm:p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
                   <TbAlertCircle className="w-10 h-10 mx-auto text-red-500 mb-3" />
-                  <div className="text-4xl font-bold font-heading text-red-600 mb-1">{health.metrics.brokenPCs}</div>
+                  <div className="text-3xl sm:text-4xl font-bold font-heading text-red-600 mb-1">{health.metrics.brokenPCs}</div>
                   <div className="text-sm font-bold text-[#4b607f]">Broken</div>
                 </div>
-                <div className="neo-card p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
+                <div className="neo-card p-4 sm:p-6 text-center hover:bg-[#e8d8c9]/30 transition-colors neo-card-hover">
                   <TbAlertTriangle className="w-10 h-10 mx-auto text-yellow-500 mb-3" />
-                  <div className="text-4xl font-bold font-heading text-yellow-600 mb-1">{health.metrics.openTickets}</div>
+                  <div className="text-3xl sm:text-4xl font-bold font-heading text-yellow-600 mb-1">{health.metrics.openTickets}</div>
                   <div className="text-sm font-bold text-[#4b607f]">Open Tickets</div>
                 </div>
               </div>
@@ -234,7 +235,7 @@ export default function PredictivePage() {
                       <div className={`inline-block px-3 py-1.5 rounded-md text-sm font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${getRiskColor(level)}`}>
                         {level}
                       </div>
-                      <div className="text-4xl font-bold font-heading mt-4">{count}</div>
+                      <div className="text-3xl sm:text-4xl font-bold font-heading mt-4">{count}</div>
                     </div>
                   );
                 })}
@@ -257,7 +258,7 @@ export default function PredictivePage() {
                       <div className="text-sm font-medium text-[#4b607f]">{pc.labName} • {pc.pcName}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold font-heading">{pc.riskScore}</div>
+                      <div className="text-2xl sm:text-3xl font-bold font-heading">{pc.riskScore}</div>
                       <div className="text-xs font-bold text-[#4b607f] uppercase tracking-wider">Risk Score</div>
                     </div>
                   </div>
@@ -320,45 +321,74 @@ export default function PredictivePage() {
           {tab === "schedule" && (
             <div className="space-y-6">
               {maintenanceSchedule.length > 0 ? (
-                <div className="overflow-x-auto neo-card p-0 shadow-[4px_4px_0px_#1a1a1a] bg-white">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-[#4b607f] text-white border-b-2 border-[#1a1a1a]">
-                        <th className="p-4 text-left font-heading font-bold text-sm">PC</th>
-                        <th className="p-4 text-left font-heading font-bold text-sm">Lab</th>
-                        <th className="p-4 text-left font-heading font-bold text-sm">Priority</th>
-                        <th className="p-4 text-left font-heading font-bold text-sm">Tanggal</th>
-                        <th className="p-4 text-left font-heading font-bold text-sm">Durasi</th>
-                        <th className="p-4 text-left font-heading font-bold text-sm">Alasan</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y-2 divide-[#1a1a1a]/10">
-                      {maintenanceSchedule.map((item, i) => (
-                        <tr key={i} className="hover:bg-[#f5ede6] transition-colors duration-150">
-                          <td className="p-4 font-bold font-heading">{item.pcCode}</td>
-                          <td className="p-4 text-sm font-medium">{item.labName}</td>
-                          <td className="p-4">
-                            <span className={`px-3 py-1 rounded-md text-xs font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${
-                              item.priority === "URGENT" ? "bg-red-500 text-white" :
-                              item.priority === "HIGH" ? "bg-orange-500 text-white" :
-                              item.priority === "NORMAL" ? "bg-yellow-400 text-[#1a1a1a]" :
-                              "bg-green-500 text-white"
-                            }`}>
-                              {item.priority}
-                            </span>
-                          </td>
-                          <td className="p-4 text-sm font-medium whitespace-nowrap">
-                            {new Date(item.suggestedDate).toLocaleDateString("id-ID", {
-                              weekday: "short", day: "numeric", month: "short",
-                            })}
-                          </td>
-                          <td className="p-4 text-sm font-medium">{item.estimatedDuration} mnt</td>
-                          <td className="p-4 text-sm text-[#4b607f] max-w-xs">{item.reason}</td>
+                <>
+                  <div className="lg:hidden space-y-3">
+                    {maintenanceSchedule.map((item, i) => (
+                      <MobileCard
+                        key={i}
+                        title={item.pcCode}
+                        subtitle={item.labName}
+                        badge={
+                          <span className={`px-3 py-1 rounded-md text-xs font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${
+                            item.priority === "URGENT" ? "bg-red-500 text-white" :
+                            item.priority === "HIGH" ? "bg-orange-500 text-white" :
+                            item.priority === "NORMAL" ? "bg-yellow-400 text-[#1a1a1a]" :
+                            "bg-green-500 text-white"
+                          }`}>
+                            {item.priority}
+                          </span>
+                        }
+                        fields={[
+                          {
+                            label: "Tanggal",
+                            value: new Date(item.suggestedDate).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" }),
+                          },
+                          { label: "Durasi", value: `${item.estimatedDuration} mnt` },
+                          { label: "Alasan", value: item.reason, fullWidth: true },
+                        ]}
+                      />
+                    ))}
+                  </div>
+                  <div className="hidden lg:block overflow-x-auto neo-card p-0 shadow-[4px_4px_0px_#1a1a1a] bg-white">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-[#4b607f] text-white border-b-2 border-[#1a1a1a]">
+                          <th className="p-4 text-left font-heading font-bold text-sm">PC</th>
+                          <th className="p-4 text-left font-heading font-bold text-sm">Lab</th>
+                          <th className="p-4 text-left font-heading font-bold text-sm">Priority</th>
+                          <th className="p-4 text-left font-heading font-bold text-sm">Tanggal</th>
+                          <th className="p-4 text-left font-heading font-bold text-sm">Durasi</th>
+                          <th className="p-4 text-left font-heading font-bold text-sm">Alasan</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y-2 divide-[#1a1a1a]/10">
+                        {maintenanceSchedule.map((item, i) => (
+                          <tr key={i} className="hover:bg-[#f5ede6] transition-colors duration-150">
+                            <td className="p-4 font-bold font-heading">{item.pcCode}</td>
+                            <td className="p-4 text-sm font-medium">{item.labName}</td>
+                            <td className="p-4">
+                              <span className={`px-3 py-1 rounded-md text-xs font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${
+                                item.priority === "URGENT" ? "bg-red-500 text-white" :
+                                item.priority === "HIGH" ? "bg-orange-500 text-white" :
+                                item.priority === "NORMAL" ? "bg-yellow-400 text-[#1a1a1a]" :
+                                "bg-green-500 text-white"
+                              }`}>
+                                {item.priority}
+                              </span>
+                            </td>
+                            <td className="p-4 text-sm font-medium whitespace-nowrap">
+                              {new Date(item.suggestedDate).toLocaleDateString("id-ID", {
+                                weekday: "short", day: "numeric", month: "short",
+                              })}
+                            </td>
+                            <td className="p-4 text-sm font-medium">{item.estimatedDuration} mnt</td>
+                            <td className="p-4 text-sm text-[#4b607f] max-w-xs">{item.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               ) : (
                 <div className="neo-card p-12 text-center bg-white shadow-[4px_4px_0px_#1a1a1a]">
                   <TbCalendarEvent className="w-16 h-16 mx-auto text-[#4b607f] mb-4" />
@@ -370,9 +400,9 @@ export default function PredictivePage() {
           )}
 
           {tab === "trends" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {trends.map((t, i) => (
-                <div key={i} className="neo-card p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
+                <div key={i} className="neo-card p-4 sm:p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
                   <div className="flex items-center justify-between mb-4 border-b-2 border-[#1a1a1a]/10 pb-4">
                     <h3 className="font-bold font-heading text-xl">{t.period}</h3>
                     <div className="flex items-center gap-2 bg-[#f5ede6] px-3 py-1.5 rounded-lg border-2 border-[#1a1a1a]">
@@ -387,7 +417,7 @@ export default function PredictivePage() {
                   <div className="flex justify-between items-end mb-5">
                     <div>
                       <div className="text-sm font-bold text-[#4b607f] uppercase tracking-wide mb-1">Total Tiket</div>
-                      <div className="text-3xl font-bold font-heading">{t.totalTickets}</div>
+                      <div className="text-2xl sm:text-3xl font-bold font-heading">{t.totalTickets}</div>
                     </div>
                     <div className="text-sm font-medium text-[#4b607f] bg-[#e8d8c9] px-3 py-1 rounded-full border-2 border-[#1a1a1a]">
                       Trend: <span className="font-bold text-[#1a1a1a]">{t.trend}</span>

@@ -13,6 +13,7 @@ import {
   TbPlus,
   TbTicket,
   TbTools,
+  TbX,
 } from "react-icons/tb";
 import { useToast } from "@/providers/toast-provider";
 import api from "@/services/api";
@@ -203,7 +204,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <Link href="/scan" className="neo-btn inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200">
           <TbArrowLeft size={18} strokeWidth={2.2} />
           <span className="font-medium">Kembali ke Scan</span>
@@ -332,16 +333,23 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
           onClick={() => setShowModal(false)}
         >
           <div
-            className="neo-card bg-white w-full max-w-lg p-6 sm:p-8 transform scale-100 transition-transform duration-300"
+            className="neo-card bg-white w-full max-w-lg p-4 sm:p-6 md:p-8 max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-[#1a1a1a]">
-              <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f3701e] text-white flex items-center justify-center neo-border-sm">
+              <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-3 truncate">
+                <div className="w-10 h-10 rounded-xl bg-[#f3701e] text-white flex items-center justify-center neo-border-sm flex-shrink-0">
                   <TbPlus size={24} strokeWidth={2.2} />
                 </div>
                 Form Lapor Kerusakan
               </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+              >
+                <TbX size={20} strokeWidth={2.5} />
+              </button>
             </div>
 
             <form onSubmit={submitTicket} className="space-y-5">

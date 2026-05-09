@@ -148,7 +148,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="neo-card bg-white overflow-hidden">
         <div className="h-24 bg-[#4b607f] relative">
           <div
@@ -205,7 +205,7 @@ export default function ProfilePage() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="neo-card bg-white overflow-hidden flex flex-col">
           <div className="px-6 py-4 bg-[#f5ede6] border-b-2 border-[#1a1a1a] flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-[#4b607f] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center">
@@ -222,26 +222,26 @@ export default function ProfilePage() {
               <SinglePhotoUpload value={avatar} onChange={(url) => setAvatar(url)} category="avatars" label="Foto Profil" />
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Nama Lengkap</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="neo-input w-full bg-white px-4 py-3" placeholder="Masukkan nama lengkap" />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="neo-input w-full min-h-[44px] bg-white px-4 py-3" placeholder="Masukkan nama lengkap" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">No. Telepon</label>
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" className="neo-input w-full bg-white px-4 py-3" />
+                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#5a5a5a]">
                   Email <span className="text-[10px] font-normal text-[#9a9a9a]">(tidak bisa diubah)</span>
                 </label>
-                <input type="email" value={profile?.email || ""} disabled className="neo-input w-full bg-[#f5ede6] text-[#5a5a5a] cursor-not-allowed px-4 py-3" />
+                <input type="email" value={profile?.email || ""} disabled className="neo-input w-full min-h-[44px] bg-[#f5ede6] text-[#5a5a5a] cursor-not-allowed px-4 py-3" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-[#1a1a1a]">Semester</label>
-                  <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Contoh: 4" className="neo-input w-full bg-white px-4 py-3" />
+                  <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Contoh: 4" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-[#1a1a1a]">Kelas</label>
-                  <input type="text" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Contoh: TI-4A" className="neo-input w-full bg-white px-4 py-3" />
+                  <input type="text" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Contoh: TI-4A" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />
                 </div>
               </div>
             </div>
@@ -280,7 +280,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Password Saat Ini</label>
                 <div className="relative">
-                  <input type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="neo-input w-full bg-white px-4 py-3 pr-12" placeholder="Masukkan password saat ini" required />
+                  <input type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="neo-input w-full min-h-[44px] bg-white px-4 py-3 pr-12" placeholder="Masukkan password saat ini" required />
                   <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#5a5a5a] hover:text-[#1a1a1a] transition-colors">
                     {showCurrentPassword ? <TbEyeOff size={18} strokeWidth={2.2} /> : <TbEye size={18} strokeWidth={2.2} />}
                   </button>
@@ -289,7 +289,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Password Baru</label>
                 <div className="relative">
-                  <input type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} className="neo-input w-full bg-white px-4 py-3 pr-12" placeholder="Minimal 6 karakter" required />
+                  <input type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} className="neo-input w-full min-h-[44px] bg-white px-4 py-3 pr-12" placeholder="Minimal 6 karakter" required />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#5a5a5a] hover:text-[#1a1a1a] transition-colors">
                     {showNewPassword ? <TbEyeOff size={18} strokeWidth={2.2} /> : <TbEye size={18} strokeWidth={2.2} />}
                   </button>
@@ -298,7 +298,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Konfirmasi Password Baru</label>
                 <div className="relative">
-                  <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={6} className="neo-input w-full bg-white px-4 py-3 pr-12" placeholder="Ketik ulang password baru" required />
+                  <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={6} className="neo-input w-full min-h-[44px] bg-white px-4 py-3 pr-12" placeholder="Ketik ulang password baru" required />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#5a5a5a] hover:text-[#1a1a1a] transition-colors">
                     {showConfirmPassword ? <TbEyeOff size={18} strokeWidth={2.2} /> : <TbEye size={18} strokeWidth={2.2} />}
                   </button>

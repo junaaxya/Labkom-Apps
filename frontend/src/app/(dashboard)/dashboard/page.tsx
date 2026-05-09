@@ -154,7 +154,7 @@ export default function DashboardPage() {
   const myRankEntry = leaderboard.find((entry) => entry.userId === uid);
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#e8d8c9" }}>
+    <div className="space-y-4 sm:space-y-6" style={{ backgroundColor: "#e8d8c9" }}>
       <DashboardHeader
         user={user}
         subtitle={

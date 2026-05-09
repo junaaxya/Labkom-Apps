@@ -17,6 +17,7 @@ import {
   TbWifiOff,
 } from "react-icons/tb";
 import api from "@/services/api";
+import { MobileCard } from "@/components/ui/mobile-card";
 
 interface InventoryPC {
   id: string;
@@ -150,10 +151,10 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] tracking-tight">
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
             Hardware Inventory
           </h1>
           <p className="text-[#5a5a5a] mt-1 font-medium">Kelola spesifikasi dan QR code semua PC lab</p>
@@ -257,8 +258,114 @@ export default function InventoryPage() {
         />
       </div>
 
-      {/* Inventory Table */}
-      <div className="neo-card overflow-hidden bg-white neo-border-sm">
+      <div className="lg:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="neo-card p-10 text-center bg-white">
+            <TbDeviceDesktop className="w-10 h-10 text-[#4b607f] mx-auto mb-3 opacity-50" />
+            <p className="font-heading font-bold text-lg text-[#1a1a1a]">Tidak ada hardware PC</p>
+            <p className="text-[#5a5a5a] text-sm mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
+          </div>
+        ) : (
+          filtered.map((pc) => (
+            <MobileCard
+              key={pc.id}
+              title={<span className="font-mono">{pc.pcCode}</span>}
+              subtitle={pc.name}
+              badge={
+                pc.isAgentInstalled ? (
+                  <span className={`inline-flex items-center gap-1.5 neo-badge px-2.5 py-1 text-[10px] font-bold ${
+                    pc.agentStatus === "ONLINE" ? "bg-emerald-100 text-emerald-700" :
+                    pc.agentStatus === "OFFLINE" ? "bg-gray-100 text-gray-600" :
+                    "bg-gray-50 text-gray-400"
+                  }`}>
+                    {pc.agentStatus === "ONLINE" ? <TbWifi className="w-3 h-3" /> : <TbWifiOff className="w-3 h-3" />}
+                    {pc.agentStatus || "UNKNOWN"}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-[#5a5a5a] italic">No Agent</span>
+                )
+              }
+              fields={[
+                {
+                  label: "CPU",
+                  value: (
+                    <div>
+                      <div className="text-xs">{pc.parsedSpecs?.cpu || pc.hostname || <span className="italic text-[#5a5a5a]">Belum diisi</span>}</div>
+                      {pc.cpuUsage != null && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${pc.cpuUsage > 80 ? "bg-red-500" : pc.cpuUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.cpuUsage, 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.cpuUsage.toFixed(0)}%</span>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  label: "RAM",
+                  value: (
+                    <div>
+                      <div className="text-xs">{pc.parsedSpecs?.ram || (pc.ramTotalGb ? `${pc.ramTotalGb} GB` : <span className="italic text-[#5a5a5a]">Belum diisi</span>)}</div>
+                      {pc.ramUsage != null && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${pc.ramUsage > 80 ? "bg-red-500" : pc.ramUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.ramUsage, 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.ramUsage.toFixed(0)}%</span>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  label: "Storage",
+                  value: (
+                    <div>
+                      <div className="text-xs">{pc.parsedSpecs?.storage || (pc.storageTotalGb ? `${pc.storageTotalGb} GB` : <span className="italic text-[#5a5a5a]">Belum diisi</span>)}</div>
+                      {pc.storageUsage != null && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${pc.storageUsage > 80 ? "bg-red-500" : pc.storageUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.storageUsage, 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.storageUsage.toFixed(0)}%</span>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  label: "OS",
+                  value: <span className="text-xs">{pc.parsedSpecs?.os || pc.os || <span className="italic text-[#5a5a5a]">Belum diisi</span>}</span>,
+                },
+                {
+                  label: "Status",
+                  value: (
+                    <span className={`neo-badge px-2.5 py-1 ${
+                      pc.status === "AVAILABLE" ? "status-available" :
+                      pc.status === "BROKEN" ? "status-broken" :
+                      pc.status === "MAINTENANCE" ? "status-maintenance" :
+                      "status-inactive"
+                    }`}>
+                      {pc.status === "AVAILABLE" ? "Tersedia" : pc.status === "BROKEN" ? "Rusak" : pc.status === "MAINTENANCE" ? "Maint" : "Inactive"}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={[
+                {
+                  label: "Edit Spesifikasi",
+                  icon: <TbEdit className="w-4 h-4" />,
+                  onClick: () => { setEditingPC(pc); setShowEditModal(true); },
+                  variant: "secondary",
+                },
+              ]}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="hidden lg:block neo-card overflow-hidden bg-white neo-border-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -365,13 +472,13 @@ export default function InventoryPage() {
       {/* Edit Specs Modal */}
       {showEditModal && editingPC && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl p-6 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6 pb-4 border-b-[3px] border-[#e8d8c9]">
               <div>
                 <h3 className="text-xl font-heading font-bold text-[#1a1a1a]">Edit Spesifikasi</h3>
                 <p className="text-sm font-medium text-[#4b607f] mt-1">{editingPC.pcCode} - {editingPC.name}</p>
               </div>
-              <button onClick={() => setShowEditModal(false)} className="w-8 h-8 bg-white neo-btn flex items-center justify-center hover:bg-[#ef4444] hover:text-white transition-colors">
+              <button onClick={() => setShowEditModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-white neo-btn hover:bg-[#ef4444] hover:text-white transition-colors flex-shrink-0">
                 <TbX className="w-5 h-5" />
               </button>
             </div>

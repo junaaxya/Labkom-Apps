@@ -226,10 +226,10 @@ export default function TicketsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Ticketing Kerusakan</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Ticketing Kerusakan</h1>
           <p className="text-[#5a5a5a] mt-1 font-medium">Laporkan & kelola kerusakan perangkat lab</p>
         </div>
         <motion.button
@@ -290,7 +290,7 @@ export default function TicketsPage() {
             <TbTicket size={24} strokeWidth={2.2} />
           </div>
           <div>
-            <p className="text-3xl font-bold font-heading text-[#1a1a1a]">{stats.total}</p>
+            <p className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a]">{stats.total}</p>
             <p className="text-sm font-bold text-[#5a5a5a] uppercase tracking-wider">Total Ticket</p>
           </div>
       </motion.div>
@@ -414,18 +414,18 @@ export default function TicketsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl border-2 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] p-8 w-full max-w-2xl overflow-y-auto max-h-[90vh]"
+              className="bg-white rounded-xl border-2 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] p-4 sm:p-8 w-full max-w-2xl overflow-y-auto max-h-[90vh]"
             >
               <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-[#1a1a1a]">
-                <h2 className="font-heading text-2xl font-bold text-[#1a1a1a] flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#f3701e] text-white flex items-center justify-center border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
+                <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] flex items-center gap-3 truncate">
+                  <div className="w-10 h-10 rounded-full bg-[#f3701e] text-white flex items-center justify-center border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
                     <TbPlus size={20} strokeWidth={2.5} />
                   </div>
                   Buat Ticket Baru
                 </h2>
                 <button 
                   onClick={() => setShowCreateModal(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
                 >
                   <TbX size={24} strokeWidth={2.5} />
                 </button>

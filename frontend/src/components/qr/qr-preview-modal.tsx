@@ -65,7 +65,7 @@ export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPrevie
             exit={{ scale: 0.92, y: 16 }}
             transition={{ type: "spring", damping: 24, stiffness: 320 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6"
+            className="w-full max-w-full sm:max-w-md bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6"
           >
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -75,7 +75,7 @@ export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPrevie
               <button
                 type="button"
                 onClick={onClose}
-                className="w-9 h-9 rounded-lg border-2 border-[#1a1a1a] bg-white inline-flex items-center justify-center hover:bg-[#f5ede6]"
+                className="w-11 h-11 rounded-lg border-2 border-[#1a1a1a] bg-white inline-flex items-center justify-center hover:bg-[#f5ede6]"
                 aria-label="Close"
               >
                 <TbX className="w-5 h-5" />

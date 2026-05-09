@@ -126,12 +126,12 @@ export default function SmartSchedulingPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-heading text-[#1a1a1a]">
+        <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] tracking-tight">
           Smart Scheduling
         </h1>
-        <p className="text-[#4b607f] mt-1">
+        <p className="text-[#4b607f] mt-1 text-sm sm:text-base leading-relaxed">
           AI-powered jadwal optimal, deteksi konflik, dan load balancing
         </p>
       </div>
@@ -195,7 +195,7 @@ export default function SmartSchedulingPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {slots.map((slot, i) => (
                   <div key={i} className="neo-card p-6 bg-white neo-card-hover hover:-translate-y-2 hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-200">
                     <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[#1a1a1a]/10">
@@ -275,7 +275,7 @@ export default function SmartSchedulingPage() {
           )}
 
           {tab === "balance" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {balance.map((lab) => (
                 <div key={lab.labId} className="neo-card p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
                   <div className="flex items-center justify-between mb-5 border-b-2 border-[#1a1a1a]/10 pb-4">

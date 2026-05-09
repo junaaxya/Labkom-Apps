@@ -297,10 +297,10 @@ export default function PCMonitoringPage() {
   const labs = [...new Set(pcs.map((pc) => JSON.stringify(pc.lab)))].map((l) => JSON.parse(l));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] tracking-tight">
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
             PC Monitoring
           </h1>
           <p className="text-[#5a5a5a] mt-1 font-medium">
@@ -753,8 +753,13 @@ export default function PCMonitoringPage() {
 
       {showCommandModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCommandModal(false)}>
-          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-heading font-bold mb-4">Kirim Command</h3>
+          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-heading font-bold">Kirim Command</h3>
+              <button onClick={() => setShowCommandModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+                <TbX className="w-5 h-5" />
+              </button>
+            </div>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-[#1a1a1a]">Pilih Command</label>
@@ -802,8 +807,13 @@ export default function PCMonitoringPage() {
 
       {showBulkModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBulkModal(false)}>
-          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl w-full max-w-md p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-heading font-bold mb-4">Ubah Status {selectedPCs.length} PC</h3>
+          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-heading font-bold">Ubah Status {selectedPCs.length} PC</h3>
+              <button onClick={() => setShowBulkModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+                <TbX className="w-5 h-5" />
+              </button>
+            </div>
             <BulkStatusForm onSubmit={bulkStatusUpdate} onCancel={() => setShowBulkModal(false)} />
           </div>
         </div>

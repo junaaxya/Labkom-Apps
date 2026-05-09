@@ -174,7 +174,7 @@ export default function RegisterPage() {
             >
               <TbFlask className="text-white text-3xl" />
             </motion.div>
-            <h1 className="font-heading text-4xl font-bold text-[#1a1a1a] drop-shadow-[2px_2px_0_var(--color-orange)]">Labkom</h1>
+            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a] drop-shadow-[2px_2px_0_var(--color-orange)]">Labkom</h1>
             <p className="text-[#1a1a1a] font-medium mt-2 bg-white inline-block px-3 py-1 neo-border-sm rounded-md shadow-[2px_2px_0_#1a1a1a]">Sistem Manajemen Laboratorium</p>
           </div>
 
@@ -225,7 +225,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="Masukkan nama lengkap"
                     required
-                    className="w-full pl-11 pr-4 py-2.5 neo-input focus:outline-none text-sm transition-all"
+                    className="w-full pl-11 pr-4 py-2.5 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />
                 </div>
               </div>
@@ -246,7 +246,7 @@ export default function RegisterPage() {
                       onChange={handleChange}
                       placeholder="nama@email.com"
                       required
-                      className="w-full pl-11 pr-4 py-2.5 neo-input focus:outline-none text-sm transition-all"
+                      className="w-full pl-11 pr-4 py-2.5 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                     />
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export default function RegisterPage() {
                       value={formData.nim}
                       onChange={handleChange}
                       placeholder="NIM Mahasiswa"
-                      className="w-full pl-11 pr-4 py-2.5 neo-input focus:outline-none text-sm transition-all"
+                      className="w-full pl-11 pr-4 py-2.5 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                     />
                   </div>
                 </div>
@@ -286,7 +286,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="Minimal 6 karakter"
                     required
-                    className="w-full pl-11 pr-12 py-2.5 neo-input focus:outline-none text-sm transition-all"
+                    className="w-full pl-11 pr-12 py-2.5 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />
                   <button
                     type="button"
@@ -329,7 +329,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="Ulangi password"
                     required
-                    className="w-full pl-11 pr-12 py-2.5 neo-input focus:outline-none text-sm transition-all"
+                    className="w-full pl-11 pr-12 py-2.5 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />
                   <button
                     type="button"
@@ -347,7 +347,7 @@ export default function RegisterPage() {
                   disabled={isLoading}
                   whileHover={!isLoading ? { scale: 1.02, y: -2, boxShadow: "5px 5px 0px #1a1a1a" } : {}}
                   whileTap={!isLoading ? { scale: 0.98, y: 0, boxShadow: "1px 1px 0px #1a1a1a" } : {}}
-                  className="w-full py-3.5 bg-[var(--color-steel-blue)] text-white neo-btn flex items-center justify-center gap-2 disabled:opacity-70 disabled:bg-[#d4c4b5] disabled:cursor-not-allowed transition-all"
+                  className="w-full py-3.5 min-h-[44px] bg-[var(--color-steel-blue)] text-white neo-btn flex items-center justify-center gap-2 disabled:opacity-70 disabled:bg-[#d4c4b5] disabled:cursor-not-allowed transition-all"
                 >
                   {isLoading ? (
                     <>

@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { TbEdit, TbLoader2, TbTrash } from "react-icons/tb";
+import { TbEdit, TbLoader2, TbTrash, TbX } from "react-icons/tb";
 import type { Lab } from "@/types";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -161,10 +161,10 @@ export default function LabsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] tracking-tight">Manajemen Lab</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Manajemen Lab</h1>
           <p className="text-[#5a5a5a] mt-1 font-medium">Kelola laboratorium dan PC di dalamnya</p>
         </div>
         <motion.button
@@ -199,7 +199,7 @@ export default function LabsPage() {
           </motion.button>
         </div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {labs.map((lab, i) => (
             <motion.div
               key={lab.id}
@@ -296,11 +296,20 @@ export default function LabsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">
-                Tambah Lab Baru
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
+                  Tambah Lab Baru
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleCreateLab}>
                 <div>
@@ -310,7 +319,7 @@ export default function LabsPage() {
                     value={newLab.name}
                     onChange={(e) => setNewLab({ ...newLab, name: e.target.value })}
                     placeholder="e.g. Lab Dasar"
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -320,7 +329,7 @@ export default function LabsPage() {
                     value={newLab.location}
                     onChange={(e) => setNewLab({ ...newLab, location: e.target.value })}
                     placeholder="e.g. Gedung A, Lantai 2"
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -330,7 +339,7 @@ export default function LabsPage() {
                     value={newLab.description}
                     onChange={(e) => setNewLab({ ...newLab, description: e.target.value })}
                     placeholder="Deskripsi singkat lab"
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -340,7 +349,7 @@ export default function LabsPage() {
                     min={0}
                     value={newLab.capacity}
                     onChange={(e) => setNewLab({ ...newLab, capacity: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
 
@@ -350,7 +359,7 @@ export default function LabsPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isCreating}
-                    className="flex-1 py-3 bg-[#4b607f] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn"
                   >
                     {isCreating ? "Menyimpan..." : "Simpan"}
                   </motion.button>
@@ -362,7 +371,7 @@ export default function LabsPage() {
                       setShowCreateModal(false);
                       resetCreateForm();
                     }}
-                    className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
@@ -390,9 +399,21 @@ export default function LabsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Edit Lab</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Edit Lab</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingLabId(null);
+                  }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleEditLab}>
                 <div>
@@ -401,7 +422,7 @@ export default function LabsPage() {
                     type="text"
                     value={editLab.name}
                     onChange={(e) => setEditLab({ ...editLab, name: e.target.value })}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -410,7 +431,7 @@ export default function LabsPage() {
                     type="text"
                     value={editLab.location}
                     onChange={(e) => setEditLab({ ...editLab, location: e.target.value })}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -419,7 +440,7 @@ export default function LabsPage() {
                     type="text"
                     value={editLab.description}
                     onChange={(e) => setEditLab({ ...editLab, description: e.target.value })}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -429,7 +450,7 @@ export default function LabsPage() {
                     min={0}
                     value={editLab.capacity}
                     onChange={(e) => setEditLab({ ...editLab, capacity: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
                 <div>
@@ -439,7 +460,7 @@ export default function LabsPage() {
                     onChange={(e) =>
                       setEditLab({ ...editLab, status: e.target.value as Lab["status"] })
                     }
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm bg-white"
                   >
                     <option value="ACTIVE">Aktif</option>
                     <option value="INACTIVE">Tidak Aktif</option>
@@ -453,7 +474,7 @@ export default function LabsPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isEditing}
-                    className="flex-1 py-3 bg-[#4b607f] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn"
                   >
                     {isEditing ? "Menyimpan..." : "Simpan Perubahan"}
                   </motion.button>
@@ -465,7 +486,7 @@ export default function LabsPage() {
                       setShowEditModal(false);
                       setEditingLabId(null);
                     }}
-                    className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>

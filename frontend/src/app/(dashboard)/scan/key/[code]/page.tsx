@@ -328,7 +328,7 @@ export default function ScanKeyActionPage({
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <p className="text-sm text-[#5a5a5a]">Kode Kunci</p>
-            <h1 className="text-3xl font-heading font-bold text-[#1a1a1a]">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-[#1a1a1a] tracking-tight">
               {keyData.keyCode}
             </h1>
           </div>

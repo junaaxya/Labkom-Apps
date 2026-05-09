@@ -328,11 +328,11 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] mb-1">Absensi & Daily Task</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] mb-1">Absensi & Daily Task</h1>
           <p className="text-[#5a5a5a] text-sm">Check-in, task log, shift, & statistik</p>
         </div>
       </div>
@@ -421,7 +421,7 @@ export default function AttendancePage() {
           )}
 
           {/* Check-in/Check-out */}
-          <div className="neo-card p-6">
+          <div className="neo-card p-4 sm:p-6">
             <h3 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4 flex items-center gap-2">
               <TbMapPin className="w-6 h-6 text-[#4b607f]" /> Absensi
             </h3>
@@ -756,16 +756,25 @@ export default function AttendancePage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#f5ede6] neo-card p-6 w-full max-w-lg"
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4">Ajukan Izin / Sakit</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Ajukan Izin / Sakit</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveRequest(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Tipe *</label>
                   <select
                     value={leaveForm.type}
                     onChange={(e) => setLeaveForm({ ...leaveForm, type: e.target.value })}
-                    className="w-full px-4 py-3 neo-input text-base bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                   >
                     <option value="SICK">Sakit</option>
                     <option value="PERMISSION">Izin</option>
@@ -777,7 +786,7 @@ export default function AttendancePage() {
                     type="date"
                     value={leaveForm.date}
                     onChange={(e) => setLeaveForm({ ...leaveForm, date: e.target.value })}
-                    className="w-full px-4 py-3 neo-input text-base bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                   />
                 </div>
                 <div>
@@ -786,7 +795,7 @@ export default function AttendancePage() {
                     value={leaveForm.reason}
                     onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
                     placeholder="Jelaskan alasan izin/sakit..."
-                    className="w-full px-4 py-3 neo-input text-base bg-white resize-none h-20"
+                    className="w-full px-4 py-3 min-h-[80px] neo-input text-base bg-white resize-none"
                   />
                 </div>
                 <div>
@@ -838,9 +847,18 @@ export default function AttendancePage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#f5ede6] neo-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4">Tambah Daily Task</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Tambah Daily Task</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowAddTask(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Nama Task *</label>
@@ -849,7 +867,7 @@ export default function AttendancePage() {
                     value={taskForm.task}
                     onChange={(e) => setTaskForm({ ...taskForm, task: e.target.value })}
                     placeholder="Apa yang dikerjakan..."
-                    className="w-full px-4 py-3 neo-input text-base bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                   />
                 </div>
                 <div>
@@ -858,7 +876,7 @@ export default function AttendancePage() {
                     value={taskForm.description}
                     onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                     placeholder="Detail pekerjaan..."
-                    className="w-full px-4 py-3 neo-input text-base bg-white resize-none h-20"
+                    className="w-full px-4 py-3 min-h-[80px] neo-input text-base bg-white resize-none"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -867,7 +885,7 @@ export default function AttendancePage() {
                     <select
                       value={taskForm.categoryConfigId}
                       onChange={(e) => setTaskForm({ ...taskForm, categoryConfigId: e.target.value })}
-                      className="w-full px-4 py-3 neo-input text-base bg-white"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                     >
                       <option value="">— Pilih —</option>
                       {categories.filter((c) => c.isActive).map((cat) => (
@@ -882,7 +900,7 @@ export default function AttendancePage() {
                       value={taskForm.duration}
                       onChange={(e) => setTaskForm({ ...taskForm, duration: e.target.value })}
                       placeholder="30"
-                      className="w-full px-4 py-3 neo-input text-base bg-white"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                     />
                   </div>
                 </div>
@@ -891,7 +909,7 @@ export default function AttendancePage() {
                   <select
                     value={taskForm.labId}
                     onChange={(e) => setTaskForm({ ...taskForm, labId: e.target.value })}
-                    className="w-full px-4 py-3 neo-input text-base bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                   >
                     <option value="">— Pilih Lab (opsional) —</option>
                     {labs.map((lab) => (
@@ -948,16 +966,25 @@ export default function AttendancePage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#f5ede6] neo-card p-6 w-full max-w-lg"
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4">Ajukan Koreksi Absensi</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Ajukan Koreksi Absensi</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCorrection(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Jenis Koreksi *</label>
                   <select
                     value={correctionForm.requestType}
                     onChange={(e) => setCorrectionForm({ ...correctionForm, requestType: e.target.value })}
-                    className="w-full px-4 py-3 neo-input text-base bg-white"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                   >
                     {correctionTypes.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
@@ -972,7 +999,7 @@ export default function AttendancePage() {
                       value={correctionForm.oldValue}
                       onChange={(e) => setCorrectionForm({ ...correctionForm, oldValue: e.target.value })}
                       placeholder="08:30"
-                      className="w-full px-4 py-3 neo-input text-base bg-white"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                     />
                   </div>
                   <div>
@@ -982,7 +1009,7 @@ export default function AttendancePage() {
                       value={correctionForm.newValue}
                       onChange={(e) => setCorrectionForm({ ...correctionForm, newValue: e.target.value })}
                       placeholder="08:00"
-                      className="w-full px-4 py-3 neo-input text-base bg-white"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input text-base bg-white"
                     />
                   </div>
                 </div>
@@ -992,7 +1019,7 @@ export default function AttendancePage() {
                     value={correctionForm.reason}
                     onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })}
                     placeholder="Jelaskan alasan koreksi..."
-                    className="w-full px-4 py-3 neo-input text-base bg-white resize-none h-20"
+                    className="w-full px-4 py-3 min-h-[80px] neo-input text-base bg-white resize-none"
                   />
                 </div>
                 <div>

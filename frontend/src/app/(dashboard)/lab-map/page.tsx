@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TbDeviceDesktop, TbTicket, TbRefresh, TbLoader2 } from "react-icons/tb";
+import { TbDeviceDesktop, TbTicket, TbRefresh, TbLoader2, TbX } from "react-icons/tb";
 import api from "@/services/api";
 
 type PCStatus = "AVAILABLE" | "IN_USE" | "BROKEN" | "MAINTENANCE" | "INACTIVE";
@@ -155,11 +155,11 @@ export default function LabMapPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl md:text-3xl font-bold text-[#1a1a1a]">Denah Lab Interaktif</h1>
-          <p className="text-sm text-[#5a5a5a] mt-1">Visualisasi posisi & status PC secara real-time</p>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Denah Lab Interaktif</h1>
+          <p className="text-sm sm:text-base text-[#5a5a5a] mt-1 leading-relaxed">Visualisasi posisi & status PC secara real-time</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -217,7 +217,7 @@ export default function LabMapPage() {
         })}
       </div>
 
-      <div className="neo-card p-6 bg-white">
+      <div className="neo-card p-4 sm:p-6 bg-white">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-heading text-lg font-bold text-[#1a1a1a]">
             Denah {selectedLab?.name || "Lab"}
@@ -283,25 +283,32 @@ export default function LabMapPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card w-full max-w-md p-6 bg-white shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]"
             >
               <div className="flex items-center gap-3 mb-6">
                 <div
-                  className="w-12 h-12 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center"
+                  className="w-12 h-12 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: getNodeColor(selectedPC) }}
                 >
                   <TbDeviceDesktop size={24} className="text-white" strokeWidth={2} />
                 </div>
-                <div>
-                  <h3 className="font-heading text-lg font-bold text-[#1a1a1a]">{selectedPC.name}</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-heading text-lg font-bold text-[#1a1a1a] truncate">{selectedPC.name}</h3>
                   <p className="text-xs text-[#5a5a5a] font-medium">{selectedPC.pcCode}</p>
                 </div>
                 <span
-                  className="ml-auto px-3 py-1 rounded-lg text-xs font-bold text-white border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]"
+                  className="px-3 py-1 rounded-lg text-xs font-bold text-white border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0"
                   style={{ backgroundColor: getNodeColor(selectedPC) }}
                 >
                   {statusConfig[selectedPC.status].label}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPC(null)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
               </div>
 
               <div className="space-y-3">

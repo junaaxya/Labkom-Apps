@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { TbUserPlus, TbSearch, TbEdit, TbLock, TbToggleLeft, TbToggleRight } from "react-icons/tb";
+import { TbUserPlus, TbSearch, TbEdit, TbLock, TbToggleLeft, TbToggleRight, TbX } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
+import { MobileCard } from "@/components/ui/mobile-card";
 
 interface ApiRes<T> {
   success: boolean;
@@ -110,10 +111,10 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-heading)] text-[#1a1a1a] mb-1">
+          <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-heading)] text-[#1a1a1a] mb-1">
             Manajemen User
           </h1>
           <p className="text-[#5a5a5a] text-sm">Kelola semua pengguna sistem Labkom</p>
@@ -180,7 +181,74 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="neo-card overflow-hidden bg-white">
+      <div className="lg:hidden space-y-3">
+        {loading ? (
+          <div className="neo-card p-8 text-center text-[#5a5a5a] font-bold bg-white">Memuat data...</div>
+        ) : users.length === 0 ? (
+          <div className="neo-card p-10 text-center bg-white">
+            <TbSearch className="w-10 h-10 text-[#4b607f]/40 mx-auto mb-3" strokeWidth={1.5} />
+            <p className="font-bold text-[#1a1a1a] mb-1">Tidak ada user ditemukan</p>
+            <p className="text-[#5a5a5a] text-sm">Coba gunakan kata kunci pencarian yang lain.</p>
+          </div>
+        ) : (
+          users.map((user) => (
+            <MobileCard
+              key={user.id}
+              title={
+                <span className="flex items-center gap-2">
+                  {user.name}
+                  {user.isKetuaKelas && (
+                    <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-md neo-border-sm font-bold uppercase tracking-wider">KK</span>
+                  )}
+                </span>
+              }
+              subtitle={user.email}
+              badge={
+                <span className={`text-xs px-2.5 py-1 rounded-lg font-bold neo-border-sm ${ROLE_COLORS[user.role]}`}>
+                  {ROLE_LABELS[user.role]}
+                </span>
+              }
+              fields={[
+                {
+                  label: "NIM/NIP",
+                  value: <span className="font-mono font-bold bg-[#f5ede6] px-2 py-0.5 rounded neo-border-sm">{user.nim || user.nip || "-"}</span>,
+                },
+                {
+                  label: "Status",
+                  value: (
+                    <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-bold neo-border-sm ${user.isActive ? "bg-[#e8f5e9] text-green-800" : "bg-red-50 text-red-800"}`}>
+                      <span className={`w-2 h-2 rounded-full ${user.isActive ? "bg-green-500" : "bg-red-500"}`} />
+                      {user.isActive ? "Aktif" : "Nonaktif"}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={[
+                {
+                  label: "Edit",
+                  icon: <TbEdit className="w-4 h-4" />,
+                  onClick: () => { setSelectedUser(user); setShowEditModal(true); },
+                  variant: "secondary",
+                },
+                {
+                  label: "Reset PW",
+                  icon: <TbLock className="w-4 h-4" />,
+                  onClick: () => { setSelectedUser(user); setShowResetModal(true); },
+                  variant: "secondary",
+                },
+                {
+                  label: user.isActive ? "Nonaktifkan" : "Aktifkan",
+                  icon: user.isActive ? <TbToggleRight className="w-4 h-4 text-green-600" /> : <TbToggleLeft className="w-4 h-4 text-gray-400" />,
+                  onClick: () => handleToggleActive(user),
+                  variant: user.isActive ? "danger" : "success",
+                },
+              ]}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="hidden lg:block neo-card overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-[#4b607f] text-white border-b-2 border-[#1a1a1a]">
@@ -291,6 +359,26 @@ export default function UsersPage() {
         )}
       </div>
 
+      {totalPages > 1 && (
+        <div className="lg:hidden flex items-center justify-between p-4 neo-card bg-white">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="neo-btn px-4 py-2.5 text-sm font-bold bg-white text-[#1a1a1a] disabled:opacity-50"
+          >
+            Sebelumnya
+          </button>
+          <span className="text-sm font-bold text-[#1a1a1a]">{page} / {totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="neo-btn px-4 py-2.5 text-sm font-bold bg-white text-[#1a1a1a] disabled:opacity-50"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      )}
+
       {showCreateModal && (
         <CreateUserModal
           onClose={() => setShowCreateModal(false)}
@@ -352,32 +440,37 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="neo-card p-6 md:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#e8d8c9] shadow-[8px_8px_0px_#1a1a1a]">
-        <h2 className="text-2xl font-bold font-heading mb-6 flex items-center gap-3 text-[#1a1a1a]">
-          <div className="w-12 h-12 bg-white rounded-xl neo-border flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a]">
-            <TbUserPlus className="w-6 h-6 text-[#f3701e]" strokeWidth={2.2} />
-          </div>
-          Tambah User Baru
-        </h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="neo-card p-4 sm:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#e8d8c9] shadow-[8px_8px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold font-heading flex items-center gap-3 text-[#1a1a1a]">
+            <div className="w-12 h-12 bg-white rounded-xl neo-border flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
+              <TbUserPlus className="w-6 h-6 text-[#f3701e]" strokeWidth={2.2} />
+            </div>
+            Tambah User Baru
+          </h2>
+          <button type="button" onClick={onClose} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+            <TbX className="w-5 h-5" strokeWidth={2.5} />
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 bg-white p-6 rounded-xl neo-border">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Nama Lengkap *</label>
-              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Masukkan nama lengkap..." />
+              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Masukkan nama lengkap..." />
             </div>
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Email *</label>
-              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="email@contoh.com" />
+              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="email@contoh.com" />
             </div>
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Password *</label>
-              <input type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Minimal 6 karakter" />
+              <input type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Minimal 6 karakter" />
             </div>
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Role *</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="neo-input w-full px-4 py-3 bg-white cursor-pointer focus:shadow-[4px_4px_0px_#4b607f]">
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white cursor-pointer focus:shadow-[4px_4px_0px_#4b607f]">
                 {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
             </div>
@@ -388,19 +481,19 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
             <div>
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">NIM</label>
-              <input type="text" value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Untuk mahasiswa" />
+              <input type="text" value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Untuk mahasiswa" />
             </div>
             <div>
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">NIP</label>
-              <input type="text" value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Untuk staff" />
+              <input type="text" value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Untuk staff" />
             </div>
             <div>
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Semester</label>
-              <input type="text" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Contoh: 4" />
+              <input type="text" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Contoh: 4" />
             </div>
             <div>
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Kelas</label>
-              <input type="text" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="neo-input w-full px-4 py-3 bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Contoh: TI-2A" />
+              <input type="text" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Contoh: TI-2A" />
             </div>
             <div className="col-span-1 sm:col-span-2 bg-[#f8f9fa] p-4 rounded-xl neo-border mt-2">
               <label className="flex items-center gap-3 cursor-pointer w-fit">
@@ -474,18 +567,18 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="neo-card w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 bg-[#4b607f] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 bg-[#4b607f] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
               <TbEdit className="w-5 h-5 text-white" strokeWidth={2.2} />
             </div>
             <div>
               <h2 className="font-heading text-lg font-bold text-white">Edit User</h2>
-              <p className="text-xs text-white/70">{user.email}</p>
+              <p className="text-xs text-white/70 truncate max-w-[180px] sm:max-w-full">{user.email}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-            ✕
+          <button type="button" onClick={onClose} className="min-w-[44px] min-h-[44px] rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors flex-shrink-0">
+            <TbX className="w-5 h-5" strokeWidth={2.5} />
           </button>
         </div>
 
@@ -493,12 +586,12 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-[#1a1a1a]">Nama Lengkap</label>
-              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="Masukkan nama lengkap" />
+              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="Masukkan nama lengkap" />
             </div>
 
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-[#1a1a1a]">Email</label>
-              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="email@labkom.ac.id" />
+              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="email@labkom.ac.id" />
             </div>
 
             <div className="space-y-1.5">
@@ -528,19 +621,19 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">NIM</label>
-                <input type="text" value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="2210xxx" />
+                <input type="text" value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="2210xxx" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">NIP</label>
-                <input type="text" value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="19xxxx" />
+                <input type="text" value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="19xxxx" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Semester</label>
-                <input type="text" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="4" />
+                <input type="text" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="4" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Kelas</label>
-                <input type="text" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="neo-input w-full px-4 py-3 bg-white" placeholder="TI-4A" />
+                <input type="text" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="TI-4A" />
               </div>
             </div>
 
@@ -591,20 +684,20 @@ function ResetPasswordModal({ user, onClose, onSuccess }: { user: User; onClose:
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="neo-card w-full max-w-sm bg-white shadow-[6px_6px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 bg-[#f3701e] flex items-center justify-between">
+      <div className="neo-card w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white shadow-[6px_6px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 sm:px-6 py-4 bg-[#f3701e] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
               <TbLock className="w-5 h-5 text-white" strokeWidth={2.2} />
             </div>
             <h2 className="font-heading text-lg font-bold text-white">Reset Password</h2>
           </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-            ✕
+          <button type="button" onClick={onClose} className="min-w-[44px] min-h-[44px] rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors flex-shrink-0">
+            <TbX className="w-5 h-5" strokeWidth={2.5} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="p-4 rounded-xl bg-[#f5ede6] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] mb-5">
             <p className="text-xs text-[#5a5a5a] mb-0.5">Reset password untuk</p>
             <p className="font-heading font-bold text-[#1a1a1a]">{user.name}</p>
@@ -614,7 +707,7 @@ function ResetPasswordModal({ user, onClose, onSuccess }: { user: User; onClose:
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-[#1a1a1a]">Password Baru</label>
-              <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="neo-input w-full px-4 py-3 bg-white" placeholder="Minimal 6 karakter" />
+              <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="Minimal 6 karakter" />
             </div>
 
             <div className="flex gap-3 pt-4 border-t-2 border-dashed border-[#d5c4b5]">

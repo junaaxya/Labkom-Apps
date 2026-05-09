@@ -116,18 +116,18 @@ export default function GuidePage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] text-[#1a1a1a] flex items-center justify-center neo-border-sm shrink-0">
           <TbBook size={28} strokeWidth={2.2} />
         </div>
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Panduan Lab</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Panduan Lab</h1>
           <p className="text-[#4b607f] font-medium mt-1">Aturan dan prosedur penggunaan laboratorium</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2 space-y-4">
           {sections.map((section) => {
             const isOpen = openSection === section.id;
@@ -168,7 +168,7 @@ export default function GuidePage() {
         </div>
 
         <div className="space-y-6">
-          <div className="neo-card p-6 bg-[#f5ede6] hover:shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200">
+          <div className="neo-card p-4 sm:p-6 bg-[#f5ede6] hover:shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200">
             <div className="w-14 h-14 rounded-full bg-white neo-border flex items-center justify-center mb-4 shadow-[4px_4px_0px_#1a1a1a]">
               <TbRobot size={32} className="text-[#f3701e]" strokeWidth={2.2} />
             </div>
@@ -184,7 +184,7 @@ export default function GuidePage() {
             </Link>
           </div>
 
-          <div className="neo-card p-6 bg-white hover:shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200">
+          <div className="neo-card p-4 sm:p-6 bg-white hover:shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200">
             <h3 className="font-heading font-bold text-lg text-[#1a1a1a] mb-4 flex items-center gap-2">
               <TbAlertTriangle className="text-[#f3701e]" size={24} /> Informasi Penting
             </h3>

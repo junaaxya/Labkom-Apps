@@ -29,6 +29,7 @@ import {
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
+import { MobileCard } from "@/components/ui/mobile-card";
 import type {
   AttendanceEntry,
   DailyTaskLog,
@@ -520,7 +521,7 @@ export default function AttendanceMonitoringPage() {
       <header className="neo-card p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="font-heading text-2xl md:text-3xl font-black text-[#1a1a1a] tracking-wide">
+            <h1 className="font-heading text-2xl sm:text-3xl font-black text-[#1a1a1a] tracking-wide">
               Attendance Monitoring Koordinator
             </h1>
             <p className="mt-2 text-sm md:text-base text-[#5a5a5a] font-medium">
@@ -631,53 +632,75 @@ export default function AttendanceMonitoringPage() {
                 ) : todayAttendances.length === 0 ? (
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada data kehadiran hari ini.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[880px] border-collapse">
-                      <thead>
-                        <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
-                          <th className="text-left p-3 text-sm font-black">Nama</th>
-                          <th className="text-left p-3 text-sm font-black">Check-in Time</th>
-                          <th className="text-left p-3 text-sm font-black">Status</th>
-                          <th className="text-left p-3 text-sm font-black">Work Duration</th>
-                          <th className="text-left p-3 text-sm font-black">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {todayAttendances.map((attendance) => {
-                          const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
-                          const StatusIcon = statusCfg?.icon ?? TbClock;
-
-                          return (
-                            <tr key={attendance.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
-                              <td className="p-3 font-semibold text-[#1a1a1a]">{attendance.user?.name ?? "-"}</td>
-                              <td className="p-3 text-[#5a5a5a] text-sm">{formatDateTime(attendance.checkinAt)}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${
-                                    statusCfg?.className ?? "bg-gray-100 text-gray-700"
-                                  }`}
-                                >
-                                  <StatusIcon className="w-3.5 h-3.5" />
-                                  {statusCfg?.label ?? attendance.status}
-                                </span>
-                              </td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">
-                                {formatDuration(attendance.workDurationMinutes)}
-                              </td>
-                              <td className="p-3">
-                                <button
-                                  onClick={() => openVerifyModal(attendance)}
-                                  className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold"
-                                >
-                                  Verify
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    <div className="lg:hidden space-y-3">
+                      {todayAttendances.map((attendance) => {
+                        const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                        const StatusIcon = statusCfg?.icon ?? TbClock;
+                        return (
+                          <MobileCard
+                            key={attendance.id}
+                            title={attendance.user?.name ?? "-"}
+                            badge={
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {statusCfg?.label ?? attendance.status}
+                              </span>
+                            }
+                            fields={[
+                              { label: "Check-in", value: formatDateTime(attendance.checkinAt) },
+                              { label: "Durasi Kerja", value: formatDuration(attendance.workDurationMinutes) },
+                            ]}
+                            actions={[
+                              {
+                                label: "Verify",
+                                icon: <TbCheck className="w-4 h-4" />,
+                                onClick: () => openVerifyModal(attendance),
+                                variant: "primary",
+                              },
+                            ]}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full min-w-[880px] border-collapse">
+                        <thead>
+                          <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
+                            <th className="text-left p-3 text-sm font-black">Nama</th>
+                            <th className="text-left p-3 text-sm font-black">Check-in Time</th>
+                            <th className="text-left p-3 text-sm font-black">Status</th>
+                            <th className="text-left p-3 text-sm font-black">Work Duration</th>
+                            <th className="text-left p-3 text-sm font-black">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {todayAttendances.map((attendance) => {
+                            const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                            const StatusIcon = statusCfg?.icon ?? TbClock;
+                            return (
+                              <tr key={attendance.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
+                                <td className="p-3 font-semibold text-[#1a1a1a]">{attendance.user?.name ?? "-"}</td>
+                                <td className="p-3 text-[#5a5a5a] text-sm">{formatDateTime(attendance.checkinAt)}</td>
+                                <td className="p-3">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                    <StatusIcon className="w-3.5 h-3.5" />
+                                    {statusCfg?.label ?? attendance.status}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{formatDuration(attendance.workDurationMinutes)}</td>
+                                <td className="p-3">
+                                  <button onClick={() => openVerifyModal(attendance)} className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold">
+                                    Verify
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -747,59 +770,85 @@ export default function AttendanceMonitoringPage() {
                 ) : visibleTasks.length === 0 ? (
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Tidak ada task yang perlu direview.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1100px] border-collapse">
-                      <thead>
-                        <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
-                          <th className="text-left p-3 text-sm font-black">Aslab Name</th>
-                          <th className="text-left p-3 text-sm font-black">Task</th>
-                          <th className="text-left p-3 text-sm font-black">Category</th>
-                          <th className="text-left p-3 text-sm font-black">Duration</th>
-                          <th className="text-left p-3 text-sm font-black">Lab</th>
-                          <th className="text-left p-3 text-sm font-black">Status</th>
-                          <th className="text-left p-3 text-sm font-black">Date</th>
-                          <th className="text-left p-3 text-sm font-black">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visibleTasks.map((task) => {
-                          const statusCfg = TASK_STATUS_CONFIG[task.status];
-                          const StatusIcon = statusCfg?.icon ?? TbClock;
-
-                          return (
-                            <tr key={task.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
-                              <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{task.user?.name ?? "-"}</td>
-                              <td className="p-3 text-sm text-[#1a1a1a] max-w-[240px]">
-                                <p className="font-semibold truncate">{task.task}</p>
-                              </td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{task.category ?? "-"}</td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{formatDuration(task.duration)}</td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{task.lab?.name ?? "-"}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${
-                                    statusCfg?.className ?? "bg-gray-100 text-gray-700"
-                                  }`}
-                                >
-                                  <StatusIcon className="w-3.5 h-3.5" />
-                                  {statusCfg?.label ?? task.status}
-                                </span>
-                              </td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{formatDate(task.createdAt)}</td>
-                              <td className="p-3">
-                                <button
-                                  onClick={() => openReviewModal(task)}
-                                  className="neo-btn px-3 py-1.5 bg-[#f3701e] text-white text-xs font-bold"
-                                >
-                                  Review
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    <div className="lg:hidden space-y-3">
+                      {visibleTasks.map((task) => {
+                        const statusCfg = TASK_STATUS_CONFIG[task.status];
+                        const StatusIcon = statusCfg?.icon ?? TbClock;
+                        return (
+                          <MobileCard
+                            key={task.id}
+                            title={task.user?.name ?? "-"}
+                            subtitle={task.task}
+                            badge={
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {statusCfg?.label ?? task.status}
+                              </span>
+                            }
+                            fields={[
+                              { label: "Kategori", value: task.category ?? "-" },
+                              { label: "Durasi", value: formatDuration(task.duration) },
+                              { label: "Lab", value: task.lab?.name ?? "-" },
+                              { label: "Tanggal", value: formatDate(task.createdAt) },
+                            ]}
+                            actions={[
+                              {
+                                label: "Review",
+                                onClick: () => openReviewModal(task),
+                                variant: "warning",
+                              },
+                            ]}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full min-w-[1100px] border-collapse">
+                        <thead>
+                          <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
+                            <th className="text-left p-3 text-sm font-black">Aslab Name</th>
+                            <th className="text-left p-3 text-sm font-black">Task</th>
+                            <th className="text-left p-3 text-sm font-black">Category</th>
+                            <th className="text-left p-3 text-sm font-black">Duration</th>
+                            <th className="text-left p-3 text-sm font-black">Lab</th>
+                            <th className="text-left p-3 text-sm font-black">Status</th>
+                            <th className="text-left p-3 text-sm font-black">Date</th>
+                            <th className="text-left p-3 text-sm font-black">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleTasks.map((task) => {
+                            const statusCfg = TASK_STATUS_CONFIG[task.status];
+                            const StatusIcon = statusCfg?.icon ?? TbClock;
+                            return (
+                              <tr key={task.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
+                                <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{task.user?.name ?? "-"}</td>
+                                <td className="p-3 text-sm text-[#1a1a1a] max-w-[240px]">
+                                  <p className="font-semibold truncate">{task.task}</p>
+                                </td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{task.category ?? "-"}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{formatDuration(task.duration)}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{task.lab?.name ?? "-"}</td>
+                                <td className="p-3">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                    <StatusIcon className="w-3.5 h-3.5" />
+                                    {statusCfg?.label ?? task.status}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{formatDate(task.createdAt)}</td>
+                                <td className="p-3">
+                                  <button onClick={() => openReviewModal(task)} className="neo-btn px-3 py-1.5 bg-[#f3701e] text-white text-xs font-bold">
+                                    Review
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -843,58 +892,82 @@ export default function AttendanceMonitoringPage() {
                 ) : shiftSchedules.length === 0 ? (
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada jadwal shift untuk bulan ini.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1000px] border-collapse">
-                      <thead>
-                        <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
-                          <th className="text-left p-3 text-sm font-black">Date</th>
-                          <th className="text-left p-3 text-sm font-black">Aslab</th>
-                          <th className="text-left p-3 text-sm font-black">Lab</th>
-                          <th className="text-left p-3 text-sm font-black">Shift Time</th>
-                          <th className="text-left p-3 text-sm font-black">Status</th>
-                          <th className="text-left p-3 text-sm font-black">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {shiftSchedules.map((schedule) => {
-                          const statusCfg = SHIFT_STATUS_CONFIG[schedule.status];
-                          const StatusIcon = statusCfg?.icon ?? TbClock;
-                          const shiftLabel =
-                            schedule.shift?.name ??
-                            `${schedule.shift?.startTime ?? "-"} - ${schedule.shift?.endTime ?? "-"}`;
-
-                          return (
-                            <tr key={schedule.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
-                              <td className="p-3 text-sm text-[#1a1a1a]">{formatDate(schedule.scheduleDate)}</td>
-                              <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{schedule.user?.name ?? "-"}</td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{schedule.lab?.name ?? "-"}</td>
-                              <td className="p-3 text-sm text-[#5a5a5a]">{shiftLabel}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${
-                                    statusCfg?.className ?? "bg-gray-100 text-gray-700"
-                                  }`}
-                                >
-                                  <StatusIcon className="w-3.5 h-3.5" />
-                                  {statusCfg?.label ?? schedule.status}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <button
-                                  onClick={() => void deleteShiftSchedule(schedule.id)}
-                                  className="neo-btn px-3 py-1.5 bg-red-600 text-white text-xs font-bold"
-                                >
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <TbTrash className="w-3.5 h-3.5" /> Delete
+                  <>
+                    <div className="lg:hidden space-y-3">
+                      {shiftSchedules.map((schedule) => {
+                        const statusCfg = SHIFT_STATUS_CONFIG[schedule.status];
+                        const StatusIcon = statusCfg?.icon ?? TbClock;
+                        const shiftLabel = schedule.shift?.name ?? `${schedule.shift?.startTime ?? "-"} - ${schedule.shift?.endTime ?? "-"}`;
+                        return (
+                          <MobileCard
+                            key={schedule.id}
+                            title={schedule.user?.name ?? "-"}
+                            subtitle={formatDate(schedule.scheduleDate)}
+                            badge={
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {statusCfg?.label ?? schedule.status}
+                              </span>
+                            }
+                            fields={[
+                              { label: "Lab", value: schedule.lab?.name ?? "-" },
+                              { label: "Shift", value: shiftLabel },
+                            ]}
+                            actions={[
+                              {
+                                label: "Hapus",
+                                icon: <TbTrash className="w-4 h-4" />,
+                                onClick: () => void deleteShiftSchedule(schedule.id),
+                                variant: "danger",
+                              },
+                            ]}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full min-w-[1000px] border-collapse">
+                        <thead>
+                          <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
+                            <th className="text-left p-3 text-sm font-black">Date</th>
+                            <th className="text-left p-3 text-sm font-black">Aslab</th>
+                            <th className="text-left p-3 text-sm font-black">Lab</th>
+                            <th className="text-left p-3 text-sm font-black">Shift Time</th>
+                            <th className="text-left p-3 text-sm font-black">Status</th>
+                            <th className="text-left p-3 text-sm font-black">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shiftSchedules.map((schedule) => {
+                            const statusCfg = SHIFT_STATUS_CONFIG[schedule.status];
+                            const StatusIcon = statusCfg?.icon ?? TbClock;
+                            const shiftLabel = schedule.shift?.name ?? `${schedule.shift?.startTime ?? "-"} - ${schedule.shift?.endTime ?? "-"}`;
+                            return (
+                              <tr key={schedule.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
+                                <td className="p-3 text-sm text-[#1a1a1a]">{formatDate(schedule.scheduleDate)}</td>
+                                <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{schedule.user?.name ?? "-"}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{schedule.lab?.name ?? "-"}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{shiftLabel}</td>
+                                <td className="p-3">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
+                                    <StatusIcon className="w-3.5 h-3.5" />
+                                    {statusCfg?.label ?? schedule.status}
                                   </span>
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                </td>
+                                <td className="p-3">
+                                  <button onClick={() => void deleteShiftSchedule(schedule.id)} className="neo-btn px-3 py-1.5 bg-red-600 text-white text-xs font-bold">
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <TbTrash className="w-3.5 h-3.5" /> Delete
+                                    </span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -988,11 +1061,20 @@ export default function AttendanceMonitoringPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#f5ede6] neo-card p-6 w-full max-w-md"
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="font-heading font-bold text-lg text-[#1a1a1a] mb-4">
-                {leaveReviewAction === "APPROVED" ? "Setujui" : "Tolak"} Pengajuan
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-lg text-[#1a1a1a] truncate">
+                  {leaveReviewAction === "APPROVED" ? "Setujui" : "Tolak"} Pengajuan
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setLeaveReviewOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
               <div className="space-y-3 mb-4">
                 <p className="text-sm"><span className="font-bold">Nama:</span> {selectedLeave.user?.name}</p>
                 <p className="text-sm"><span className="font-bold">Tipe:</span> {selectedLeave.type === "SICK" ? "Sakit" : "Izin"}</p>
@@ -1044,11 +1126,22 @@ export default function AttendanceMonitoringPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.98, y: 10, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-lg bg-[#f5ede6] p-5"
+              className="neo-card w-full max-w-lg bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
               onClick={(event) => event.stopPropagation()}
             >
-              <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Verify Attendance</h3>
-              <p className="text-sm text-[#5a5a5a] mt-1">{selectedAttendance.user?.name ?? "-"}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Verify Attendance</h3>
+                  <p className="text-sm text-[#5a5a5a] mt-1">{selectedAttendance.user?.name ?? "-"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVerifyOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <div className="grid grid-cols-2 gap-2 mt-4">
                 <button
@@ -1115,13 +1208,24 @@ export default function AttendanceMonitoringPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.98, y: 10, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-xl bg-[#f5ede6] p-5"
+              className="neo-card w-full max-w-xl bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
               onClick={(event) => event.stopPropagation()}
             >
-              <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Review Task</h3>
-              <p className="text-sm text-[#5a5a5a] mt-1">
-                {selectedTask.user?.name ?? "-"} · {selectedTask.task}
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Review Task</h3>
+                  <p className="text-sm text-[#5a5a5a] mt-1 truncate">
+                    {selectedTask.user?.name ?? "-"} · {selectedTask.task}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-4">
                 <button
@@ -1196,10 +1300,19 @@ export default function AttendanceMonitoringPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.98, y: 10, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-2xl bg-[#f5ede6] p-5"
+              className="neo-card w-full max-w-2xl bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
               onClick={(event) => event.stopPropagation()}
             >
-              <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Tambah Jadwal Shift</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading text-xl font-black text-[#1a1a1a]">Tambah Jadwal Shift</h3>
+                <button
+                  type="button"
+                  onClick={() => setShiftModalOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>

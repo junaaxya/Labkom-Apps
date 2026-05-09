@@ -129,8 +129,8 @@ export default function ScanKeysPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="neo-card p-6 bg-white">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="neo-card p-4 sm:p-6 bg-white">
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-lg bg-[#f3701e] text-white neo-border-sm flex items-center justify-center">
             <TbQrcode size={22} strokeWidth={2.2} />

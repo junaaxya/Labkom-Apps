@@ -184,7 +184,7 @@ export function NotificationPanel() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring" as const, stiffness: 300, damping: 25 }}
-            className="absolute right-0 top-12 w-[380px] max-h-[480px] bg-white neo-border rounded-xl neo-shadow overflow-hidden z-50"
+            className="absolute right-0 top-12 w-[min(380px,calc(100vw-2rem))] max-h-[480px] bg-white neo-border rounded-xl neo-shadow overflow-hidden z-50"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#1a1a1a]">
               <h3 className="font-heading font-bold text-[#1a1a1a]">Notifikasi</h3>

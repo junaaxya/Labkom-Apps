@@ -55,9 +55,9 @@ export default function AssistantsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-heading text-[#1a1a1a] mb-1">Daftar Asisten Lab</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] mb-1">Daftar Asisten Lab</h1>
         <p className="text-[#5a5a5a] text-sm">Kelola dan lihat profil asisten laboratorium</p>
       </div>
 
@@ -68,7 +68,7 @@ export default function AssistantsPage() {
               <TbUserCode className="w-6 h-6 text-[#1a1a1a]" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-3xl font-bold font-heading text-[#4b607f] leading-none">{aslebs.length}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-heading text-[#4b607f] leading-none">{aslebs.length}</p>
               <p className="text-sm font-bold text-[#5a5a5a] mt-1">Total Asleb</p>
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function AssistantsPage() {
               <TbUserCode className="w-6 h-6 text-green-700" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-3xl font-bold font-heading text-green-600 leading-none">{aslebs.filter((a) => a.isActive).length}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-heading text-green-600 leading-none">{aslebs.filter((a) => a.isActive).length}</p>
               <p className="text-sm font-bold text-[#5a5a5a] mt-1">Aktif</p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function AssistantsPage() {
               <TbUserCode className="w-6 h-6 text-red-600" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-3xl font-bold font-heading text-red-600 leading-none">{aslebs.filter((a) => !a.isActive).length}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-heading text-red-600 leading-none">{aslebs.filter((a) => !a.isActive).length}</p>
               <p className="text-sm font-bold text-[#5a5a5a] mt-1">Nonaktif</p>
             </div>
           </div>

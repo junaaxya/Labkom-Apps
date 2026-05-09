@@ -110,11 +110,11 @@ export default function ReportsPage() {
   const safePercent = (val: number, total: number) => total > 0 ? Math.round((val / total) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Laporan Bulanan</h1>
-          <p className="text-[#4b607f] mt-1 text-lg">Statistik penggunaan lab & performa asisten</p>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Laporan Bulanan</h1>
+          <p className="text-[#4b607f] mt-1 text-sm sm:text-base leading-relaxed">Statistik penggunaan lab & performa asisten</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-[#f5ede6] p-1.5 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
@@ -168,8 +168,8 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="neo-card p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 sm:gap-6 mb-4 sm:mb-8">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="neo-card p-4 sm:p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs text-[#4b607f] font-bold uppercase tracking-wider">LOGBOOK</p>
             <div className="bg-[#4b607f] text-white px-2 py-1 rounded text-[10px] font-bold border border-[#1a1a1a]">
@@ -177,14 +177,14 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex items-baseline gap-2 mb-3">
-            <p className="text-4xl font-bold font-heading text-[#1a1a1a]">{report.logbooks.completed}</p>
+            <p className="text-3xl sm:text-4xl font-bold font-heading text-[#1a1a1a]">{report.logbooks.completed}</p>
             <p className="text-sm font-bold text-[#4b607f]">/ {report.logbooks.total}</p>
           </div>
           <ProgressBar value={report.logbooks.completed} max={report.logbooks.total} color="bg-[#4b607f]" />
           <p className="text-xs text-[#4b607f] font-medium mt-3">Logbook selesai dikerjakan</p>
         </motion.div>
         
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="neo-card p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="neo-card p-4 sm:p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs text-[#4b607f] font-bold uppercase tracking-wider">TICKET</p>
             <div className="bg-green-500 text-white px-2 py-1 rounded text-[10px] font-bold border border-[#1a1a1a]">
@@ -192,14 +192,14 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex items-baseline gap-2 mb-3">
-            <p className="text-4xl font-bold font-heading text-[#1a1a1a]">{report.tickets.resolved}</p>
+            <p className="text-3xl sm:text-4xl font-bold font-heading text-[#1a1a1a]">{report.tickets.resolved}</p>
             <p className="text-sm font-bold text-[#4b607f]">/ {report.tickets.total}</p>
           </div>
           <ProgressBar value={report.tickets.resolved} max={report.tickets.total} color="bg-green-500" />
           <p className="text-xs text-[#4b607f] font-medium mt-3">Ticket berhasil diselesaikan</p>
         </motion.div>
         
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="neo-card p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="neo-card p-4 sm:p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs text-[#4b607f] font-bold uppercase tracking-wider">ABSENSI</p>
             <div className="bg-[#f3701e] text-white px-2 py-1 rounded text-[10px] font-bold border border-[#1a1a1a]">
@@ -207,7 +207,7 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex items-baseline gap-2 mb-3">
-            <p className="text-4xl font-bold font-heading text-[#1a1a1a]">{report.attendance.total - report.attendance.late}</p>
+            <p className="text-3xl sm:text-4xl font-bold font-heading text-[#1a1a1a]">{report.attendance.total - report.attendance.late}</p>
             <p className="text-sm font-bold text-[#4b607f]">/ {report.attendance.total}</p>
           </div>
           <ProgressBar value={report.attendance.total - report.attendance.late} max={report.attendance.total} color="bg-[#f3701e]" />
@@ -216,7 +216,7 @@ export default function ReportsPage() {
           </p>
         </motion.div>
         
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="neo-card p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="neo-card p-4 sm:p-6 bg-white neo-card-hover transition-all hover:-translate-y-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs text-[#4b607f] font-bold uppercase tracking-wider">MISI</p>
             <div className="bg-yellow-500 text-white px-2 py-1 rounded text-[10px] font-bold border border-[#1a1a1a]">
@@ -224,7 +224,7 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex items-baseline gap-2 mb-3">
-            <p className="text-4xl font-bold font-heading text-[#1a1a1a]">{report.missions.approved}</p>
+            <p className="text-3xl sm:text-4xl font-bold font-heading text-[#1a1a1a]">{report.missions.approved}</p>
             <p className="text-sm font-bold text-[#4b607f]">/ {report.missions.total}</p>
           </div>
           <ProgressBar value={report.missions.approved} max={report.missions.total} color="bg-yellow-500" />

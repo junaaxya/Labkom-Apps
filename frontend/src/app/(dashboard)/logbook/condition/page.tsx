@@ -128,8 +128,8 @@ export default function LogbookConditionPage() {
 
   if (!logbook) {
     return (
-      <div className="max-w-lg mx-auto p-6">
-        <div className="bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-8 text-center">
+      <div className="max-w-lg mx-auto p-4 sm:p-6">
+        <div className="neo-card p-8 text-center">
           <TbMoodEmpty className="w-16 h-16 mx-auto text-[#9ca3af] mb-4" />
           <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-2">Tidak Ada Sesi Aktif</h2>
           <p className="text-[#5a5a5a]">Asisten Lab belum melakukan check-in hari ini.</p>
@@ -157,7 +157,7 @@ export default function LogbookConditionPage() {
         <div className="space-y-3">
           <h3 className="font-heading text-lg font-bold text-[#1a1a1a]">Sudah Disubmit</h3>
           {logbook.conditions.map((c) => (
-            <div key={c.id} className="bg-white border-2 border-[#1a1a1a] rounded-xl p-4 flex items-center justify-between">
+            <div key={c.id} className="neo-card p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <TbBuildingWarehouse className="w-5 h-5 text-[#4b607f]" />
                 <span className="font-semibold">{c.lab.name}</span>
@@ -171,22 +171,22 @@ export default function LogbookConditionPage() {
       )}
 
       {availableLabs.length === 0 ? (
-        <div className="bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6 text-center">
+        <div className="neo-card p-4 sm:p-6 text-center">
           <TbCheck className="w-12 h-12 mx-auto text-green-500 mb-3" />
           <h3 className="font-heading text-lg font-bold">Semua Lab Sudah Divalidasi</h3>
           <p className="text-[#5a5a5a] text-sm mt-1">Kondisi semua lab sudah disubmit hari ini.</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Pilih Lab</label>
-            <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="neo-card p-4 sm:p-6 space-y-5">
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-[#1a1a1a]">Pilih Lab</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {availableLabs.map((lab) => (
                 <button
                   key={lab.id}
                   type="button"
                   onClick={() => setSelectedLab(lab)}
-                  className={`p-3 border-2 rounded-xl text-left font-semibold transition-all ${selectedLab?.id === lab.id ? "border-[#f3701e] bg-orange-50 shadow-[2px_2px_0px_#f3701e]" : "border-[#1a1a1a] bg-white hover:bg-[#f5ede6]"}`}
+                  className={`p-3 min-h-[44px] border-2 rounded-xl text-left font-semibold transition-all ${selectedLab?.id === lab.id ? "border-[#f3701e] bg-orange-50 shadow-[2px_2px_0px_#f3701e]" : "border-[#1a1a1a] bg-white hover:bg-[#f5ede6]"}`}
                 >
                   <TbBuildingWarehouse className="w-5 h-5 mb-1" />
                   {lab.name}
@@ -197,16 +197,16 @@ export default function LogbookConditionPage() {
 
           {selectedLab && (
             <>
-              <div>
-                <label className="block text-sm font-bold text-[#1a1a1a] mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-[#1a1a1a]">
                   <TbPhoto className="inline w-4 h-4 mr-1" />
                   Foto Kondisi Lab ({photos.length}/5) *
                 </label>
-                <div className="flex gap-3 mb-3">
-                  <button type="button" onClick={() => cameraRef.current?.click()} className="flex-1 py-3 bg-[#4b607f] text-white border-2 border-[#1a1a1a] rounded-xl font-semibold shadow-[2px_2px_0px_#1a1a1a] hover:shadow-none transition-all flex items-center justify-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                  <button type="button" onClick={() => cameraRef.current?.click()} className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn flex items-center justify-center gap-2">
                     <TbCamera className="w-5 h-5" /> Buka Kamera
                   </button>
-                  <button type="button" onClick={() => fileRef.current?.click()} className="flex-1 py-3 bg-white text-[#1a1a1a] border-2 border-[#1a1a1a] rounded-xl font-semibold shadow-[2px_2px_0px_#1a1a1a] hover:shadow-none transition-all flex items-center justify-center gap-2">
+                  <button type="button" onClick={() => fileRef.current?.click()} className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn flex items-center justify-center gap-2">
                     <TbPhoto className="w-5 h-5" /> Pilih dari Galeri
                   </button>
                 </div>
@@ -226,23 +226,23 @@ export default function LogbookConditionPage() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-bold text-[#1a1a1a]">
                   <TbAlertTriangle className="inline w-4 h-4 mr-1 text-yellow-500" />
                   Kerusakan Baru (opsional)
                 </label>
-                <textarea value={kerusakanBaru} onChange={(e) => setKerusakanBaru(e.target.value)} placeholder="Jelaskan kerusakan yang ditemukan..." className="w-full p-3 border-2 border-[#1a1a1a] rounded-xl bg-white focus:ring-2 focus:ring-[#f3701e] resize-none" rows={2} />
+                <textarea value={kerusakanBaru} onChange={(e) => setKerusakanBaru(e.target.value)} placeholder="Jelaskan kerusakan yang ditemukan..." className="w-full p-3 min-h-[80px] neo-input focus:outline-none resize-none" rows={2} />
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-[#1a1a1a] mb-1">Catatan (opsional)</label>
-                <textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Catatan tambahan..." className="w-full p-3 border-2 border-[#1a1a1a] rounded-xl bg-white focus:ring-2 focus:ring-[#f3701e] resize-none" rows={2} />
+              <div className="space-y-1.5">
+                <label className="block text-sm font-bold text-[#1a1a1a]">Catatan (opsional)</label>
+                <textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Catatan tambahan..." className="w-full p-3 min-h-[80px] neo-input focus:outline-none resize-none" rows={2} />
               </div>
 
               <button
                 type="submit"
                 disabled={photos.length === 0 || submitting}
-                className="w-full py-3 bg-[#f3701e] text-white border-2 border-[#1a1a1a] rounded-xl font-bold text-lg shadow-[4px_4px_0px_#1a1a1a] hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 min-h-[44px] bg-[#f3701e] text-white neo-btn font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting ? <TbLoader2 className="w-5 h-5 animate-spin" /> : <TbSend className="w-5 h-5" />}
                 {submitting ? "Mengirim..." : "Submit Kondisi"}

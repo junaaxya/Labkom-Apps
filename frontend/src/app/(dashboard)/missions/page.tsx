@@ -219,14 +219,14 @@ export default function MissionsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center">
             <TbTarget size={24} className="text-[#f3701e]" strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Mission System</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Mission System</h1>
             <p className="text-[#5a5a5a] font-medium mt-1">Kerjakan misi, kumpulkan poin!</p>
           </div>
         </div>
@@ -327,7 +327,7 @@ export default function MissionsPage() {
       </div>
 
       {tab === "missions" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {loading ? (
             <div className="md:col-span-2 lg:col-span-3 neo-card p-12 text-center flex flex-col items-center justify-center">
               <div className="w-12 h-12 border-4 border-[#1a1a1a] border-t-[#f3701e] rounded-full animate-spin mb-4"></div>
@@ -484,7 +484,7 @@ export default function MissionsPage() {
       )}
 
       {tab === "leaderboard" && (
-        <div className="neo-card p-6 max-w-3xl mx-auto">
+        <div className="neo-card p-4 sm:p-6 max-w-3xl mx-auto">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-[#1a1a1a]">
             <div className="w-10 h-10 rounded-xl bg-[#f3701e] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a]">
               <TbTrophy size={24} className="text-white" strokeWidth={2.2} />
@@ -553,18 +553,25 @@ export default function MissionsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white border-4 border-[#1a1a1a] rounded-xl shadow-[8px_8px_0px_#1a1a1a] p-8 w-full max-w-lg relative overflow-hidden"
+              className="bg-white border-4 border-[#1a1a1a] rounded-xl shadow-[8px_8px_0px_#1a1a1a] p-4 sm:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto relative"
             >
               <div className="absolute top-0 left-0 w-full h-3 bg-[#f3701e] border-b-4 border-[#1a1a1a]"></div>
               
-              <div className="flex items-center gap-3 mb-6 mt-2">
-                <div className="w-12 h-12 rounded-xl bg-[#4b607f] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a]">
+              <div className="flex items-start gap-3 mb-6 mt-2">
+                <div className="w-12 h-12 rounded-xl bg-[#4b607f] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
                   <TbTarget size={24} className="text-white" strokeWidth={2.2} />
                 </div>
-                <div>
-                  <h2 className="font-heading text-2xl font-bold text-[#1a1a1a] leading-none">Buat Misi Baru</h2>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] leading-none">Buat Misi Baru</h2>
                   <p className="text-sm font-bold text-[#5a5a5a] mt-1">Tambahkan tantangan untuk tim</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
               </div>
 
               <form className="space-y-5" onSubmit={handleCreateMission}>
@@ -576,7 +583,7 @@ export default function MissionsPage() {
                     value={form.title}
                     onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="e.g. Bersihkan Server Rack"
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-base font-medium placeholder:text-gray-400"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-base font-medium placeholder:text-gray-400"
                   />
                 </div>
                 <div>
@@ -587,7 +594,7 @@ export default function MissionsPage() {
                     value={form.description}
                     onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder="Detail instruksi misi yang harus dilakukan..."
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-base font-medium resize-none placeholder:text-gray-400"
+                    className="w-full px-4 py-3 min-h-[120px] neo-input focus:outline-none text-base font-medium resize-none placeholder:text-gray-400"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -604,7 +611,7 @@ export default function MissionsPage() {
                         value={form.points}
                         onChange={(e) => setForm((prev) => ({ ...prev, points: e.target.value }))}
                         placeholder="100"
-                        className="w-full pl-11 pr-4 py-3 neo-input focus:outline-none text-base font-bold text-[#f3701e]"
+                        className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input focus:outline-none text-base font-bold text-[#f3701e]"
                       />
                     </div>
                   </div>
@@ -618,7 +625,7 @@ export default function MissionsPage() {
                         type="date"
                         value={form.deadline}
                         onChange={(e) => setForm((prev) => ({ ...prev, deadline: e.target.value }))}
-                        className="w-full pl-11 pr-4 py-3 neo-input focus:outline-none text-base font-medium"
+                        className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input focus:outline-none text-base font-medium"
                       />
                     </div>
                   </div>
@@ -668,18 +675,25 @@ export default function MissionsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white border-4 border-[#1a1a1a] rounded-xl shadow-[8px_8px_0px_#1a1a1a] p-8 w-full max-w-lg relative overflow-hidden"
+              className="bg-white border-4 border-[#1a1a1a] rounded-xl shadow-[8px_8px_0px_#1a1a1a] p-4 sm:p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto relative"
             >
               <div className="absolute top-0 left-0 w-full h-3 bg-[#4b607f] border-b-4 border-[#1a1a1a]"></div>
 
-              <div className="flex items-center gap-3 mb-6 mt-2">
-                <div className="w-12 h-12 rounded-xl bg-[#f3701e] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a]">
+              <div className="flex items-start gap-3 mb-6 mt-2">
+                <div className="w-12 h-12 rounded-xl bg-[#f3701e] flex items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
                   <TbSend size={24} className="text-white" strokeWidth={2.2} />
                 </div>
-                <div>
-                  <h2 className="font-heading text-2xl font-bold text-[#1a1a1a] leading-none">Submit Bukti</h2>
-                  <p className="text-sm font-bold text-[#5a5a5a] mt-1">{selectedClaim.mission.title}</p>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] leading-none">Submit Bukti</h2>
+                  <p className="text-sm font-bold text-[#5a5a5a] mt-1 truncate">{selectedClaim.mission.title}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSubmitModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
               </div>
 
               <div className="space-y-5">
@@ -698,7 +712,7 @@ export default function MissionsPage() {
                     value={proofNote}
                     onChange={(e) => setProofNote(e.target.value)}
                     placeholder="Jelaskan apa yang sudah dikerjakan..."
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-base font-medium resize-none placeholder:text-gray-400"
+                    className="w-full px-4 py-3 min-h-[120px] neo-input focus:outline-none text-base font-medium resize-none placeholder:text-gray-400"
                   />
                 </div>
 

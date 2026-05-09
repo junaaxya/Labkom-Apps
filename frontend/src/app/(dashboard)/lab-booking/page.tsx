@@ -208,14 +208,14 @@ export default function LabBookingPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="neo-card p-6 md:p-8 bg-white neo-card-hover transition-all duration-200">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="neo-card p-4 sm:p-6 md:p-8 bg-white neo-card-hover transition-all duration-200">
         <div className="flex flex-col md:flex-row md:items-center gap-5">
           <div className="w-16 h-16 rounded-2xl bg-[#e8d8c9] text-[#1a1a1a] neo-border flex items-center justify-center shrink-0 shadow-[4px_4px_0px_#1a1a1a]">
             <TbCalendarClock size={32} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] mb-2">Peminjaman Lab Mandiri</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] mb-2">Peminjaman Lab Mandiri</h1>
             <p className="text-base font-medium text-[#5a5a5a] max-w-2xl">
               Ajukan peminjaman laboratorium, pantau status persetujuan, dan lihat riwayat peminjaman Anda dalam satu tempat terpusat.
             </p>
@@ -287,19 +287,19 @@ export default function LabBookingPage() {
       ) : (
         <>
           {activeTab === "request" && canRequest && (
-            <form onSubmit={handleSubmit} className="neo-card p-6 md:p-8 bg-white space-y-6">
+            <form onSubmit={handleSubmit} className="neo-card p-4 sm:p-6 md:p-8 bg-white space-y-6">
               <h2 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4 pb-4 border-b-2 border-dashed border-gray-200 flex items-center gap-2">
                 <TbClipboardList className="text-[#f3701e]" size={24} strokeWidth={2.2} /> Form Pengajuan
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="text-sm font-bold text-[#1a1a1a] mb-2 block">Pilih Laboratorium *</label>
                   <select
                     required
                     value={form.labId}
                     onChange={(e) => setForm((prev) => ({ ...prev, labId: e.target.value }))}
-                    className="w-full px-4 py-3.5 neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all cursor-pointer"
+                    className="w-full px-4 py-3.5 min-h-[44px] neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all cursor-pointer"
                   >
                     <option value="">— Pilih Lab —</option>
                     {labs.map((lab) => (
@@ -317,7 +317,7 @@ export default function LabBookingPage() {
                     value={form.title}
                     onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Contoh: Persiapan Lomba UI/UX"
-                    className="w-full px-4 py-3.5 neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all"
+                    className="w-full px-4 py-3.5 min-h-[44px] neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all"
                   />
                 </div>
               </div>
@@ -329,17 +329,17 @@ export default function LabBookingPage() {
                   value={form.description}
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Jelaskan secara singkat rencana kegiatan yang akan dilakukan di laboratorium..."
-                  className="w-full px-4 py-3.5 neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all resize-none"
+                  className="w-full px-4 py-3.5 min-h-[120px] neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-[#f8f9fa] p-5 rounded-xl neo-border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-[#f8f9fa] p-4 sm:p-5 rounded-xl neo-border">
                 <div>
                   <label className="text-sm font-bold text-[#1a1a1a] mb-2 block">Tujuan *</label>
                   <select
                     value={form.purpose}
                     onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value as BookingPurpose }))}
-                    className="w-full px-4 py-3 neo-input bg-white text-base cursor-pointer"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-base cursor-pointer"
                   >
                     {PURPOSE_OPTIONS.map((purpose) => (
                       <option key={purpose} value={purpose}>
@@ -355,7 +355,7 @@ export default function LabBookingPage() {
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-4 py-3 neo-input bg-white text-base cursor-pointer"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-base cursor-pointer"
                   />
                 </div>
                 <div>
@@ -365,7 +365,7 @@ export default function LabBookingPage() {
                     type="time"
                     value={form.startTime}
                     onChange={(e) => setForm((prev) => ({ ...prev, startTime: e.target.value }))}
-                    className="w-full px-4 py-3 neo-input bg-white text-base cursor-pointer"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-base cursor-pointer"
                   />
                 </div>
                 <div>
@@ -375,7 +375,7 @@ export default function LabBookingPage() {
                     type="time"
                     value={form.endTime}
                     onChange={(e) => setForm((prev) => ({ ...prev, endTime: e.target.value }))}
-                    className="w-full px-4 py-3 neo-input bg-white text-base cursor-pointer"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-base cursor-pointer"
                   />
                 </div>
               </div>
@@ -390,7 +390,7 @@ export default function LabBookingPage() {
                       type="number"
                       value={form.participants}
                       onChange={(e) => setForm((prev) => ({ ...prev, participants: e.target.value }))}
-                      className="w-full px-4 py-3.5 pl-12 neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all"
+                      className="w-full px-4 py-3.5 pl-12 min-h-[44px] neo-input bg-white text-base focus:shadow-[4px_4px_0px_#4b607f] transition-all"
                     />
                     <TbUsers className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5a5a5a]" size={20} />
                   </div>
@@ -398,7 +398,7 @@ export default function LabBookingPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="neo-btn w-full md:w-auto px-8 py-3.5 bg-[#f3701e] text-white text-base font-bold inline-flex justify-center items-center gap-2 disabled:opacity-60 hover:bg-[#e05b0c] transition-colors"
+                  className="neo-btn w-full sm:w-auto px-8 py-3.5 min-h-[44px] bg-[#f3701e] text-white text-base font-bold inline-flex justify-center items-center gap-2 disabled:opacity-60 hover:bg-[#e05b0c] transition-colors"
                 >
                   <TbSend size={20} strokeWidth={2.5} />
                   {submitting ? "Mengirim Pengajuan..." : "Kirim Pengajuan"}
@@ -556,21 +556,21 @@ export default function LabBookingPage() {
       {selectedBooking && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedBooking(null)}>
           <div className="bg-[#e8d8c9] neo-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 md:p-8">
+            <div className="p-4 sm:p-6 md:p-8">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-white neo-border flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a]">
+                  <div className="w-12 h-12 rounded-xl bg-white neo-border flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
                     <TbClipboardList size={24} className="text-[#f3701e]" strokeWidth={2.2} />
                   </div>
                   <div>
-                    <h2 className="font-heading font-bold text-2xl text-[#1a1a1a]">Detail Pengajuan</h2>
+                    <h2 className="font-heading font-bold text-xl sm:text-2xl text-[#1a1a1a]">Detail Pengajuan</h2>
                     <p className="text-sm font-bold text-[#5a5a5a] mt-1 uppercase tracking-wider">ID: {selectedBooking.id.substring(0, 8)}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedBooking(null)}
-                  className="w-10 h-10 rounded-xl neo-border flex items-center justify-center bg-white hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                  className="min-w-[44px] min-h-[44px] rounded-xl neo-border flex items-center justify-center bg-white hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0"
                 >
                   <TbX size={20} strokeWidth={2.5} />
                 </button>
@@ -611,7 +611,7 @@ export default function LabBookingPage() {
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Tuliskan alasan penolakan secara jelas..."
-                  className="w-full px-4 py-3 neo-input bg-white text-base focus:shadow-[4px_4px_0px_#ef4444] transition-all resize-none"
+                  className="w-full px-4 py-3 min-h-[120px] neo-input bg-white text-base focus:shadow-[4px_4px_0px_#ef4444] transition-all resize-none"
                 />
               </div>
 
@@ -620,7 +620,7 @@ export default function LabBookingPage() {
                   type="button"
                   onClick={() => handleReject(selectedBooking.id)}
                   disabled={actingBookingId === selectedBooking.id}
-                  className="flex-1 neo-btn py-3.5 bg-red-500 text-white text-base font-bold hover:bg-red-600 transition-colors disabled:opacity-60"
+                  className="flex-1 neo-btn py-3.5 min-h-[44px] bg-red-500 text-white text-base font-bold hover:bg-red-600 transition-colors disabled:opacity-60"
                 >
                   {actingBookingId === selectedBooking.id ? "Memproses..." : "Tolak Pengajuan"}
                 </button>
@@ -628,7 +628,7 @@ export default function LabBookingPage() {
                   type="button"
                   onClick={() => handleApprove(selectedBooking.id)}
                   disabled={actingBookingId === selectedBooking.id}
-                  className="flex-1 neo-btn py-3.5 bg-green-500 text-white text-base font-bold hover:bg-green-600 transition-colors disabled:opacity-60"
+                  className="flex-1 neo-btn py-3.5 min-h-[44px] bg-green-500 text-white text-base font-bold hover:bg-green-600 transition-colors disabled:opacity-60"
                 >
                   {actingBookingId === selectedBooking.id ? "Memproses..." : "Setujui Pengajuan"}
                 </button>

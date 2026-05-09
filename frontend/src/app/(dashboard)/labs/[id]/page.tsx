@@ -13,6 +13,7 @@ import {
   TbPrinter,
   TbQrcode,
   TbTrash,
+  TbX,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -272,7 +273,7 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/labs">
@@ -286,7 +287,7 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="font-heading text-3xl font-bold text-[#1a1a1a] tracking-tight">
+              <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
                 {lab?.name || "Detail Lab"}
               </h1>
               <span className={`neo-badge px-2.5 py-1 ${lab?.status === 'ACTIVE' ? 'status-available' : lab?.status === 'MAINTENANCE' ? 'status-maintenance' : 'status-inactive'}`}>
@@ -343,7 +344,7 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
           className={`neo-card p-4 text-left cursor-pointer transition-all ${filter === "ALL" ? "shadow-[6px_6px_0px_#f3701e] border-[#f3701e] bg-[#fff5ef]" : "bg-white hover:shadow-[6px_6px_0px_#1a1a1a]"}`}
         >
           <p className="text-[#5a5a5a] font-bold text-sm mb-1 uppercase tracking-wider">Total PC</p>
-          <p className="font-heading text-4xl font-bold text-[#1a1a1a]">{pcs.length}</p>
+          <p className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a]">{pcs.length}</p>
         </motion.button>
         {(Object.keys(statusConfig) as PCStatus[]).map((status) => (
           <motion.button
@@ -362,7 +363,7 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
               }`} />
               <p className="text-[#5a5a5a] font-bold text-sm truncate uppercase tracking-wider">{statusConfig[status].label}</p>
             </div>
-            <p className="font-heading text-4xl font-bold text-[#1a1a1a]">{statusCounts[status] || 0}</p>
+            <p className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a]">{statusCounts[status] || 0}</p>
           </motion.button>
         ))}
       </div>
@@ -458,9 +459,19 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Tambah PC</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Tambah PC</h2>
+                <button
+                  type="button"
+                  onClick={() => !actionLoading && setShowCreateModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                  disabled={actionLoading}
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleCreatePC}>
                 <div>
@@ -543,10 +554,22 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Edit Status PC</h2>
-              <p className="text-sm text-[#5a5a5a] mb-4">{selectedPC.pcCode} &bull; {selectedPC.name}</p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Edit Status PC</h2>
+                  <p className="text-sm text-[#5a5a5a]">{selectedPC.pcCode} &bull; {selectedPC.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { if (!actionLoading) { setShowEditStatusModal(false); setSelectedPC(null); } }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                  disabled={actionLoading}
+                >
+                  <TbX size={20} strokeWidth={2.5} />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleEditStatus}>
                 <div>

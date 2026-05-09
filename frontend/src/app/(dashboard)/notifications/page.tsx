@@ -150,13 +150,13 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b-2 border-[#1a1a1a]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6 pb-4 sm:pb-6 border-b-2 border-[#1a1a1a]">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#e8d8c9] text-[#1a1a1a] flex items-center justify-center neo-border-sm shrink-0">
             <TbBell size={28} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="font-heading text-3xl font-bold text-[#1a1a1a]">Notifikasi</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">Notifikasi</h1>
             <p className="text-sm text-[#4b607f] font-medium mt-1">
               {pagination ? `${pagination.total} notifikasi total` : "Memuat..."}
             </p>
@@ -197,7 +197,7 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="bg-white neo-border rounded-xl p-12 text-center shadow-[4px_4px_0px_#1a1a1a]">
             <TbLoader2 className="w-10 h-10 animate-spin text-[#f3701e] mx-auto" strokeWidth={2.2} />

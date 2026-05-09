@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TbLoader2, TbQrcode, TbArrowBackUp, TbAlertTriangle } from "react-icons/tb";
+import { TbLoader2, TbQrcode, TbArrowBackUp, TbAlertTriangle, TbX } from "react-icons/tb";
 import api from "@/services/api";
 import { QRPreviewModal } from "@/components/qr/qr-preview-modal";
 import { useToast } from "@/providers/toast-provider";
@@ -171,11 +171,11 @@ export default function KeysPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="neo-card p-6 bg-[#e8d8c9]">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="neo-card p-4 sm:p-6 bg-[#e8d8c9]">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">Peminjaman Kunci</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Peminjaman Kunci</h1>
             <p className="text-[#5a5a5a] mt-1 font-medium">Kelola peminjaman kunci lab via QR Code</p>
           </div>
           <div className="flex items-center gap-2">
@@ -316,9 +316,18 @@ export default function KeysPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-sm text-center shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto text-center shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Scan QR Kunci</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Scan QR Kunci</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowScanModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
               <div className="w-48 h-48 mx-auto bg-[#e8d8c9] neo-border rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0px_#1a1a1a]">
                 <TbQrcode className="w-16 h-16 text-[#1a1a1a]" />
               </div>
@@ -327,7 +336,7 @@ export default function KeysPage() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowScanModal(false)}
-                className="w-full py-3 bg-white text-[#1a1a1a] neo-btn"
+                className="w-full py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
               >
                 Tutup
               </motion.button>
@@ -350,9 +359,18 @@ export default function KeysPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-sm shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Detail Kunci</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Detail Kunci</h2>
+                <button
+                  type="button"
+                  onClick={() => setSelectedKey(null)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-[#5a5a5a]">Kode:</span>
@@ -402,7 +420,7 @@ export default function KeysPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-sm shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
@@ -422,21 +440,21 @@ export default function KeysPage() {
                 <textarea
                   value={forceReturnReason}
                   onChange={(e) => setForceReturnReason(e.target.value)}
-                  className="w-full neo-input text-sm min-h-[60px]"
+                  className="w-full neo-input text-sm min-h-[80px] p-3"
                   placeholder="Contoh: Kunci tidak dikembalikan setelah 24 jam"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setForceReturnModal(null)}
-                  className="flex-1 py-2.5 bg-white text-[#1a1a1a] neo-btn text-sm"
+                  className="flex-1 py-2.5 min-h-[44px] bg-white text-[#1a1a1a] neo-btn text-sm"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleForceReturn}
                   disabled={forceReturning}
-                  className="flex-1 py-2.5 bg-red-500 text-white neo-btn text-sm"
+                  className="flex-1 py-2.5 min-h-[44px] bg-red-500 text-white neo-btn text-sm"
                 >
                   {forceReturning ? "Memproses..." : "Ya, Force Return"}
                 </button>

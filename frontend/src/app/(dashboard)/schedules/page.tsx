@@ -665,11 +665,11 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="neo-card p-6 bg-[#e8d8c9]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">{activeTab === "SCHEDULES" ? "Jadwal Lab" : "Request Perubahan"}</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">{activeTab === "SCHEDULES" ? "Jadwal Lab" : "Request Perubahan"}</h1>
             <p className="text-[#5a5a5a] mt-1 font-medium">
               {activeTab === "SCHEDULES"
                 ? "Jadwal penggunaan laboratorium per minggu"
@@ -853,17 +853,17 @@ export default function SchedulesPage() {
 
                 <div className="space-y-2">
                   {items.map((schedule, i) => (
-                    <motion.div
+                     <motion.div
                       key={schedule.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className={`neo-card p-5 neo-hover ${selectedIds.has(schedule.id) ? "ring-2 ring-[#4b607f]" : ""}`}
+                      className={`neo-card p-4 sm:p-5 neo-hover ${selectedIds.has(schedule.id) ? "ring-2 ring-[#4b607f]" : ""}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
                           {canManageSchedules && (
-                            <button onClick={() => toggleSelect(schedule.id)} className="flex-shrink-0">
+                            <button onClick={() => toggleSelect(schedule.id)} className="flex-shrink-0 mt-0.5 sm:mt-0">
                               {selectedIds.has(schedule.id) ? (
                                 <TbSquareCheck className="w-5 h-5 text-[#4b607f]" />
                               ) : (
@@ -871,24 +871,24 @@ export default function SchedulesPage() {
                               )}
                             </button>
                           )}
-                          <div className="text-center min-w-[80px]">
+                          <div className="text-center min-w-[70px] sm:min-w-[80px] flex-shrink-0">
                             <p className="font-bold text-sm text-[#1a1a1a]">{schedule.startTime}</p>
                             <p className="text-xs text-[#5a5a5a]">{schedule.endTime}</p>
                           </div>
-                          <div className="w-px h-10 bg-[#1a1a1a]" />
-                          <div>
-                            <p className="font-bold text-sm text-[#1a1a1a]">{schedule.title}</p>
-                            <p className="text-xs text-[#5a5a5a]">
+                          <div className="hidden sm:block w-px h-10 bg-[#1a1a1a]" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-sm text-[#1a1a1a] truncate">{schedule.title}</p>
+                            <p className="text-xs text-[#5a5a5a] truncate">
                               {schedule.labName} &bull; {schedule.lecturerName}
                               {schedule.className && ` • ${schedule.className}`}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {schedule.assistantName && (
-                            <span className="neo-badge px-2 py-0.5 bg-[#f5ede6] text-[#1a1a1a]">{schedule.assistantName}</span>
+                            <span className="neo-badge px-2 py-0.5 bg-[#f5ede6] text-[#1a1a1a] text-xs truncate max-w-[120px]">{schedule.assistantName}</span>
                           )}
-                          <span className={`neo-badge px-2 py-0.5 ${typeColors[schedule.type]}`}>{schedule.type}</span>
+                          <span className={`neo-badge px-2 py-0.5 text-xs ${typeColors[schedule.type]}`}>{schedule.type}</span>
                           {canManageSchedules && (
                             <>
                               <button
@@ -896,17 +896,17 @@ export default function SchedulesPage() {
                                   e.stopPropagation();
                                   openEditModal(schedule);
                                 }}
-                                className="w-7 h-7 rounded border-2 border-[#1a1a1a] bg-white text-[#4b607f] flex items-center justify-center hover:bg-[#f5ede6] transition-colors"
+                                className="min-w-[44px] min-h-[44px] rounded border-2 border-[#1a1a1a] bg-white text-[#4b607f] flex items-center justify-center hover:bg-[#f5ede6] transition-colors"
                                 title="Edit jadwal"
                               >
-                                <TbEdit className="w-3.5 h-3.5" />
+                                <TbEdit className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteOne(schedule.id)}
-                                className="w-7 h-7 rounded border-2 border-red-300 bg-white text-red-500 flex items-center justify-center hover:bg-red-50 transition-colors"
+                                className="min-w-[44px] min-h-[44px] rounded border-2 border-red-300 bg-white text-red-500 flex items-center justify-center hover:bg-red-50 transition-colors"
                                 title="Hapus jadwal"
                               >
-                                <TbTrash className="w-3.5 h-3.5" />
+                                <TbTrash className="w-4 h-4" />
                               </button>
                             </>
                           )}
@@ -966,15 +966,15 @@ export default function SchedulesPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="neo-card p-4 bg-white">
               <p className="text-xs font-bold text-[#5a5a5a] uppercase">Total Pending</p>
-              <p className="font-heading text-3xl text-[#f3701e]">{isStatsLoading ? "..." : requestStats.pending}</p>
+              <p className="font-heading text-2xl sm:text-3xl text-[#f3701e]">{isStatsLoading ? "..." : requestStats.pending}</p>
             </div>
             <div className="neo-card p-4 bg-white">
               <p className="text-xs font-bold text-[#5a5a5a] uppercase">Approved</p>
-              <p className="font-heading text-3xl text-green-600">{isStatsLoading ? "..." : requestStats.approved}</p>
+              <p className="font-heading text-2xl sm:text-3xl text-green-600">{isStatsLoading ? "..." : requestStats.approved}</p>
             </div>
             <div className="neo-card p-4 bg-white">
               <p className="text-xs font-bold text-[#5a5a5a] uppercase">Rejected</p>
-              <p className="font-heading text-3xl text-red-600">{isStatsLoading ? "..." : requestStats.rejected}</p>
+              <p className="font-heading text-2xl sm:text-3xl text-red-600">{isStatsLoading ? "..." : requestStats.rejected}</p>
             </div>
           </div>
 
@@ -1009,13 +1009,13 @@ export default function SchedulesPage() {
                       <p className="text-sm text-[#1a1a1a]"><span className="font-bold">Jadwal Saat Ini:</span> {getScheduleLabel(item.schedule)}</p>
                       <p className="text-sm text-[#1a1a1a]"><span className="font-bold">Perubahan:</span> {getRequestedChangeText(item)}</p>
                       <p className="text-sm text-[#5a5a5a]"><span className="font-bold text-[#1a1a1a]">Alasan:</span> {item.reason}</p>
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
                         <button
                           onClick={() => {
                             setApproveTarget(item);
                             setAdminNotes("");
                           }}
-                          className="px-3 py-2 neo-btn bg-green-600 text-white text-sm flex items-center gap-1"
+                          className="neo-btn bg-green-600 text-white text-sm flex items-center justify-center gap-1 min-h-[44px] px-4 py-2"
                         >
                           <TbCheck className="w-4 h-4" /> Approve
                         </button>
@@ -1024,7 +1024,7 @@ export default function SchedulesPage() {
                             setRejectTarget(item);
                             setRejectionReason("");
                           }}
-                          className="px-3 py-2 neo-btn bg-red-500 text-white text-sm flex items-center gap-1"
+                          className="neo-btn bg-red-500 text-white text-sm flex items-center justify-center gap-1 min-h-[44px] px-4 py-2"
                         >
                           <TbX className="w-4 h-4" /> Reject
                         </button>
@@ -1076,9 +1076,18 @@ export default function SchedulesPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-[#e8d8c9] shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#e8d8c9] shadow-[6px_6px_0px_#1a1a1a]"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Ajukan Perubahan Jadwal</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a] truncate">Ajukan Perubahan Jadwal</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowRequestModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleSubmitRequest}>
                 <div>
@@ -1114,7 +1123,7 @@ export default function SchedulesPage() {
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Pilih Jadwal</label>
                     <select
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       value={requestForm.scheduleId}
                       onChange={(e) => setRequestForm((prev) => ({ ...prev, scheduleId: e.target.value }))}
                       required
@@ -1135,7 +1144,7 @@ export default function SchedulesPage() {
                       <div>
                         <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Hari Baru</label>
                         <select
-                          className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                          className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                           value={requestForm.newDay}
                           onChange={(e) => setRequestForm((prev) => ({ ...prev, newDay: e.target.value as DayOfWeek }))}
                         >
@@ -1150,7 +1159,7 @@ export default function SchedulesPage() {
                         <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Mulai Baru</label>
                         <input
                           type="time"
-                          className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                          className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                           value={requestForm.newStartTime}
                           onChange={(e) => setRequestForm((prev) => ({ ...prev, newStartTime: e.target.value }))}
                           required
@@ -1160,7 +1169,7 @@ export default function SchedulesPage() {
                         <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Selesai Baru</label>
                         <input
                           type="time"
-                          className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                          className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                           value={requestForm.newEndTime}
                           onChange={(e) => setRequestForm((prev) => ({ ...prev, newEndTime: e.target.value }))}
                           required
@@ -1170,7 +1179,7 @@ export default function SchedulesPage() {
                     <div>
                       <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lab Baru (Opsional)</label>
                       <select
-                        className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                        className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                         value={requestForm.newLabId}
                         onChange={(e) => setRequestForm((prev) => ({ ...prev, newLabId: e.target.value }))}
                       >
@@ -1190,7 +1199,7 @@ export default function SchedulesPage() {
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Tanggal yang Dibatalkan</label>
                     <input
                       type="date"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       value={requestForm.cancelDate}
                       onChange={(e) => setRequestForm((prev) => ({ ...prev, cancelDate: e.target.value }))}
                       required
@@ -1203,7 +1212,7 @@ export default function SchedulesPage() {
                     <div>
                       <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Hari</label>
                       <select
-                        className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                        className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                         value={requestForm.newDay}
                         onChange={(e) => setRequestForm((prev) => ({ ...prev, newDay: e.target.value as DayOfWeek }))}
                       >
@@ -1217,7 +1226,7 @@ export default function SchedulesPage() {
                     <div>
                       <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lab</label>
                       <select
-                        className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                        className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                         value={requestForm.newLabId}
                         onChange={(e) => setRequestForm((prev) => ({ ...prev, newLabId: e.target.value }))}
                         required
@@ -1234,7 +1243,7 @@ export default function SchedulesPage() {
                       <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Mulai</label>
                       <input
                         type="time"
-                        className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                        className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                         value={requestForm.newStartTime}
                         onChange={(e) => setRequestForm((prev) => ({ ...prev, newStartTime: e.target.value }))}
                         required
@@ -1244,7 +1253,7 @@ export default function SchedulesPage() {
                       <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Selesai</label>
                       <input
                         type="time"
-                        className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                        className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                         value={requestForm.newEndTime}
                         onChange={(e) => setRequestForm((prev) => ({ ...prev, newEndTime: e.target.value }))}
                         required
@@ -1266,13 +1275,13 @@ export default function SchedulesPage() {
                 </div>
 
                 <div className="flex gap-3 pt-1">
-                  <button type="submit" disabled={isSubmittingRequest} className="flex-1 py-3 bg-[#f3701e] text-white neo-btn">
+                  <button type="submit" disabled={isSubmittingRequest} className="flex-1 py-3 min-h-[44px] bg-[#f3701e] text-white neo-btn">
                     {isSubmittingRequest ? "Mengirim..." : "Kirim Request"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowRequestModal(false)}
-                    className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </button>
@@ -1297,9 +1306,18 @@ export default function SchedulesPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md bg-white"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white"
             >
-              <h3 className="font-heading text-xl font-bold text-[#1a1a1a] mb-2">Approve Request</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-heading text-xl font-bold text-[#1a1a1a]">Approve Request</h3>
+                <button
+                  type="button"
+                  onClick={() => setApproveTarget(null)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
               <p className="text-sm text-[#5a5a5a] mb-3">Tambahkan catatan admin (opsional).</p>
               <textarea
                 value={adminNotes}
@@ -1308,7 +1326,7 @@ export default function SchedulesPage() {
                 placeholder="Catatan untuk pemohon"
               />
               <div className="flex gap-2 mt-4">
-                <button onClick={handleApprove} disabled={requestActionLoading} className="flex-1 py-2.5 neo-btn bg-green-600 text-white">
+                <button onClick={handleApprove} disabled={requestActionLoading} className="flex-1 py-2.5 min-h-[44px] neo-btn bg-green-600 text-white">
                   {requestActionLoading ? (
                     <span className="inline-flex items-center gap-1">
                       <TbLoader2 className="w-4 h-4 animate-spin" /> Proses...
@@ -1319,7 +1337,7 @@ export default function SchedulesPage() {
                     </span>
                   )}
                 </button>
-                <button onClick={() => setApproveTarget(null)} className="flex-1 py-2.5 neo-btn bg-white text-[#1a1a1a]">
+                <button onClick={() => setApproveTarget(null)} className="flex-1 py-2.5 min-h-[44px] neo-btn bg-white text-[#1a1a1a]">
                   Batal
                 </button>
               </div>
@@ -1342,9 +1360,18 @@ export default function SchedulesPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-md bg-white"
+              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white"
             >
-              <h3 className="font-heading text-xl font-bold text-[#1a1a1a] mb-2">Reject Request</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-heading text-xl font-bold text-[#1a1a1a]">Reject Request</h3>
+                <button
+                  type="button"
+                  onClick={() => setRejectTarget(null)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
               <p className="text-sm text-[#5a5a5a] mb-3">Alasan penolakan wajib diisi.</p>
               <textarea
                 required
@@ -1354,7 +1381,7 @@ export default function SchedulesPage() {
                 placeholder="Tulis alasan penolakan"
               />
               <div className="flex gap-2 mt-4">
-                <button onClick={handleReject} disabled={requestActionLoading} className="flex-1 py-2.5 neo-btn bg-red-500 text-white">
+                <button onClick={handleReject} disabled={requestActionLoading} className="flex-1 py-2.5 min-h-[44px] neo-btn bg-red-500 text-white">
                   {requestActionLoading ? (
                     <span className="inline-flex items-center gap-1">
                       <TbLoader2 className="w-4 h-4 animate-spin" /> Proses...
@@ -1365,7 +1392,7 @@ export default function SchedulesPage() {
                     </span>
                   )}
                 </button>
-                <button onClick={() => setRejectTarget(null)} className="flex-1 py-2.5 neo-btn bg-white text-[#1a1a1a]">
+                <button onClick={() => setRejectTarget(null)} className="flex-1 py-2.5 min-h-[44px] neo-btn bg-white text-[#1a1a1a]">
                   Batal
                 </button>
               </div>
@@ -1388,9 +1415,18 @@ export default function SchedulesPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+              className="neo-card p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Tambah Jadwal Baru</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a] truncate">Tambah Jadwal Baru</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleCreateSchedule}>
                 <div>
@@ -1401,14 +1437,14 @@ export default function SchedulesPage() {
                     value={form.title}
                     onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="e.g. Pemrograman Web"
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lab</label>
                     <select
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       required
                       value={form.labId}
                       onChange={(e) => setForm((prev) => ({ ...prev, labId: e.target.value }))}
@@ -1424,7 +1460,7 @@ export default function SchedulesPage() {
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Hari</label>
                     <select
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       value={form.day}
                       onChange={(e) => setForm((prev) => ({ ...prev, day: e.target.value as DayOfWeek }))}
                     >
@@ -1436,7 +1472,7 @@ export default function SchedulesPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Mulai</label>
                     <input
@@ -1444,7 +1480,7 @@ export default function SchedulesPage() {
                       required
                       value={form.startTime}
                       onChange={(e) => setForm((prev) => ({ ...prev, startTime: e.target.value }))}
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1454,11 +1490,11 @@ export default function SchedulesPage() {
                       required
                       value={form.endTime}
                       onChange={(e) => setForm((prev) => ({ ...prev, endTime: e.target.value }))}
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Semester</label>
                     <input
@@ -1466,7 +1502,7 @@ export default function SchedulesPage() {
                       value={form.semester}
                       onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value }))}
                       placeholder="e.g. 4"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1476,14 +1512,14 @@ export default function SchedulesPage() {
                       value={form.className}
                       onChange={(e) => setForm((prev) => ({ ...prev, className: e.target.value }))}
                       placeholder="e.g. TI-4A"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Tipe</label>
                   <select
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     value={form.type}
                     onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as ScheduleType }))}
                   >
@@ -1493,7 +1529,7 @@ export default function SchedulesPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Nama Dosen (Opsional)</label>
                     <input
@@ -1501,7 +1537,7 @@ export default function SchedulesPage() {
                       value={form.lecturerName}
                       onChange={(e) => setForm((prev) => ({ ...prev, lecturerName: e.target.value }))}
                       placeholder="Nama dosen pengampu"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1511,7 +1547,7 @@ export default function SchedulesPage() {
                       value={form.assistantId}
                       onChange={(e) => setForm((prev) => ({ ...prev, assistantId: e.target.value }))}
                       placeholder="user id"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -1522,7 +1558,7 @@ export default function SchedulesPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isCreating}
-                    className="flex-1 py-3 bg-[#4b607f] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn"
                   >
                     {isCreating ? "Menyimpan..." : "Simpan"}
                   </motion.button>
@@ -1531,7 +1567,7 @@ export default function SchedulesPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowCreateModal(false)}
-                    className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
@@ -1559,9 +1595,21 @@ export default function SchedulesPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+              className="neo-card p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
             >
-              <h2 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Edit Jadwal</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading text-xl font-bold text-[#1a1a1a] truncate">Edit Jadwal</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingSchedule(null);
+                  }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
 
               <form className="space-y-4" onSubmit={handleEditSchedule}>
                 <div>
@@ -1571,14 +1619,14 @@ export default function SchedulesPage() {
                     required
                     value={editForm.title}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lab</label>
                     <select
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       required
                       value={editForm.labId}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, labId: e.target.value }))}
@@ -1594,7 +1642,7 @@ export default function SchedulesPage() {
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Hari</label>
                     <select
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                       value={editForm.day}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, day: e.target.value as DayOfWeek }))}
                     >
@@ -1606,7 +1654,7 @@ export default function SchedulesPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jam Mulai</label>
                     <input
@@ -1614,7 +1662,7 @@ export default function SchedulesPage() {
                       required
                       value={editForm.startTime}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, startTime: e.target.value }))}
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1624,11 +1672,11 @@ export default function SchedulesPage() {
                       required
                       value={editForm.endTime}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, endTime: e.target.value }))}
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Semester</label>
                     <input
@@ -1636,7 +1684,7 @@ export default function SchedulesPage() {
                       value={editForm.semester}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, semester: e.target.value }))}
                       placeholder="e.g. 4"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1646,14 +1694,14 @@ export default function SchedulesPage() {
                       value={editForm.className}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, className: e.target.value }))}
                       placeholder="e.g. TI-4A"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Tipe</label>
                   <select
-                    className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                    className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     value={editForm.type}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, type: e.target.value as ScheduleType }))}
                   >
@@ -1663,7 +1711,7 @@ export default function SchedulesPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Nama Dosen (Opsional)</label>
                     <input
@@ -1671,7 +1719,7 @@ export default function SchedulesPage() {
                       value={editForm.lecturerName}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, lecturerName: e.target.value }))}
                       placeholder="Nama dosen pengampu"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -1681,7 +1729,7 @@ export default function SchedulesPage() {
                       value={editForm.assistantId}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, assistantId: e.target.value }))}
                       placeholder="user id"
-                      className="w-full px-4 py-3 neo-input focus:outline-none text-sm"
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -1692,7 +1740,7 @@ export default function SchedulesPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isEditing}
-                    className="flex-1 py-3 bg-[#f3701e] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-[#f3701e] text-white neo-btn"
                   >
                     {isEditing ? "Menyimpan..." : "Update Jadwal"}
                   </motion.button>
@@ -1704,7 +1752,7 @@ export default function SchedulesPage() {
                       setShowEditModal(false);
                       setEditingSchedule(null);
                     }}
-                    className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>

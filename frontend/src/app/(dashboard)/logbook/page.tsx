@@ -15,6 +15,7 @@ import {
   TbPhoto,
   TbShieldCheck,
   TbUser,
+  TbX,
 } from "react-icons/tb";
 
 type Role = "ASISTEN_LAB" | "KOORDINATOR_LAB" | string;
@@ -478,9 +479,9 @@ export default function LogbookPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <section className="rounded-xl border-2 border-[#1a1a1a] bg-[#e8d8c9] p-6 shadow-[4px_4px_0px_#1a1a1a]">
-        <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">Daily Logbook</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Daily Logbook</h1>
         <p className="mt-1 text-sm font-medium text-[#5a5a5a]">
           {isAsleb
             ? "Check-in harian, verifikasi kondisi per lab, lalu checkout sesi."
@@ -841,9 +842,15 @@ export default function LogbookPage() {
           onClick={() => setPhotoPreview("")}
         >
           <div
-            className="max-w-3xl rounded-xl border-2 border-[#1a1a1a] bg-white p-2 shadow-[4px_4px_0px_#1a1a1a]"
+            className="max-w-3xl rounded-xl border-2 border-[#1a1a1a] bg-white p-2 shadow-[4px_4px_0px_#1a1a1a] relative"
             onClick={(event) => event.stopPropagation()}
           >
+            <button
+              onClick={() => setPhotoPreview("")}
+              className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-white/90 hover:bg-red-100 text-red-500 transition-colors z-10"
+            >
+              <TbX className="w-5 h-5" />
+            </button>
             <img src={photoPreview} alt="Preview foto kondisi" className="max-h-[80vh] w-full object-contain" />
           </div>
         </div>

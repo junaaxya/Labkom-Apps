@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TbTrophy, TbMedal, TbTarget, TbFlame, TbCalendarCheck, TbTicket, TbClipboardList, TbCrown, TbChevronDown } from "react-icons/tb";
+import { TbTrophy, TbMedal, TbTarget, TbFlame, TbCalendarCheck, TbTicket, TbClipboardList, TbCrown, TbChevronDown, TbX } from "react-icons/tb";
 import api from "@/services/api";
 
 interface LeaderboardEntry {
@@ -94,13 +94,13 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-heading)] text-[#1a1a1a] mb-1">
+          <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-heading)] text-[#1a1a1a] mb-1 tracking-tight">
             Leaderboard
           </h1>
-          <p className="text-[#5a5a5a] text-sm">Ranking performa asisten laboratorium</p>
+          <p className="text-[#5a5a5a] text-sm sm:text-base leading-relaxed">Ranking performa asisten laboratorium</p>
         </div>
 
         <div className="relative">
@@ -118,7 +118,7 @@ export default function LeaderboardPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           {[
             { label: "Total Asleb", value: stats.totalAsistens, icon: TbTarget, color: "text-[#1a1a1a]", bg: "bg-[#e8d8c9]" },
             { label: "Misi Selesai", value: stats.totalMissionsCompleted, icon: TbTrophy, color: "text-green-700", bg: "bg-[#e8f5e9]" },
@@ -130,8 +130,8 @@ export default function LeaderboardPage() {
               <div className={`w-12 h-12 mx-auto rounded-full neo-border flex items-center justify-center mb-3 shadow-[2px_2px_0px_#1a1a1a] ${stat.bg}`}>
                 <stat.icon className={`w-6 h-6 ${stat.color}`} strokeWidth={2.2} />
               </div>
-              <p className="text-3xl font-bold font-heading text-[#1a1a1a] leading-none">{stat.value}</p>
-              <p className="text-sm font-bold text-[#5a5a5a] mt-2">{stat.label}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] leading-none">{stat.value}</p>
+              <p className="text-xs sm:text-sm font-bold text-[#5a5a5a] mt-2">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -160,7 +160,7 @@ export default function LeaderboardPage() {
       ) : (
         <div className="space-y-6">
           {leaderboard.slice(0, 3).length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8 pt-4">
               {leaderboard.slice(0, 3).map((entry, idx) => (
                 <div
                   key={entry.userId}
@@ -175,10 +175,10 @@ export default function LeaderboardPage() {
                     {entry.name.charAt(0).toUpperCase()}
                   </div>
                   
-                  <h3 className="font-bold font-heading text-xl text-[#1a1a1a] line-clamp-1">{entry.name}</h3>
+                  <h3 className="font-bold font-heading text-lg sm:text-xl text-[#1a1a1a] line-clamp-1">{entry.name}</h3>
                   <div className="flex items-center justify-center gap-1.5 mt-2 mb-6">
                     <TbFlame className="w-5 h-5 text-[#f3701e]" strokeWidth={2.5} />
-                    <p className="text-[#f3701e] font-bold text-2xl">{entry.totalPoints}</p>
+                    <p className="text-[#f3701e] font-bold text-xl sm:text-2xl">{entry.totalPoints}</p>
                     <span className="text-sm font-bold text-[#f3701e]/80">pts</span>
                   </div>
                   
@@ -253,16 +253,16 @@ export default function LeaderboardPage() {
       {selectedUser && userDetail && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedUser(null)}>
           <div 
-            className="bg-[#e8d8c9] neo-card shadow-[6px_6px_0px_#1a1a1a] p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" 
+            className="bg-[#e8d8c9] neo-card shadow-[6px_6px_0px_#1a1a1a] p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold font-heading text-[#1a1a1a]">Detail Performa</h2>
+              <h2 className="text-xl sm:text-2xl font-bold font-heading text-[#1a1a1a]">Detail Performa</h2>
               <button 
                 onClick={() => setSelectedUser(null)} 
-                className="w-10 h-10 bg-white neo-border rounded-xl flex items-center justify-center font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                className="min-w-[44px] min-h-[44px] bg-white neo-border rounded-xl flex items-center justify-center font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0"
               >
-                X
+                <TbX className="w-5 h-5" />
               </button>
             </div>
 

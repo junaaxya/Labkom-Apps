@@ -68,14 +68,14 @@ export default function MyTicketsPage() {
   }, [tickets, filter]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="neo-card p-6 bg-white">
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-lg bg-[#4b607f] text-white neo-border-sm flex items-center justify-center">
             <TbClipboardList size={22} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">Riwayat Laporan Saya</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Riwayat Laporan Saya</h1>
             <p className="text-sm text-[#5a5a5a] mt-1">Pantau status semua laporan kerusakan yang pernah Anda kirim.</p>
           </div>
         </div>

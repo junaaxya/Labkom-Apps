@@ -185,7 +185,7 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
 
   const sidebarContent = (
     <>
-      <div className="flex items-center gap-3 p-4 border-b-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
+      <div className="flex items-center gap-3 p-4 border-b-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10 pt-safe-top">
         <button
           onClick={isMobile ? closeSidebar : () => setIsDesktopOpen(!isDesktopOpen)}
           className="w-11 h-11 flex items-center justify-center rounded-lg bg-[#f3701e] neo-border-sm text-white font-heading font-bold text-lg neo-hover shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0"
@@ -207,6 +207,12 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
         </AnimatePresence>
       </div>
 
+      {isMobile && isMobileOpen && (
+        <div className="flex justify-center py-2 bg-[#4b607f]">
+          <div className="w-8 h-1 rounded-full bg-white/30" />
+        </div>
+      )}
+
       <div className="relative flex-1 overflow-hidden flex flex-col">
         <div
           className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#4b607f] to-transparent z-10 transition-opacity duration-300 pointer-events-none ${
@@ -217,7 +223,8 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
         <nav
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#1a1a1a] scrollbar-track-transparent"
+          className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#1a1a1a] scrollbar-track-transparent overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
         >
           {Object.entries(groupedMenu).map(([group, items], groupIndex) => (
             <div key={group} className="space-y-1 relative">
@@ -264,11 +271,11 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
                     <Link
                       href={item.href}
                       className={`
-                        flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-lg transition-all duration-150 relative
+                        flex items-center gap-3 px-3 py-3 min-h-[48px] rounded-lg transition-all duration-150 relative
                         ${
                           isActive
                             ? "bg-[#f3701e] text-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] font-bold"
-                            : "text-white/80 hover:bg-[#3b4d66] hover:text-white"
+                            : "text-white/80 hover:bg-[#3b4d66] hover:text-white active:bg-[#3b4d66]/80"
                         }
                       `}
                     >
@@ -310,7 +317,7 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
         />
       </div>
 
-      <div className="p-4 border-t-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10">
+      <div className="p-4 border-t-[3px] border-[#1a1a1a] bg-[#4b607f] relative z-10 pb-safe-bottom">
         <div className="flex items-center gap-3">
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 rounded-lg bg-[#e8d8c9] neo-border-sm flex items-center justify-center text-sm font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
@@ -364,20 +371,20 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-[#1a1a1a]/50 backdrop-blur-sm z-30 lg:hidden"
+              className="fixed inset-0 bg-[#1a1a1a]/50 backdrop-blur-sm z-30 lg:hidden touch-none"
               onClick={closeSidebar}
               aria-hidden="true"
             />
 
             <motion.aside
               key="mobile-drawer"
-              className="fixed left-0 top-0 h-full z-40 flex flex-col neo-border-sm overflow-hidden shadow-[4px_0px_0px_#1a1a1a] w-[280px] lg:hidden"
-              style={{ backgroundColor: "#4b607f" }}
+              className="fixed left-0 top-0 h-full z-40 flex flex-col neo-border-sm overflow-hidden shadow-[4px_0px_0px_#1a1a1a] w-[min(280px,85vw)] lg:hidden"
+              style={{ backgroundColor: "#4b607f", willChange: "transform" }}
               variants={mobileDrawerVariants}
               initial="closed"
               animate="open"
               exit="closed"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              transition={{ type: "spring", stiffness: 320, damping: 32 }}
             >
               {sidebarContent}
             </motion.aside>

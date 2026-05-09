@@ -17,6 +17,7 @@ import {
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
+import { MobileCard } from "@/components/ui/mobile-card";
 import {
   AttendanceCorrectionRequest,
   AttendanceLocation,
@@ -103,13 +104,13 @@ function ModalContainer({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 10 }}
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-2xl neo-card bg-[#f5ede6] p-6"
+        className="w-full max-w-2xl neo-card bg-[#f5ede6] p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading text-2xl font-bold text-[#1a1a1a]">{title}</h3>
+          <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] truncate">{title}</h3>
           <button
             onClick={onClose}
-            className="neo-btn bg-white hover:bg-[#e8d8c9] text-[#1a1a1a]"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg neo-btn bg-white hover:bg-[#e8d8c9] text-[#1a1a1a] flex-shrink-0"
             type="button"
           >
             <TbX size={18} />
@@ -433,7 +434,7 @@ export default function AttendanceSettingsPage() {
     if (!settingsForm) return null;
 
     return (
-      <div className="neo-card p-6 bg-white space-y-6">
+      <div className="neo-card p-4 sm:p-6 bg-white space-y-6">
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4">
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Pengaturan Umum Absensi</h2>
           <button
@@ -468,7 +469,7 @@ export default function AttendanceSettingsPage() {
           <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
             <p className="font-bold text-[#1a1a1a]">Radius Default (meter)</p>
             <input
-              className="neo-input bg-white"
+              className="neo-input bg-white min-h-[44px] w-full"
               type="number"
               min={1}
               value={settingsForm.defaultRadiusMeter}
@@ -485,7 +486,7 @@ export default function AttendanceSettingsPage() {
           <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
             <p className="font-bold text-[#1a1a1a]">Toleransi Terlambat (menit)</p>
             <input
-              className="neo-input bg-white"
+              className="neo-input bg-white min-h-[44px] w-full"
               type="number"
               min={0}
               value={settingsForm.lateToleranceMinutes}
@@ -502,7 +503,7 @@ export default function AttendanceSettingsPage() {
           <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
             <p className="font-bold text-[#1a1a1a]">Checkout Grace (menit)</p>
             <input
-              className="neo-input bg-white"
+              className="neo-input bg-white min-h-[44px] w-full"
               type="number"
               min={0}
               value={settingsForm.checkoutGraceMinutes}
@@ -519,7 +520,7 @@ export default function AttendanceSettingsPage() {
           <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
             <p className="font-bold text-[#1a1a1a]">Lupa Checkout Setelah (menit)</p>
             <input
-              className="neo-input bg-white"
+              className="neo-input bg-white min-h-[44px] w-full"
               type="number"
               min={1}
               value={settingsForm.forgotCheckoutAfterMinutes}
@@ -569,7 +570,7 @@ export default function AttendanceSettingsPage() {
 
   const renderLocationsTab = () => {
     return (
-      <div className="neo-card p-6 bg-white space-y-4">
+      <div className="neo-card p-4 sm:p-6 bg-white space-y-4">
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4">
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Lokasi Geofencing</h2>
           <button
@@ -582,7 +583,46 @@ export default function AttendanceSettingsPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto neo-border">
+        <div className="space-y-3 lg:hidden">
+          {locations.map((location) => (
+            <MobileCard
+              key={location.id}
+              title={location.name}
+              badge={
+                <span className={`neo-badge px-3 py-1 text-xs font-bold ${location.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"}`}>
+                  {location.isActive ? "Active" : "Inactive"}
+                </span>
+              }
+              fields={[
+                { label: "Latitude", value: String(location.latitude) },
+                { label: "Longitude", value: String(location.longitude) },
+                { label: "Radius (m)", value: String(location.radiusMeter), fullWidth: false },
+              ]}
+              actions={[
+                {
+                  label: "Edit",
+                  icon: <TbEdit size={16} />,
+                  onClick: () => openEditLocationModal(location),
+                  variant: "secondary",
+                },
+                {
+                  label: "Hapus",
+                  icon: isLoading.deletingLocationId === location.id ? <TbLoader2 className="animate-spin" size={16} /> : <TbTrash size={16} />,
+                  onClick: () => handleDeleteLocation(location),
+                  variant: "danger",
+                  disabled: isLoading.deletingLocationId === location.id,
+                },
+              ]}
+            />
+          ))}
+          {locations.length === 0 && (
+            <div className="neo-card p-8 text-center text-[#5a5a5a] font-semibold bg-[#f5ede6]">
+              Belum ada lokasi geofencing.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto neo-border">
           <table className="w-full min-w-[900px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">
@@ -602,21 +642,13 @@ export default function AttendanceSettingsPage() {
                   <td className="px-4 py-3 text-[#5a5a5a]">{location.longitude}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{location.radiusMeter}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`neo-badge px-3 py-1 text-xs font-bold ${
-                        location.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
-                      }`}
-                    >
+                    <span className={`neo-badge px-3 py-1 text-xs font-bold ${location.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"}`}>
                       {location.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="neo-btn bg-white hover:bg-[#e8d8c9]"
-                        onClick={() => openEditLocationModal(location)}
-                      >
+                      <button type="button" className="neo-btn bg-white hover:bg-[#e8d8c9]" onClick={() => openEditLocationModal(location)}>
                         <TbEdit size={18} />
                       </button>
                       <button
@@ -651,7 +683,7 @@ export default function AttendanceSettingsPage() {
 
   const renderCategoriesTab = () => {
     return (
-      <div className="neo-card p-6 bg-white space-y-4">
+      <div className="neo-card p-4 sm:p-6 bg-white space-y-4">
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4">
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Kategori Task</h2>
           <button
@@ -664,7 +696,53 @@ export default function AttendanceSettingsPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto neo-border">
+        <div className="space-y-3 lg:hidden">
+          {categories.map((category) => (
+            <MobileCard
+              key={category.id}
+              title={category.name}
+              subtitle={category.description || undefined}
+              badge={
+                <span className={`neo-badge px-3 py-1 text-xs font-bold ${category.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"}`}>
+                  {category.isActive ? "Active" : "Inactive"}
+                </span>
+              }
+              fields={[
+                { label: "Default Points", value: String(category.defaultPoints) },
+                {
+                  label: "Evidence Required",
+                  value: (
+                    <span className={`neo-badge px-2 py-0.5 text-xs font-bold ${category.isEvidenceRequired ? "bg-[#4b607f] text-white" : "bg-gray-200 text-gray-700"}`}>
+                      {category.isEvidenceRequired ? "Ya" : "Tidak"}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={[
+                {
+                  label: "Edit",
+                  icon: <TbEdit size={16} />,
+                  onClick: () => openEditCategoryModal(category),
+                  variant: "secondary",
+                },
+                {
+                  label: "Hapus",
+                  icon: isLoading.deletingCategoryId === category.id ? <TbLoader2 className="animate-spin" size={16} /> : <TbTrash size={16} />,
+                  onClick: () => handleDeleteCategory(category),
+                  variant: "danger",
+                  disabled: isLoading.deletingCategoryId === category.id,
+                },
+              ]}
+            />
+          ))}
+          {categories.length === 0 && (
+            <div className="neo-card p-8 text-center text-[#5a5a5a] font-semibold bg-[#f5ede6]">
+              Belum ada kategori task.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto neo-border">
           <table className="w-full min-w-[980px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">
@@ -683,32 +761,18 @@ export default function AttendanceSettingsPage() {
                   <td className="px-4 py-3 text-[#5a5a5a]">{category.description || "-"}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{category.defaultPoints}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`neo-badge px-3 py-1 text-xs font-bold ${
-                        category.isEvidenceRequired
-                          ? "bg-[#4b607f] text-white"
-                          : "bg-gray-200 text-gray-700"
-                      }`}
-                    >
+                    <span className={`neo-badge px-3 py-1 text-xs font-bold ${category.isEvidenceRequired ? "bg-[#4b607f] text-white" : "bg-gray-200 text-gray-700"}`}>
                       {category.isEvidenceRequired ? "Ya" : "Tidak"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`neo-badge px-3 py-1 text-xs font-bold ${
-                        category.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
-                      }`}
-                    >
+                    <span className={`neo-badge px-3 py-1 text-xs font-bold ${category.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"}`}>
                       {category.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="neo-btn bg-white hover:bg-[#e8d8c9]"
-                        onClick={() => openEditCategoryModal(category)}
-                      >
+                      <button type="button" className="neo-btn bg-white hover:bg-[#e8d8c9]" onClick={() => openEditCategoryModal(category)}>
                         <TbEdit size={18} />
                       </button>
                       <button
@@ -743,12 +807,47 @@ export default function AttendanceSettingsPage() {
 
   const renderCorrectionsTab = () => {
     return (
-      <div className="neo-card p-6 bg-white space-y-4">
+      <div className="neo-card p-4 sm:p-6 bg-white space-y-4">
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4">
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Koreksi Absensi Pending</h2>
         </div>
 
-        <div className="overflow-x-auto neo-border">
+        <div className="space-y-3 lg:hidden">
+          {corrections.map((correction) => (
+            <MobileCard
+              key={correction.id}
+              title={correction.user?.name || "-"}
+              subtitle={correction.requestType}
+              fields={[
+                { label: "Old Value", value: correction.oldValue || "-" },
+                { label: "New Value", value: correction.newValue || "-" },
+                { label: "Reason", value: correction.reason, fullWidth: true },
+                { label: "Date", value: new Date(correction.createdAt).toLocaleString("id-ID") },
+              ]}
+              actions={[
+                {
+                  label: "Approve",
+                  icon: <TbCheck size={16} />,
+                  onClick: () => openReviewModal(correction, "APPROVED"),
+                  variant: "success",
+                },
+                {
+                  label: "Reject",
+                  icon: <TbX size={16} />,
+                  onClick: () => openReviewModal(correction, "REJECTED"),
+                  variant: "danger",
+                },
+              ]}
+            />
+          ))}
+          {corrections.length === 0 && (
+            <div className="neo-card p-8 text-center text-[#5a5a5a] font-semibold bg-[#f5ede6]">
+              Tidak ada permintaan koreksi pending.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto neo-border">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">
@@ -764,30 +863,18 @@ export default function AttendanceSettingsPage() {
             <tbody>
               {corrections.map((correction) => (
                 <tr key={correction.id} className="border-t-2 border-[#1a1a1a] bg-[#f5ede6]">
-                  <td className="px-4 py-3 font-semibold text-[#1a1a1a]">
-                    {correction.user?.name || "-"}
-                  </td>
+                  <td className="px-4 py-3 font-semibold text-[#1a1a1a]">{correction.user?.name || "-"}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{correction.requestType}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{correction.oldValue || "-"}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{correction.newValue || "-"}</td>
                   <td className="px-4 py-3 text-[#5a5a5a]">{correction.reason}</td>
-                  <td className="px-4 py-3 text-[#5a5a5a]">
-                    {new Date(correction.createdAt).toLocaleString("id-ID")}
-                  </td>
+                  <td className="px-4 py-3 text-[#5a5a5a]">{new Date(correction.createdAt).toLocaleString("id-ID")}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="neo-btn bg-green-100 hover:bg-green-200 text-green-700"
-                        onClick={() => openReviewModal(correction, "APPROVED")}
-                      >
+                      <button type="button" className="neo-btn bg-green-100 hover:bg-green-200 text-green-700" onClick={() => openReviewModal(correction, "APPROVED")}>
                         <TbCheck size={18} />
                       </button>
-                      <button
-                        type="button"
-                        className="neo-btn bg-red-100 hover:bg-red-200 text-red-700"
-                        onClick={() => openReviewModal(correction, "REJECTED")}
-                      >
+                      <button type="button" className="neo-btn bg-red-100 hover:bg-red-200 text-red-700" onClick={() => openReviewModal(correction, "REJECTED")}>
                         <TbX size={18} />
                       </button>
                     </div>
@@ -813,11 +900,11 @@ export default function AttendanceSettingsPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="neo-card p-6 bg-white"
+        className="neo-card p-4 sm:p-6 bg-white"
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="font-heading text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
               Pengaturan Absensi Koordinator
             </h1>
             <p className="text-[#5a5a5a] font-semibold mt-2">
@@ -894,7 +981,7 @@ export default function AttendanceSettingsPage() {
             <div className="space-y-4">
               <input
                 type="text"
-                className="neo-input bg-white"
+                className="neo-input bg-white min-h-[44px] w-full"
                 value={locationForm.name}
                 onChange={(event) =>
                   setLocationForm((prev) => ({ ...prev, name: event.target.value }))
@@ -905,7 +992,7 @@ export default function AttendanceSettingsPage() {
                 <input
                   type="number"
                   step="any"
-                  className="neo-input bg-white"
+                  className="neo-input bg-white min-h-[44px] w-full"
                   value={locationForm.latitude}
                   onChange={(event) =>
                     setLocationForm((prev) => ({
@@ -918,7 +1005,7 @@ export default function AttendanceSettingsPage() {
                 <input
                   type="number"
                   step="any"
-                  className="neo-input bg-white"
+                  className="neo-input bg-white min-h-[44px] w-full"
                   value={locationForm.longitude}
                   onChange={(event) =>
                     setLocationForm((prev) => ({
@@ -932,7 +1019,7 @@ export default function AttendanceSettingsPage() {
               <input
                 type="number"
                 min={1}
-                className="neo-input bg-white"
+                className="neo-input bg-white min-h-[44px] w-full"
                 value={locationForm.radiusMeter}
                 onChange={(event) =>
                   setLocationForm((prev) => ({
@@ -993,7 +1080,7 @@ export default function AttendanceSettingsPage() {
             <div className="space-y-4">
               <input
                 type="text"
-                className="neo-input bg-white"
+                className="neo-input bg-white min-h-[44px] w-full"
                 value={categoryForm.name}
                 onChange={(event) =>
                   setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
@@ -1001,7 +1088,7 @@ export default function AttendanceSettingsPage() {
                 placeholder="Nama kategori"
               />
               <textarea
-                className="neo-input bg-white min-h-24"
+                className="neo-input bg-white min-h-[96px] w-full"
                 value={categoryForm.description}
                 onChange={(event) =>
                   setCategoryForm((prev) => ({ ...prev, description: event.target.value }))
@@ -1011,7 +1098,7 @@ export default function AttendanceSettingsPage() {
               <input
                 type="number"
                 min={0}
-                className="neo-input bg-white"
+                className="neo-input bg-white min-h-[44px] w-full"
                 value={categoryForm.defaultPoints}
                 onChange={(event) =>
                   setCategoryForm((prev) => ({
@@ -1119,7 +1206,7 @@ export default function AttendanceSettingsPage() {
               </div>
 
               <textarea
-                className="neo-input bg-white min-h-24"
+                className="neo-input bg-white min-h-[96px] w-full"
                 value={reviewNote}
                 onChange={(event) => setReviewNote(event.target.value)}
                 placeholder="Catatan review"

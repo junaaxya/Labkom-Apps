@@ -62,7 +62,7 @@ export function ConfirmModal({
             exit={{ scale: 0.9, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6 w-full max-w-sm"
+            className="bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[4px_4px_0px_#1a1a1a] p-6 w-full max-w-full sm:max-w-sm"
           >
             <div className="flex flex-col items-center text-center">
               <div className={`w-12 h-12 rounded-full ${styles.iconBg} flex items-center justify-center mb-4`}>

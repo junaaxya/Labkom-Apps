@@ -4,6 +4,9 @@ import { Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { OfflineIndicator } from "@/components/pwa/offline-indicator";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { ServiceWorkerRegistration } from "@/components/pwa/sw-registration";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,14 +22,30 @@ const geistMono = Geist_Mono({
 import type { Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "Labkom — Sistem Manajemen Laboratorium",
+  title: "LabKom — Sistem Manajemen Laboratorium",
   description:
     "Sistem Manajemen Laboratorium Terpusat dengan QR Tracking, Digital Logbook, dan Ticketing Kerusakan",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "LabKom",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    apple: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#4b607f",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -42,7 +61,12 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <QueryProvider>
           <ToastProvider>
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider>
+              <OfflineIndicator />
+              <InstallPrompt />
+              <ServiceWorkerRegistration />
+              {children}
+            </TooltipProvider>
           </ToastProvider>
         </QueryProvider>
       </body>

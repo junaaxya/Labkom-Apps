@@ -149,7 +149,7 @@ export default function Home() {
               {stats.map((stat, i) => (
                 <div key={i} className="p-8 flex flex-col items-center text-center bg-white hover:bg-[#f5ede6] transition-colors">
                   <stat.icon className="w-10 h-10 mb-4 text-[#4b607f]" />
-                  <h3 className="text-4xl font-heading font-bold mb-2">{stat.value}</h3>
+                  <h3 className="text-3xl sm:text-4xl font-heading font-bold mb-2">{stat.value}</h3>
                   <p className="font-bold text-[#5a5a5a] uppercase tracking-wider text-sm">{stat.label}</p>
                 </div>
               ))}

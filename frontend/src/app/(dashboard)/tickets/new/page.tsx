@@ -142,14 +142,14 @@ export default function NewTicketPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="neo-card p-6" style={{ backgroundColor: "#fff" }}>
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-lg bg-[#f3701e] text-white neo-border-sm flex items-center justify-center">
             <TbAlertTriangle size={22} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="font-heading text-2xl font-bold text-[#1a1a1a]">Lapor Kerusakan</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Lapor Kerusakan</h1>
             <p className="text-sm text-[#5a5a5a] mt-1">
               Laporkan kerusakan perangkat laboratorium agar segera ditangani.
             </p>
@@ -157,10 +157,10 @@ export default function NewTicketPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="neo-card p-6 space-y-5" style={{ backgroundColor: "#fff" }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="neo-card p-4 sm:p-6 space-y-5" style={{ backgroundColor: "#fff" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
               <TbBuildingWarehouse size={18} strokeWidth={2.2} />
               Pilih Lab
             </label>
@@ -168,7 +168,7 @@ export default function NewTicketPage() {
               required
               value={form.labId}
               onChange={(e) => setForm((prev) => ({ ...prev, labId: e.target.value }))}
-              className="w-full px-4 py-3 neo-border-sm rounded-lg bg-white text-sm focus:outline-none"
+              className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm focus:outline-none"
               disabled={loadingLabs}
             >
               <option value="">{loadingLabs ? "Memuat lab..." : "Pilih lab"}</option>
@@ -180,8 +180,8 @@ export default function NewTicketPage() {
             </select>
           </div>
 
-          <div>
-            <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 flex items-center gap-2">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
               <TbCategory size={18} strokeWidth={2.2} />
               Kategori Kerusakan
             </label>
@@ -189,7 +189,7 @@ export default function NewTicketPage() {
               required
               value={form.category}
               onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as TicketCategory }))}
-              className="w-full px-4 py-3 neo-border-sm rounded-lg bg-white text-sm focus:outline-none"
+              className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm focus:outline-none"
             >
               {CATEGORIES.map((category) => (
                 <option key={category} value={category}>
@@ -200,20 +200,20 @@ export default function NewTicketPage() {
           </div>
         </div>
 
-        <div>
-          <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">Judul Laporan</label>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-bold text-[#1a1a1a]">Judul Laporan</label>
           <input
             required
             type="text"
             value={form.title}
             onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
             placeholder="Contoh: Mouse tidak terdeteksi di PC 12"
-            className="w-full px-4 py-3 neo-border-sm rounded-lg bg-white text-sm focus:outline-none"
+            className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block flex items-center gap-2">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
             <TbFileDescription size={18} strokeWidth={2.2} />
             Deskripsi Kerusakan
           </label>
@@ -223,20 +223,20 @@ export default function NewTicketPage() {
             value={form.description}
             onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
             placeholder="Jelaskan gejala kerusakan, waktu kejadian, dan kondisi terakhir perangkat."
-            className="w-full px-4 py-3 neo-border-sm rounded-lg bg-white text-sm focus:outline-none resize-none"
+            className="w-full px-4 py-3 min-h-[120px] neo-input bg-white text-sm focus:outline-none resize-none"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block flex items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
               <TbCpu size={18} strokeWidth={2.2} />
               Pilih PC (Opsional)
             </label>
             <select
               value={form.pcId}
               onChange={(e) => setForm((prev) => ({ ...prev, pcId: e.target.value }))}
-              className="w-full px-4 py-3 neo-border-sm rounded-lg bg-white text-sm focus:outline-none"
+              className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm focus:outline-none"
               disabled={!form.labId || loadingPcs}
             >
               <option value="">
@@ -265,11 +265,11 @@ export default function NewTicketPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2">
           <button
             type="submit"
             disabled={submitting}
-            className="neo-btn px-5 py-3 bg-[#4b607f] text-white font-semibold disabled:opacity-60 inline-flex items-center gap-2"
+            className="neo-btn w-full sm:w-auto px-6 py-3 min-h-[44px] bg-[#4b607f] text-white font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
             <TbSend size={18} strokeWidth={2.2} />
             {submitting ? "Mengirim..." : "Kirim Laporan"}
