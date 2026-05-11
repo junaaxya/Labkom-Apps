@@ -149,6 +149,7 @@ export default function ProfilePage() {
   const initial = (profile?.name || "U").charAt(0).toUpperCase();
   const profileAvatar = (avatar || profile?.avatar || "").trim();
   const avatarUrl = profileAvatar ? toUploadDisplayUrl(profileAvatar) : "";
+  const shouldRenderAvatar = Boolean(avatarUrl) && !avatarLoadFailed;
 
   const infoPills = [
     { icon: TbSchool, label: "Semester", value: profile?.semester || "-", color: "bg-[#4b607f]" },
@@ -167,7 +168,7 @@ export default function ProfilePage() {
           />
           <div className="absolute -bottom-12 left-6 sm:left-8">
             <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
-              {avatarUrl && !avatarLoadFailed ? (
+              {shouldRenderAvatar ? (
                 <img
                   key={avatarUrl}
                   src={avatarUrl}
