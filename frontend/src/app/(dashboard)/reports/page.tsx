@@ -111,16 +111,16 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4 mb-4 sm:mb-6">
-        <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+        <div className="min-w-0">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Laporan Bulanan</h1>
           <p className="text-[#4b607f] mt-1 text-sm sm:text-base leading-relaxed">Statistik penggunaan lab & performa asisten</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-[#f5ede6] p-1.5 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex bg-[#f5ede6] p-1.5 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] w-full sm:w-auto">
             <button
               onClick={() => setViewMode("charts")}
-              className={`px-4 py-2 text-sm font-bold flex items-center gap-2 rounded-lg transition-all ${
+              className={`flex-1 sm:flex-initial px-4 min-h-[44px] text-sm font-bold flex items-center justify-center gap-2 rounded-lg transition-all ${
                 viewMode === "charts" 
                   ? "bg-[#4b607f] text-white shadow-[2px_2px_0px_#1a1a1a]" 
                   : "bg-transparent text-[#1a1a1a] hover:bg-white"
@@ -130,7 +130,7 @@ export default function ReportsPage() {
             </button>
             <button
               onClick={() => setViewMode("cards")}
-              className={`px-4 py-2 text-sm font-bold flex items-center gap-2 rounded-lg transition-all ${
+              className={`flex-1 sm:flex-initial px-4 min-h-[44px] text-sm font-bold flex items-center justify-center gap-2 rounded-lg transition-all ${
                 viewMode === "cards" 
                   ? "bg-[#4b607f] text-white shadow-[2px_2px_0px_#1a1a1a]" 
                   : "bg-transparent text-[#1a1a1a] hover:bg-white"
@@ -144,14 +144,14 @@ export default function ReportsPage() {
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2.5 bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[2px_2px_0px_#1a1a1a] font-bold text-[#1a1a1a] focus:outline-none focus:shadow-[4px_4px_0px_#1a1a1a] transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 min-h-[44px] bg-white border-2 border-[#1a1a1a] rounded-xl shadow-[2px_2px_0px_#1a1a1a] font-bold text-[#1a1a1a] focus:outline-none focus:shadow-[4px_4px_0px_#1a1a1a] transition-all cursor-pointer"
           />
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={() => handleExport("pdf")}
               disabled={exporting === "pdf"}
-              className="neo-btn px-4 py-2.5 bg-[#4b607f] text-white text-sm font-bold flex items-center gap-2"
+              className="neo-btn flex-1 sm:flex-initial px-4 min-h-[44px] bg-[#4b607f] text-white text-sm font-bold flex items-center justify-center gap-2"
             >
               {exporting === "pdf" ? <TbLoader2 className="w-5 h-5 animate-spin" /> : <TbFileTypePdf strokeWidth={2.2} className="w-5 h-5 text-white" />}
               <span>PDF</span>
@@ -159,7 +159,7 @@ export default function ReportsPage() {
             <button
               onClick={() => handleExport("excel")}
               disabled={exporting === "excel"}
-              className="neo-btn px-4 py-2.5 bg-[#f3701e] text-white text-sm font-bold flex items-center gap-2"
+              className="neo-btn flex-1 sm:flex-initial px-4 min-h-[44px] bg-[#f3701e] text-white text-sm font-bold flex items-center justify-center gap-2"
             >
               {exporting === "excel" ? <TbLoader2 className="w-5 h-5 animate-spin" /> : <TbFileSpreadsheet strokeWidth={2.2} className="w-5 h-5 text-white" />}
               <span>Excel</span>

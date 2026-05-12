@@ -163,11 +163,11 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-white neo-border-sm rounded-xl p-1.5 shadow-[2px_2px_0px_#1a1a1a]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-1 bg-white neo-border-sm rounded-xl p-1.5 shadow-[2px_2px_0px_#1a1a1a] w-full sm:w-auto">
             <button
               onClick={() => { setFilter("all"); setPage(1); }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+              className={`flex-1 sm:flex-initial px-4 min-h-[44px] rounded-lg text-sm font-bold transition-colors ${
                 filter === "all" ? "bg-[#4b607f] text-white" : "text-[#1a1a1a] hover:bg-[#e8d8c9]"
               }`}
             >
@@ -175,7 +175,7 @@ export default function NotificationsPage() {
             </button>
             <button
               onClick={() => { setFilter("unread"); setPage(1); }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+              className={`flex-1 sm:flex-initial px-4 min-h-[44px] rounded-lg text-sm font-bold transition-colors ${
                 filter === "unread" ? "bg-[#4b607f] text-white" : "text-[#1a1a1a] hover:bg-[#e8d8c9]"
               }`}
             >
@@ -188,7 +188,7 @@ export default function NotificationsPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={markAllRead}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white neo-border-sm rounded-xl text-sm font-bold text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors shadow-[2px_2px_0px_#1a1a1a]"
+              className="flex items-center justify-center gap-2 px-4 min-h-[44px] bg-white neo-border-sm rounded-xl text-sm font-bold text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors shadow-[2px_2px_0px_#1a1a1a] w-full sm:w-auto"
             >
               <TbChecks size={18} strokeWidth={2.2} className="text-[#4b607f]" />
               Baca Semua
