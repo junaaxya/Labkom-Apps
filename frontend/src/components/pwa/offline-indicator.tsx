@@ -46,7 +46,7 @@ export function OfflineIndicator() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -64, opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 py-3"
+          className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 pb-3 pt-safe-top"
           style={{
             background: "#1a1a1a",
             borderBottom: "2px solid #f3701e",
@@ -62,10 +62,10 @@ export function OfflineIndicator() {
           </div>
           <button
             onClick={() => setDismissed(true)}
-            className="shrink-0 rounded p-1 text-[#f5ede6] hover:bg-white/10 transition-colors"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#f5ede6] transition-colors hover:bg-white/10"
             aria-label="Tutup notifikasi offline"
           >
-            <TbX size={14} />
+            <TbX size={20} />
           </button>
         </motion.div>
       )}
@@ -77,7 +77,7 @@ export function OfflineIndicator() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -64, opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="fixed top-0 left-0 right-0 z-[9999] flex items-center gap-2 px-4 py-3"
+          className="fixed top-0 left-0 right-0 z-[9999] flex items-center gap-2 px-4 pb-3 pt-safe-top"
           style={{
             background: "#2d5a27",
             borderBottom: "2px solid #4ade80",

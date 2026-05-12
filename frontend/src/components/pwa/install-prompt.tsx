@@ -72,18 +72,19 @@ export function InstallPrompt() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="fixed bottom-0 left-0 right-0 z-[9999] mx-auto max-w-lg"
+            className="fixed bottom-0 left-0 right-0 z-[9999] mx-auto w-full max-w-lg max-h-[90dvh] overflow-y-auto"
             style={{
               background: "#f5ede6",
               border: "2px solid #1a1a1a",
               borderBottom: "none",
               borderRadius: "16px 16px 0 0",
+              paddingBottom: "env(safe-area-inset-bottom, 0)",
             }}
             role="dialog"
             aria-modal="true"
             aria-label="Install LabKom"
           >
-            <div className="flex items-start justify-between p-5 pb-2">
+            <div className="flex items-start justify-between gap-3 p-4 pb-2 sm:p-5 sm:pb-2">
               <div className="flex items-center gap-3">
                 <div
                   className="flex h-12 w-12 items-center justify-center rounded-xl"
@@ -108,14 +109,15 @@ export function InstallPrompt() {
               </div>
               <button
                 onClick={handleDismiss}
-                className="rounded-lg p-1.5 transition-colors hover:bg-black/10"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors hover:bg-black/10"
                 aria-label="Tutup"
+                disabled={installing}
               >
-                <TbX size={16} style={{ color: "#5a5a5a" }} />
+                <TbX size={20} style={{ color: "#5a5a5a" }} />
               </button>
             </div>
 
-            <div className="px-5 pb-2">
+            <div className="px-4 pb-2 sm:px-5">
               <ul className="space-y-1.5 text-sm" style={{ color: "#5a5a5a" }}>
                 {[
                   "Buka tanpa browser, langsung dari home screen",
@@ -133,10 +135,10 @@ export function InstallPrompt() {
               </ul>
             </div>
 
-            <div className="flex gap-3 p-5 pt-4">
+            <div className="grid grid-cols-1 gap-3 p-4 pt-4 sm:grid-cols-2 sm:p-5 sm:pt-4">
               <button
                 onClick={handleDismiss}
-                className="flex-1 rounded-xl py-3 text-sm font-medium transition-colors hover:bg-black/5"
+                className="min-h-[44px] rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-black/5"
                 style={{
                   border: "2px solid #1a1a1a",
                   color: "#1a1a1a",
@@ -148,7 +150,7 @@ export function InstallPrompt() {
               <button
                 onClick={handleInstall}
                 disabled={installing}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-opacity disabled:opacity-60"
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-opacity disabled:opacity-60"
                 style={{
                   background: "#4b607f",
                   border: "2px solid #1a1a1a",
