@@ -271,19 +271,19 @@ function ConditionCard({
           {confirmVerify ? (
             <div className="rounded-lg border-2 border-[#1a1a1a] bg-[#fff3ec] p-3">
               <p className="mb-2 text-sm font-bold text-[#1a1a1a]">Verifikasi kondisi ini?</p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
                   disabled={isVerifying}
                   onClick={onVerify}
-                  className="rounded-lg border-2 border-[#1a1a1a] bg-[#4b607f] px-3 py-2 text-xs font-bold text-white shadow-[2px_2px_0px_#1a1a1a] disabled:opacity-60"
+                  className="rounded-lg border-2 border-[#1a1a1a] bg-[#4b607f] px-3 min-h-[44px] text-xs font-bold text-white shadow-[2px_2px_0px_#1a1a1a] disabled:opacity-60 w-full sm:w-auto"
                 >
                   {isVerifying ? "Memproses..." : "Ya, Verifikasi"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmVerify(false)}
-                  className="rounded-lg border-2 border-[#1a1a1a] bg-white px-3 py-2 text-xs font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]"
+                  className="rounded-lg border-2 border-[#1a1a1a] bg-white px-3 min-h-[44px] text-xs font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] w-full sm:w-auto"
                 >
                   Batal
                 </button>
@@ -293,7 +293,7 @@ function ConditionCard({
             <button
               type="button"
               onClick={() => setConfirmVerify(true)}
-              className="inline-flex items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-[#f3701e] px-3 py-2 text-xs font-bold text-white shadow-[2px_2px_0px_#1a1a1a]"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-[#f3701e] px-3 min-h-[44px] text-xs font-bold text-white shadow-[2px_2px_0px_#1a1a1a] w-full sm:w-auto"
             >
               <TbShieldCheck size={16} /> Verifikasi Kondisi
             </button>
@@ -583,7 +583,7 @@ export default function LogbookPage() {
               {/* Timeline Flow */}
               <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-5 shadow-[4px_4px_0px_#1a1a1a]">
                 <p className="font-heading text-lg font-bold text-[#1a1a1a] mb-4">Timeline Sesi</p>
-                <div className="flex items-start gap-0 overflow-x-auto pb-2">
+                <div className="flex items-start gap-1 sm:gap-0 overflow-x-auto pb-2 px-1">
                   {[
                     {
                       label: "Check-in",
@@ -629,9 +629,9 @@ export default function LogbookPage() {
                     },
                   ].map((step, i, arr) => (
                     <div key={step.label} className="flex items-start shrink-0">
-                      <div className="flex flex-col items-center w-20">
+                      <div className="flex flex-col items-center w-16 sm:w-20">
                         <div
-                          className={`w-10 h-10 rounded-full border-2 border-[#1a1a1a] flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a] ${
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-[#1a1a1a] flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a] ${
                             step.done
                               ? "bg-green-500 text-white"
                               : "bg-[#f5ede6] text-[#5a5a5a]"
@@ -639,15 +639,15 @@ export default function LogbookPage() {
                         >
                           {step.done ? <TbCircleCheck size={20} /> : <step.icon size={18} />}
                         </div>
-                        <p className="text-[10px] font-bold text-[#1a1a1a] mt-1.5 text-center leading-tight">
+                        <p className="text-[9px] sm:text-[10px] font-bold text-[#1a1a1a] mt-1.5 text-center leading-tight px-0.5">
                           {step.label}
                         </p>
-                        <p className={`text-[10px] mt-0.5 text-center ${step.done ? "text-green-600 font-bold" : "text-[#5a5a5a]"}`}>
+                        <p className={`text-[9px] sm:text-[10px] mt-0.5 text-center ${step.done ? "text-green-600 font-bold" : "text-[#5a5a5a]"}`}>
                           {step.time}
                         </p>
                       </div>
                       {i < arr.length - 1 && (
-                        <div className={`h-0.5 w-6 mt-5 shrink-0 ${step.done ? "bg-green-500" : "bg-[#d0c5b8]"}`} />
+                        <div className={`h-0.5 w-4 sm:w-6 mt-5 sm:mt-6 shrink-0 ${step.done ? "bg-green-500" : "bg-[#d0c5b8]"}`} />
                       )}
                     </div>
                   ))}

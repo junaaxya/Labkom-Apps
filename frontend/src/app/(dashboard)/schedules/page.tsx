@@ -1015,18 +1015,18 @@ export default function SchedulesPage() {
                             setApproveTarget(item);
                             setAdminNotes("");
                           }}
-                          className="neo-btn bg-green-600 text-white text-sm flex items-center justify-center gap-1 min-h-[44px] px-4 py-2"
+                          className="neo-btn bg-green-600 text-white text-sm flex items-center justify-center gap-1 px-3 min-h-[44px] w-full sm:w-auto"
                         >
-                          <TbCheck className="w-4 h-4" /> Approve
+                          <TbCheck className="w-4 h-4" /> Setujui
                         </button>
                         <button
                           onClick={() => {
                             setRejectTarget(item);
-                            setRejectionReason("");
+                            setAdminNotes("");
                           }}
-                          className="neo-btn bg-red-500 text-white text-sm flex items-center justify-center gap-1 min-h-[44px] px-4 py-2"
+                          className="neo-btn bg-red-600 text-white text-sm flex items-center justify-center gap-1 px-3 min-h-[44px] w-full sm:w-auto"
                         >
-                          <TbX className="w-4 h-4" /> Reject
+                          <TbX className="w-4 h-4" /> Tolak
                         </button>
                       </div>
                     </div>

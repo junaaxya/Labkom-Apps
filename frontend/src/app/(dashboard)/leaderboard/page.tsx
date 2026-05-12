@@ -251,59 +251,59 @@ export default function LeaderboardPage() {
       )}
 
       {selectedUser && userDetail && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedUser(null)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setSelectedUser(null)}>
           <div 
             className="bg-[#e8d8c9] neo-card shadow-[6px_6px_0px_#1a1a1a] p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold font-heading text-[#1a1a1a]">Detail Performa</h2>
+            <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold font-heading text-[#1a1a1a] truncate">Detail Performa</h2>
               <button 
                 onClick={() => setSelectedUser(null)} 
-                className="min-w-[44px] min-h-[44px] bg-white neo-border rounded-xl flex items-center justify-center font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors flex-shrink-0"
+                className="min-w-[44px] min-h-[44px] bg-white neo-border rounded-xl flex items-center justify-center font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors shrink-0"
               >
                 <TbX className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="text-center mb-8 bg-white p-6 rounded-xl neo-border relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-24 bg-[#4b607f]/10" />
-              <div className="w-24 h-24 mx-auto rounded-2xl bg-[#4b607f] neo-border flex items-center justify-center text-white text-4xl font-heading font-bold mb-4 shadow-[4px_4px_0px_#1a1a1a] relative z-10 -rotate-3">
+            <div className="text-center mb-6 sm:mb-8 bg-white p-4 sm:p-6 rounded-xl neo-border relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-20 sm:h-24 bg-[#4b607f]/10" />
+              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-2xl bg-[#4b607f] neo-border flex items-center justify-center text-white text-3xl sm:text-4xl font-heading font-bold mb-3 sm:mb-4 shadow-[4px_4px_0px_#1a1a1a] relative z-10 -rotate-3">
                 {userDetail.user?.name?.charAt(0)?.toUpperCase()}
               </div>
-              <h3 className="font-bold font-heading text-2xl text-[#1a1a1a]">{userDetail.user?.name}</h3>
-              <p className="text-sm font-medium text-[#5a5a5a] mt-1">{userDetail.user?.email}</p>
+              <h3 className="font-bold font-heading text-xl sm:text-2xl text-[#1a1a1a] truncate px-2">{userDetail.user?.name}</h3>
+              <p className="text-xs sm:text-sm font-medium text-[#5a5a5a] mt-1 truncate px-2">{userDetail.user?.email}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-white neo-border rounded-xl p-5 text-center neo-card-hover transition-all duration-200">
-                <div className="w-10 h-10 mx-auto bg-orange-100 rounded-lg flex items-center justify-center mb-2">
-                  <TbFlame className="w-6 h-6 text-[#f3701e]" strokeWidth={2.2} />
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <div className="bg-white neo-border rounded-xl p-3 sm:p-5 text-center neo-card-hover transition-all duration-200">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 mx-auto bg-orange-100 rounded-lg flex items-center justify-center mb-2">
+                  <TbFlame className="w-5 h-5 sm:w-6 sm:h-6 text-[#f3701e]" strokeWidth={2.2} />
                 </div>
-                <p className="text-3xl font-heading font-bold text-[#f3701e]">{userDetail.totalPoints}</p>
-                <p className="text-sm font-bold text-[#5a5a5a] mt-1">Total Poin</p>
+                <p className="text-2xl sm:text-3xl font-heading font-bold text-[#f3701e] truncate">{userDetail.totalPoints}</p>
+                <p className="text-xs sm:text-sm font-bold text-[#5a5a5a] mt-1">Total Poin</p>
               </div>
-              <div className="bg-white neo-border rounded-xl p-5 text-center neo-card-hover transition-all duration-200">
-                <div className="w-10 h-10 mx-auto bg-[#e8f5e9] rounded-lg flex items-center justify-center mb-2">
-                  <TbCalendarCheck className="w-6 h-6 text-green-700" strokeWidth={2.2} />
+              <div className="bg-white neo-border rounded-xl p-3 sm:p-5 text-center neo-card-hover transition-all duration-200">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 mx-auto bg-[#e8f5e9] rounded-lg flex items-center justify-center mb-2">
+                  <TbCalendarCheck className="w-5 h-5 sm:w-6 sm:h-6 text-green-700" strokeWidth={2.2} />
                 </div>
-                <p className="text-3xl font-heading font-bold text-green-600">{userDetail.streak} <span className="text-base">hari</span></p>
-                <p className="text-sm font-bold text-[#5a5a5a] mt-1">Streak</p>
+                <p className="text-2xl sm:text-3xl font-heading font-bold text-green-600 truncate">{userDetail.streak} <span className="text-sm sm:text-base">hari</span></p>
+                <p className="text-xs sm:text-sm font-bold text-[#5a5a5a] mt-1">Streak</p>
               </div>
             </div>
 
-            <div className="mb-8">
-              <h4 className="font-heading font-bold text-lg mb-4 text-[#1a1a1a]">Statistik Misi</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="mb-6 sm:mb-8">
+              <h4 className="font-heading font-bold text-base sm:text-lg mb-3 sm:mb-4 text-[#1a1a1a]">Statistik Misi</h4>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {[
                   { label: "Selesai", value: userDetail.missionStats?.completed, color: "text-green-700 bg-[#e8f5e9]" },
                   { label: "Progress", value: userDetail.missionStats?.inProgress, color: "text-blue-700 bg-blue-100" },
                   { label: "Submit", value: userDetail.missionStats?.submitted, color: "text-yellow-700 bg-yellow-100" },
                   { label: "Ditolak", value: userDetail.missionStats?.rejected, color: "text-red-700 bg-red-100" },
                 ].map((s) => (
-                  <div key={s.label} className={`p-4 rounded-xl neo-border text-center ${s.color}`}>
-                    <p className="font-heading font-bold text-2xl mb-1">{s.value || 0}</p>
-                    <p className="text-xs font-bold uppercase tracking-wider">{s.label}</p>
+                  <div key={s.label} className={`p-3 sm:p-4 rounded-xl neo-border text-center ${s.color}`}>
+                    <p className="font-heading font-bold text-xl sm:text-2xl mb-1 truncate">{s.value || 0}</p>
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">{s.label}</p>
                   </div>
                 ))}
               </div>
