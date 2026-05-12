@@ -63,9 +63,9 @@ export function MobileCard({
         {badge && <div className="shrink-0">{badge}</div>}
       </div>
 
-      <div className="p-4 grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
         {fields.map((field, i) => (
-          <div key={i} className={cn("min-w-0", field.fullWidth && "col-span-2")}>
+          <div key={i} className={cn("min-w-0", field.fullWidth && "sm:col-span-2")}>
             <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a5a5a] mb-0.5">
               {field.label}
             </p>
