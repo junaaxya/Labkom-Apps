@@ -136,7 +136,7 @@ export default function SmartSchedulingPage() {
         </p>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { key: "suggest", label: "Suggest Slots", icon: TbBulb },
           { key: "patterns", label: "Usage Heatmap", icon: TbChartBar },
@@ -147,14 +147,14 @@ export default function SmartSchedulingPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
-            className={`neo-btn flex items-center gap-2 px-5 py-2.5 transition-all duration-200 ${
+            className={`neo-btn flex items-center justify-center gap-2 px-3 sm:px-5 min-h-[44px] transition-all duration-200 ${
               tab === t.key 
                 ? "bg-[#4b607f] text-white shadow-[4px_4px_0px_#1a1a1a] translate-y-[-2px]" 
                 : "bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] hover:shadow-[2px_2px_0px_#1a1a1a] hover:translate-y-[-1px]"
             }`}
           >
-            <t.icon className="w-5 h-5" />
-            <span className="font-bold">{t.label}</span>
+            <t.icon className="w-5 h-5 shrink-0" />
+            <span className="font-bold text-xs sm:text-sm truncate">{t.label}</span>
           </button>
         ))}
       </div>
@@ -170,25 +170,27 @@ export default function SmartSchedulingPage() {
         <>
           {tab === "suggest" && (
             <div className="space-y-6">
-              <div className="neo-card p-5 bg-white shadow-[4px_4px_0px_#1a1a1a] flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-3 bg-[#f5ede6] p-2 px-4 rounded-lg border-2 border-[#1a1a1a]">
-                  <TbClock className="w-5 h-5 text-[#f3701e]" />
-                  <label className="text-sm font-bold font-heading">Durasi (menit):</label>
-                  <select
-                    value={duration}
-                    onChange={(e) => setDuration(parseInt(e.target.value))}
-                    className="bg-transparent border-none outline-none font-bold text-[#4b607f] cursor-pointer"
-                  >
-                    <option value={60}>60</option>
-                    <option value={90}>90</option>
-                    <option value={120}>120</option>
-                    <option value={150}>150</option>
-                    <option value={180}>180</option>
-                  </select>
+              <div className="neo-card p-4 sm:p-5 bg-white shadow-[4px_4px_0px_#1a1a1a] space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-[#f5ede6] p-3 sm:p-2 sm:px-4 rounded-lg border-2 border-[#1a1a1a]">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <TbClock className="w-5 h-5 text-[#f3701e] shrink-0" />
+                    <label className="text-sm font-bold font-heading">Durasi (menit):</label>
+                    <select
+                      value={duration}
+                      onChange={(e) => setDuration(parseInt(e.target.value))}
+                      className="bg-transparent border-none outline-none font-bold text-[#4b607f] cursor-pointer flex-1 sm:flex-initial"
+                    >
+                      <option value={60}>60</option>
+                      <option value={90}>90</option>
+                      <option value={120}>120</option>
+                      <option value={150}>150</option>
+                      <option value={180}>180</option>
+                    </select>
+                  </div>
                 </div>
                 <button 
                   onClick={fetchData} 
-                  className="neo-btn bg-[#f3701e] text-white px-6 py-2.5 flex items-center gap-2 hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_#1a1a1a] transition-all"
+                  className="neo-btn bg-[#f3701e] text-white px-6 min-h-[44px] flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_#1a1a1a] transition-all w-full sm:w-auto"
                 >
                   <TbBulb className="w-5 h-5" />
                   <span className="font-bold">Cari Slot Optimal</span>

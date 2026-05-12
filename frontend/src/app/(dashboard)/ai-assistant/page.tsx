@@ -115,8 +115,8 @@ export default function AIAssistantPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#1a1a1a] tracking-tight">
             AI Assistant
           </h1>
@@ -126,10 +126,10 @@ export default function AIAssistantPage() {
         </div>
         <button
           onClick={clearHistory}
-          className="neo-btn flex items-center gap-2 px-4 py-2 bg-white text-[#1a1a1a]"
+          className="neo-btn flex items-center gap-2 px-4 min-h-[44px] bg-white text-[#1a1a1a] w-full sm:w-auto"
         >
           <TbTrash strokeWidth={2.2} className="w-4 h-4" />
-          Clear Chat
+          <span>Clear Chat</span>
         </button>
       </div>
 
@@ -149,8 +149,8 @@ export default function AIAssistantPage() {
         </div>
       )}
 
-      <div className="neo-card p-0 flex flex-col shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200" style={{ height: "calc(100vh - 280px)", minHeight: "500px" }}>
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div className="neo-card p-0 flex flex-col shadow-[4px_4px_0px_#1a1a1a] transition-all duration-200" style={{ height: "calc(100dvh - 320px)", minHeight: "400px" }}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
               <div className="w-20 h-20 bg-[#f5ede6] neo-border-sm flex items-center justify-center mb-4 shadow-[2px_2px_0px_#1a1a1a]">
@@ -248,21 +248,21 @@ export default function AIAssistantPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t-2 border-[#1a1a1a] p-5 bg-white/50 backdrop-blur-sm rounded-b-xl">
-          <div className="flex gap-3 items-end">
+        <div className="border-t-2 border-[#1a1a1a] p-3 sm:p-5 bg-white/50 backdrop-blur-sm rounded-b-xl">
+          <div className="flex gap-2 sm:gap-3 items-end">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Tanya sesuatu tentang lab..."
-              className="neo-input flex-1 min-h-[50px] max-h-[120px] py-3 resize-none"
+              className="neo-input flex-1 min-h-[44px] max-h-[120px] py-3 resize-none text-sm sm:text-base"
               disabled={loading}
               rows={1}
             />
             <button
               onClick={sendMessage}
               disabled={!input.trim() || loading}
-              className="neo-btn bg-[#f3701e] text-white p-3 h-[50px] w-[50px] flex items-center justify-center disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#1a1a1a]"
+              className="neo-btn bg-[#f3701e] text-white p-3 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#1a1a1a]"
             >
               <TbSend strokeWidth={2.2} className="w-5 h-5" />
             </button>

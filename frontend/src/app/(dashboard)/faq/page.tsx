@@ -101,15 +101,15 @@ export default function FAQPage() {
   const categories = [...new Set(faqs.map((f) => f.category))];
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
-      <div className="flex items-center justify-between mb-6">
+    <div className="min-h-[calc(100dvh-120px)] flex flex-col">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div>
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">FAQ Bot</h1>
-          <p className="text-[#4b607f] mt-1 text-lg">Tanya apa saja tentang lab</p>
+          <p className="text-[#4b607f] mt-1 text-sm sm:text-lg">Tanya apa saja tentang lab</p>
         </div>
         <button
           onClick={() => setShowFAQList(!showFAQList)}
-          className="neo-btn flex items-center gap-2 bg-white px-5 py-2.5 transition-all hover:-translate-y-1 hover:shadow-[4px_4px_0px_#1a1a1a]"
+          className="neo-btn flex min-h-[44px] w-full items-center justify-center gap-2 bg-white px-5 py-2.5 sm:w-auto transition-all hover:-translate-y-1 hover:shadow-[4px_4px_0px_#1a1a1a]"
         >
           <TbMessageCircle strokeWidth={2.2} className="w-5 h-5 text-[#f3701e]" />
           <span className="font-bold text-[#1a1a1a]">{showFAQList ? "Kembali ke Chat" : "Daftar FAQ"}</span>
@@ -117,14 +117,14 @@ export default function FAQPage() {
       </div>
 
       {showFAQList ? (
-        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1 sm:space-y-6 sm:pr-2">
           {categories.map((cat) => (
             <div key={cat} className="neo-card p-4 sm:p-6 bg-white shadow-[4px_4px_0px_#1a1a1a] neo-card-hover hover:-translate-y-1 transition-all duration-200">
-              <div className="flex items-center gap-3 mb-4 border-b-2 border-[#1a1a1a]/10 pb-3">
+              <div className="flex items-start gap-3 mb-4 border-b-2 border-[#1a1a1a]/10 pb-3">
                 <div className="bg-[#f5ede6] p-2 rounded-lg border-2 border-[#1a1a1a]">
                   <TbMessageCircle strokeWidth={2.2} className="w-5 h-5 text-[#4b607f]" />
                 </div>
-                <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">{cat}</h3>
+                <h3 className="font-heading font-bold text-base sm:text-xl text-[#1a1a1a]">{cat}</h3>
               </div>
               <div className="space-y-3">
                 {faqs
@@ -133,7 +133,7 @@ export default function FAQPage() {
                     <button
                       key={i}
                       onClick={() => askQuickQuestion(faq.question)}
-                      className="w-full text-left p-4 rounded-xl border-2 border-[#1a1a1a] bg-[#fff8f0] hover:bg-[#f3701e] hover:text-white group transition-all duration-200 hover:-translate-y-1 shadow-[2px_2px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-between"
+                      className="w-full min-h-[44px] text-left p-3 sm:p-4 rounded-xl border-2 border-[#1a1a1a] bg-[#fff8f0] hover:bg-[#f3701e] hover:text-white group transition-all duration-200 hover:-translate-y-1 shadow-[2px_2px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-between"
                     >
                       <p className="font-bold text-sm leading-relaxed">{faq.question}</p>
                       <TbSend strokeWidth={2.2} className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0" />
@@ -146,21 +146,21 @@ export default function FAQPage() {
       ) : (
         <>
           <div className="flex-1 overflow-y-auto neo-card p-0 flex flex-col bg-white shadow-[4px_4px_0px_#1a1a1a]">
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                  className={`flex gap-2 sm:gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
                 >
                   <div
-                    className={`w-10 h-10 rounded-full border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0 mt-1 ${
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0 mt-1 ${
                       msg.role === "bot" ? "bg-[#4b607f] text-white" : "bg-[#4b607f] text-white"
                     }`}
                   >
                     {msg.role === "bot" ? <TbRobot strokeWidth={2.2} className="w-5 h-5" /> : <TbUser strokeWidth={2.2} className="w-5 h-5" />}
                   </div>
                   <div
-                    className={`max-w-[75%] p-4 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${
+                    className={`max-w-[calc(100%-3rem)] sm:max-w-[75%] p-3 sm:p-4 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] ${
                       msg.role === "bot" 
                         ? "bg-white text-[#1a1a1a] rounded-2xl rounded-tl-sm" 
                         : "bg-[#f3701e] text-white rounded-2xl rounded-tr-sm"
@@ -184,7 +184,7 @@ export default function FAQPage() {
               ))}
               {loading && (
                 <div className="flex gap-3">
-                  <div className="w-10 h-10 rounded-full border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center bg-[#4b607f] text-white mt-1">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center bg-[#4b607f] text-white mt-1">
                     <TbRobot strokeWidth={2.2} className="w-5 h-5" />
                   </div>
                   <div className="p-4 rounded-2xl rounded-tl-sm border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] bg-white flex items-center gap-2">
@@ -199,8 +199,8 @@ export default function FAQPage() {
               <div ref={chatEndRef} />
             </div>
 
-            <div className="border-t-2 border-[#1a1a1a] p-5 bg-[#f5ede6] rounded-b-xl">
-              <div className="flex gap-3 items-end">
+            <div className="border-t-2 border-[#1a1a1a] p-3 sm:p-5 bg-[#f5ede6] rounded-b-xl">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -211,17 +211,17 @@ export default function FAQPage() {
                     }
                   }}
                   placeholder="Ketik pertanyaan tentang lab..."
-                  className="neo-input flex-1 min-h-[50px] max-h-[120px] py-3 resize-none font-medium"
+                  className="neo-input w-full flex-1 min-h-[50px] max-h-[120px] py-3 resize-none font-medium"
                   disabled={loading}
                   rows={1}
                 />
                 <button
                   onClick={sendMessage}
                   disabled={loading || !input.trim()}
-                  className="neo-btn bg-[#f3701e] text-white h-[50px] px-6 flex items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#1a1a1a] group"
+                  className="neo-btn bg-[#f3701e] text-white min-h-[50px] w-full px-6 flex items-center justify-center gap-2 sm:w-auto disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#1a1a1a] group"
                 >
                   {loading ? <TbLoader2 className="w-5 h-5 animate-spin" /> : <TbSend strokeWidth={2.2} className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-                  <span className="font-bold hidden sm:inline">Kirim</span>
+                  <span className="font-bold">Kirim</span>
                 </button>
               </div>
             </div>
