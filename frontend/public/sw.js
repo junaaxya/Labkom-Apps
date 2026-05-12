@@ -1,4 +1,4 @@
-const CACHE_NAME = "labkom-v1";
+const CACHE_NAME = "labkom-66916372b1af";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
@@ -7,6 +7,9 @@ const PRECACHE_URLS = [
   "/manifest.json",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
+  "/icons/icon-maskable-192.png",
+  "/icons/icon-maskable-512.png",
+  "/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -33,36 +36,54 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
-  if (event.request.mode === "navigate") {
+  const req = event.request;
+
+  if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/uploads/") ||
+    url.hostname.endsWith("localhost") ||
+    url.port === "5000"
+  ) {
+    return;
+  }
+
+  if (req.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() =>
+      fetch(req).catch(() =>
         caches.open(CACHE_NAME).then((cache) => cache.match(OFFLINE_URL))
       )
     );
     return;
   }
 
-  if (
-    event.request.url.includes("/api/") ||
-    event.request.url.includes("localhost:5000")
-  ) {
-    return;
-  }
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/fonts/") ||
+    url.pathname === "/manifest.json" ||
+    url.pathname === "/apple-touch-icon.png";
+
+  if (!isStaticAsset) return;
 
   event.respondWith(
-    caches.match(event.request).then(
+    caches.match(req).then(
       (cached) =>
         cached ||
-        fetch(event.request).then((response) => {
-          if (
-            response.ok &&
-            event.request.method === "GET" &&
-            (event.request.url.includes("/fonts/") ||
-              event.request.url.includes("/icons/"))
-          ) {
+        fetch(req).then((response) => {
+          if (response && response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }
           return response;
         })
