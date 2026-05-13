@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { OfflineIndicator } from "@/components/pwa/offline-indicator";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { ServiceWorkerRegistration } from "@/components/pwa/sw-registration";
+import { AppSplash } from "@/components/pwa/app-splash";
 import "./globals.css";
 
 const inter = Inter({
@@ -69,6 +70,7 @@ export default function RootLayout({
               <OfflineIndicator />
               <InstallPrompt />
               <ServiceWorkerRegistration />
+              <AppSplash />
               {children}
             </TooltipProvider>
           </ToastProvider>
