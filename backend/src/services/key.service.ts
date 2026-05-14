@@ -48,7 +48,7 @@ export class KeyService {
     if (!key) throw new Error("Kunci tidak ditemukan");
     if (key.status !== "AVAILABLE") throw new Error("Kunci tidak tersedia");
 
-    if (userRole === "KOORDINATOR_LAB") {
+    if (userRole === "KOORDINATOR_LAB" || userRole === "ASISTEN_LAB") {
       // admin bypass
     } else {
       const user = await prisma.user.findUnique({ where: { id: userId } });

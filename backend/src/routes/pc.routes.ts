@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { PCController } from "../controllers/pc.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
-import { authenticateAgent } from "../middlewares/agentAuth.middleware";
+import {
+  authenticateAgent,
+  agentHeartbeatLimiter,
+  agentCommandLimiter,
+} from "../middlewares/agentAuth.middleware";
 
 const router = Router();
 
@@ -12,8 +16,11 @@ router.get("/inventory", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB
 router.get("/energy", authenticate, authorize("KOORDINATOR_LAB"), PCController.getEnergyStats);
 router.get("/commands", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getCommandQueue);
 
-router.get("/:id", authenticate, PCController.getPCDetail);
-router.get("/:id/history", authenticate, PCController.getStatusHistory);
+router.post("/agent/register", agentHeartbeatLimiter, authenticateAgent, PCController.agentRegister);
+router.post("/agent/heartbeat", agentHeartbeatLimiter, authenticateAgent, PCController.agentHeartbeat);
+router.get("/agent/commands", agentCommandLimiter, authenticateAgent, PCController.agentPickupCommands);
+router.post("/agent/commands/:commandId/result", agentCommandLimiter, authenticateAgent, PCController.agentReportResult);
+router.post("/agent/logs", agentHeartbeatLimiter, authenticateAgent, PCController.agentLogs);
 
 router.post("/bulk-status", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.bulkUpdateStatus);
 router.post("/bulk-command", authenticate, authorize("KOORDINATOR_LAB"), PCController.bulkSendCommand);
@@ -27,10 +34,7 @@ router.post("/:id/generate-token", authenticate, authorize("KOORDINATOR_LAB"), P
 
 router.patch("/commands/:commandId/cancel", authenticate, authorize("KOORDINATOR_LAB"), PCController.cancelCommand);
 
-router.post("/agent/register", authenticateAgent, PCController.agentRegister);
-router.post("/agent/heartbeat", authenticateAgent, PCController.agentHeartbeat);
-router.get("/agent/commands", authenticateAgent, PCController.agentPickupCommands);
-router.post("/agent/commands/:commandId/result", authenticateAgent, PCController.agentReportResult);
-router.post("/agent/logs", authenticateAgent, PCController.agentLogs);
+router.get("/:id", authenticate, PCController.getPCDetail);
+router.get("/:id/history", authenticate, PCController.getStatusHistory);
 
 export default router;

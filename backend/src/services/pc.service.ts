@@ -422,7 +422,13 @@ export class PCService {
   }
 
   // Agent endpoint: report command result
-  static async reportCommandResult(commandId: string, success: boolean, result?: string) {
+  static async reportCommandResult(pcId: string, commandId: string, success: boolean, result?: string) {
+    const command = await prisma.pCCommand.findFirst({
+      where: { id: commandId, pcId },
+    });
+
+    if (!command) throw new Error("Command tidak ditemukan untuk PC ini");
+
     return prisma.pCCommand.update({
       where: { id: commandId },
       data: {

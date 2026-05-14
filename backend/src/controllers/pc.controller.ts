@@ -239,9 +239,10 @@ export class PCController {
 
   static async agentReportResult(req: Request, res: Response) {
     try {
+      const pc = (req as any).pc;
       const commandId = getParam(req, "commandId");
       const { success, result } = req.body;
-      const cmd = await PCService.reportCommandResult(commandId, success, result);
+      const cmd = await PCService.reportCommandResult(pc.id, commandId, success, result);
       res.json({ success: true, data: cmd });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
