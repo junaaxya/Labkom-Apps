@@ -145,23 +145,23 @@ function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className={`neo-card p-4 sm:p-5 bg-white border-l-4 min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
+      className={`neo-card p-3 sm:p-5 bg-white border-l-4 min-h-[104px] sm:min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase font-bold text-[#5a5a5a] tracking-widest mb-1">{item.label}</p>
-          <motion.p 
+      <div className="flex items-start justify-between gap-2 sm:gap-3 h-full">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] sm:text-xs uppercase font-bold text-[#5a5a5a] tracking-widest mb-1 truncate">{item.label}</p>
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 + (index * 0.05) }}
-            className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a]"
+            className="font-heading text-2xl sm:text-4xl font-bold text-[#1a1a1a] leading-none"
           >
             {item.value}
           </motion.p>
         </div>
-        <div className="w-12 h-12 rounded-full flex items-center justify-center relative overflow-hidden">
+        <div className="w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center relative overflow-hidden">
           <div className={`absolute inset-0 opacity-15 ${item.tone.replace('text-', 'bg-')}`}></div>
-          <item.icon className={`w-6 h-6 relative z-10 ${item.tone}`} strokeWidth={2.2} />
+          <item.icon className={`w-4 h-4 sm:w-6 sm:h-6 relative z-10 ${item.tone}`} strokeWidth={2.2} />
         </div>
       </div>
     </motion.div>
@@ -286,7 +286,7 @@ export function KoordinatorDashboard({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       {pcAgentStats && (
         <motion.div
@@ -601,7 +601,7 @@ export function AsistenDashboard({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
         <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
@@ -718,7 +718,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
   ];
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section 
           title="Jadwal Lab Hari Ini" 
