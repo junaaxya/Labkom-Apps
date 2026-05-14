@@ -54,8 +54,20 @@ interface LoadBalance {
 }
 
 interface Conflict {
-  schedule1: any;
-  schedule2: any;
+  schedule1: {
+    title?: string;
+    time?: string;
+    lab?: string;
+    lecturerName?: string;
+    assistant?: string;
+  };
+  schedule2: {
+    title?: string;
+    time?: string;
+    lab?: string;
+    lecturerName?: string;
+    assistant?: string;
+  };
   type: string;
 }
 
@@ -112,7 +124,9 @@ export default function SmartSchedulingPage() {
   }, [tab, duration]);
 
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => {
+      void fetchData();
+    });
   }, [tab, duration, fetchData]);
 
   const DAYS = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
@@ -146,7 +160,7 @@ export default function SmartSchedulingPage() {
         ].map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as any)}
+            onClick={() => setTab(t.key as typeof tab)}
             className={`neo-btn flex items-center justify-center gap-2 px-3 sm:px-5 min-h-[44px] transition-all duration-200 ${
               tab === t.key 
                 ? "bg-[#4b607f] text-white shadow-[4px_4px_0px_#1a1a1a] translate-y-[-2px]" 
@@ -305,7 +319,7 @@ export default function SmartSchedulingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5">
                     <div className="bg-[#f5ede6] p-3 rounded-lg border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]">
                       <div className="text-xs font-bold text-[#4b607f] uppercase tracking-wider mb-1 flex items-center gap-1">
                         <TbTrendingUp className="w-3.5 h-3.5" /> Hari Tersibuk
@@ -349,7 +363,7 @@ export default function SmartSchedulingPage() {
                          c.type === "LECTURER_CONFLICT" ? "Konflik Dosen" : "Konflik Asisten"}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       <div className="bg-red-50 p-2 rounded">
                         <div className="font-bold">{c.schedule1.title}</div>
                         <div className="text-[#4b607f]">{c.schedule1.time} • {c.schedule1.lab || c.schedule1.lecturerName || c.schedule1.assistant}</div>

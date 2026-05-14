@@ -19,6 +19,14 @@ import {
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 type TaskCategory =
   | "PIKET_BERSIH"
   | "MAINTENANCE_PC"
@@ -98,11 +106,14 @@ const getInitialMonth = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
 
-const parseResponseItems = (payload: any): DailyTask[] => {
+const parseResponseItems = (payload: unknown): DailyTask[] => {
   if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload)) return payload as DailyTask[];
+  if (payload && typeof payload === "object") {
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.data)) return obj.data as DailyTask[];
+    if (Array.isArray(obj.items)) return obj.items as DailyTask[];
+  }
   return [];
 };
 
@@ -117,26 +128,33 @@ export default function TaskHistoryPage() {
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("ALL");
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-    setUser(storedUser);
+    queueMicrotask(() => {
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}") as unknown;
+      setUser((storedUser as LocalUser) ?? {});
+    });
   }, []);
 
   useEffect(() => {
     const fetchTasks = async () => {
       setLoading(true);
       try {
-        const response = await api.get<any>("/attendance/tasks/me");
-        const raw = (response as any)?.data ?? response;
+        const response = await api.get<unknown>("/attendance/tasks/me");
+        const raw =
+          response && typeof response === "object" && "data" in response
+            ? (response as { data?: unknown }).data
+            : response;
         setTasks(parseResponseItems(raw));
-      } catch (err: any) {
+      } catch (err) {
         setTasks([]);
-        toast.error(err?.message || "Gagal memuat riwayat tugas");
+        toast.error(errMsg(err, "Gagal memuat riwayat tugas"));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTasks();
+    queueMicrotask(() => {
+      void fetchTasks();
+    });
   }, []);
 
   const filteredTasks = useMemo(() => {

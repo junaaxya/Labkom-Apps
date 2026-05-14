@@ -73,6 +73,14 @@ const categories: TicketCategory[] = [
 
 const statuses: PCStatus[] = ["AVAILABLE", "IN_USE", "BROKEN", "MAINTENANCE", "INACTIVE"];
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 export default function ScanPcActionPage({ params }: { params: Promise<{ code: string }> }) {
   const toast = useToast();
   const { code } = use(params);
@@ -92,8 +100,10 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
   });
 
   useEffect(() => {
-    const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-    setUser(parsed);
+    queueMicrotask(() => {
+      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(parsed);
+    });
   }, []);
 
   const fetchPcData = async () => {
@@ -107,16 +117,16 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
         return;
       }
       setPcData(res.data);
-    } catch (err: any) {
+    } catch (err) {
       setPcData(null);
-      setNotFoundMessage(err?.message || "PC tidak ditemukan.");
+      setNotFoundMessage(errMsg(err, "PC tidak ditemukan."));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPcData();
+    queueMicrotask(() => void fetchPcData());
   }, [code]);
 
   const isCoordinatorOrAssistant = useMemo(() => {
@@ -154,8 +164,8 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
       setShowModal(false);
       toast.success("Laporan kerusakan berhasil dikirim.");
       await fetchPcData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengirim laporan kerusakan.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengirim laporan kerusakan."));
     } finally {
       setSubmittingTicket(false);
     }
@@ -169,8 +179,8 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
       await api.put(`/labs/pcs/${pcData.id}`, { status: newStatus });
       toast.success(`Status PC diubah menjadi ${statusMap[newStatus].label}.`);
       await fetchPcData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengubah status PC.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengubah status PC."));
     } finally {
       setUpdatingStatus(false);
     }

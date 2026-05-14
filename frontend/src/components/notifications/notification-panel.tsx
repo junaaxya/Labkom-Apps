@@ -95,7 +95,10 @@ export function NotificationPanel() {
   }, []);
 
   useEffect(() => {
-    fetchUnreadCount();
+    queueMicrotask(() => {
+      void fetchUnreadCount();
+    });
+
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
@@ -122,7 +125,10 @@ export function NotificationPanel() {
   }, []);
 
   useEffect(() => {
-    if (isOpen) fetchNotifications();
+    if (!isOpen) return;
+    queueMicrotask(() => {
+      void fetchNotifications();
+    });
   }, [isOpen, fetchNotifications]);
 
   useEffect(() => {

@@ -74,7 +74,9 @@ export default function RechartsCharts({ report }: { report: ReportData }) {
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ name, percent }: any) => getPieChartLabel(name, percent)}
+                label={({ name, percent }: { name?: string; percent?: number }) =>
+                  getPieChartLabel(name ?? "", percent ?? 0)
+                }
                 labelLine={false}
               >
                 {report.ticketsByCategory.map((_, idx) => (

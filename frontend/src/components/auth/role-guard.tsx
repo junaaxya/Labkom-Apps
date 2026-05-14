@@ -72,19 +72,31 @@ export function RoleGuard({ children }: RoleGuardProps) {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/login");
-      return;
-    }
+    queueMicrotask(() => {
+      const userData = localStorage.getItem("user");
+      if (!userData) {
+        router.push("/login");
+        return;
+      }
 
-    try {
-      const user = JSON.parse(userData);
-      const allowed = hasAccess(pathname, user.role);
-      setAuthorized(allowed);
-    } catch {
-      router.push("/login");
-    }
+      try {
+        const user: unknown = JSON.parse(userData);
+        const role =
+          user && typeof user === "object" && "role" in user
+            ? (user as { role?: Role }).role
+            : undefined;
+
+        if (!role) {
+          router.push("/login");
+          return;
+        }
+
+        const allowed = hasAccess(pathname, role);
+        setAuthorized(allowed);
+      } catch {
+        router.push("/login");
+      }
+    });
   }, [pathname, router]);
 
   if (authorized === null) {

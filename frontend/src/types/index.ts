@@ -322,9 +322,9 @@ export interface PcWarning {
 }
 
 export interface PCDetail extends PC {
-  tickets: any[];
-  statusLogs: any[];
-  commands: any[];
+  tickets: unknown[];
+  statusLogs: unknown[];
+  commands: unknown[];
   agentLogs: PcAgentLog[];
   warnings: PcWarning[];
 }

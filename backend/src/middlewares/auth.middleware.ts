@@ -17,14 +17,11 @@ declare global {
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
-  const queryToken = req.query.token as string | undefined;
 
   let token: string | undefined;
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.split(" ")[1];
-  } else if (queryToken) {
-    token = queryToken;
   }
 
   if (!token) {
@@ -37,6 +34,26 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(401).json({
+      success: false,
+      message: "Token tidak valid atau sudah expired.",
+    });
+  }
+}
+
+export function authenticateQueryToken(req: Request, res: Response, next: NextFunction): void {
+  const queryToken = req.query.token as string | undefined;
+
+  if (!queryToken) {
+    authenticate(req, res, next);
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(queryToken, config.jwtSecret) as JwtPayload;
     req.user = decoded;
     next();
   } catch {

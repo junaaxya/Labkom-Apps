@@ -34,20 +34,22 @@ export default function FAQPage() {
   const [showFAQList, setShowFAQList] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchFAQs();
-  }, []);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   const fetchFAQs = async () => {
     try {
       const res = await api.get<{ data: FAQItem[] }>("/faq/list");
       setFaqs(res.data);
     } catch {}
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchFAQs();
+    });
+  }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;

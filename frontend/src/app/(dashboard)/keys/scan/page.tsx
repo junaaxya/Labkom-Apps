@@ -23,6 +23,14 @@ type UserContext = {
   isKetuaKelas?: boolean;
 };
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 const statusMap: Record<KeyStatus, { label: string; classes: string }> = {
   AVAILABLE: { label: "Tersedia", classes: "bg-green-500 text-white" },
   BORROWED: { label: "Dipinjam", classes: "bg-[#4b607f] text-white" },
@@ -41,8 +49,10 @@ export default function ScanKeysPage() {
   const [acting, setActing] = useState(false);
 
   useEffect(() => {
-    const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-    setUser(parsed);
+    queueMicrotask(() => {
+      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(parsed);
+    });
   }, []);
 
   const fetchKeys = async () => {
@@ -50,8 +60,8 @@ export default function ScanKeysPage() {
     try {
       const res = await api.get<{ data: Key[] }>("/keys");
       setKeys(res.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat daftar kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat daftar kunci."));
       setKeys([]);
     } finally {
       setLoadingList(false);
@@ -59,7 +69,7 @@ export default function ScanKeysPage() {
   };
 
   useEffect(() => {
-    fetchKeys();
+    queueMicrotask(() => void fetchKeys());
   }, []);
 
   const scanQrCode = async (e: FormEvent<HTMLFormElement>) => {
@@ -71,9 +81,9 @@ export default function ScanKeysPage() {
       if (!res.data) {
         toast.error("Kunci tidak ditemukan.");
       }
-    } catch (err: any) {
+    } catch (err) {
       setFoundKey(null);
-      toast.error(err?.message ?? "Gagal membaca QR kunci.");
+      toast.error(errMsg(err, "Gagal membaca QR kunci."));
     } finally {
       setScanning(false);
     }
@@ -92,8 +102,8 @@ export default function ScanKeysPage() {
       await api.patch(`/keys/${foundKey.id}/take`, {});
       toast.success(`Kunci ${foundKey.keyCode} berhasil diambil.`);
       await Promise.all([fetchKeys(), refreshFoundKey(foundKey.qrCode || qrCode)]);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengambil kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengambil kunci."));
     } finally {
       setActing(false);
     }
@@ -111,8 +121,8 @@ export default function ScanKeysPage() {
       await api.patch(`/keys/${foundKey.id}/return`, {});
       toast.success(`Kunci ${foundKey.keyCode} berhasil dikembalikan.`);
       await Promise.all([fetchKeys(), refreshFoundKey(foundKey.qrCode || qrCode)]);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengembalikan kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengembalikan kunci."));
     } finally {
       setActing(false);
     }

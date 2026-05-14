@@ -16,7 +16,9 @@ export function AppSplash() {
     if (sessionStorage.getItem(SPLASH_KEY)) return;
 
     sessionStorage.setItem(SPLASH_KEY, "true");
-    setVisible(true);
+    queueMicrotask(() => {
+      setVisible(true);
+    });
 
     const timeout = window.setTimeout(
       () => setVisible(false),

@@ -4,6 +4,14 @@ import { useState, useRef } from "react";
 import { TbPhoto, TbX, TbUpload } from "react-icons/tb";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || (() => {
   throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
 })();
@@ -62,8 +70,8 @@ export function PhotoUpload({
       const data = await res.json();
       const urls: string[] = data.data?.urls || [];
       onChange([...value, ...urls]);
-    } catch (err: any) {
-      setError(err.message || "Upload gagal");
+    } catch (err) {
+      setError(errMsg(err, "Upload gagal"));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -181,8 +189,8 @@ export function SinglePhotoUpload({
 
       const data = await res.json();
       onChange(data.data?.url || "");
-    } catch (err: any) {
-      setError(err.message || "Upload gagal");
+    } catch (err) {
+      setError(errMsg(err, "Upload gagal"));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

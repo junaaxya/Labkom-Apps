@@ -72,10 +72,6 @@ export default function PredictivePage() {
   const [loading, setLoading] = useState(true);
   const [selectedPC, setSelectedPC] = useState<PCRisk | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [tab]);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -104,6 +100,12 @@ export default function PredictivePage() {
     } catch {}
     setLoading(false);
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchData();
+    });
+  }, [tab]);
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -160,7 +162,7 @@ export default function PredictivePage() {
         ].map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as any)}
+            onClick={() => setTab(t.key as typeof tab)}
             className={`neo-btn flex items-center gap-2 px-5 py-2.5 transition-all duration-200 ${
               tab === t.key 
                 ? "bg-[#4b607f] text-white shadow-[4px_4px_0px_#1a1a1a] translate-y-[-2px]" 
@@ -322,7 +324,7 @@ export default function PredictivePage() {
             <div className="space-y-6">
               {maintenanceSchedule.length > 0 ? (
                 <>
-                  <div className="lg:hidden space-y-3">
+                  <div className="md:hidden space-y-3">
                     {maintenanceSchedule.map((item, i) => (
                       <MobileCard
                         key={i}
@@ -349,7 +351,7 @@ export default function PredictivePage() {
                       />
                     ))}
                   </div>
-                  <div className="hidden lg:block overflow-x-auto neo-card p-0 shadow-[4px_4px_0px_#1a1a1a] bg-white">
+                  <div className="hidden md:block overflow-x-auto neo-card p-0 shadow-[4px_4px_0px_#1a1a1a] bg-white">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-[#4b607f] text-white border-b-2 border-[#1a1a1a]">

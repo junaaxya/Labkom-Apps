@@ -115,11 +115,11 @@ export default function InventoryPage() {
     }
   }
 
-  async function saveSpecs(pcId: string, specs: any) {
+  async function saveSpecs(pcId: string, specs: Record<string, string>) {
     try {
       await api.post(`/pcs/${pcId}/specs`, { specs });
       setShowEditModal(false);
-      fetchInventory();
+      void fetchInventory();
     } catch {}
   }
 
@@ -131,7 +131,7 @@ export default function InventoryPage() {
       for (const labId of labIds) {
         await api.post("/pcs/bulk-qr", { labId });
       }
-      fetchInventory();
+      void fetchInventory();
     } catch {} finally {
       setGeneratingQR(false);
     }
@@ -258,7 +258,7 @@ export default function InventoryPage() {
         />
       </div>
 
-      <div className="lg:hidden space-y-3">
+      <div className="md:hidden space-y-3">
         {filtered.length === 0 ? (
           <div className="neo-card p-10 text-center bg-white">
             <TbDeviceDesktop className="w-10 h-10 text-[#4b607f] mx-auto mb-3 opacity-50" />
@@ -365,7 +365,7 @@ export default function InventoryPage() {
         )}
       </div>
 
-      <div className="hidden lg:block neo-card overflow-hidden bg-white neo-border-sm">
+      <div className="hidden md:block neo-card overflow-hidden bg-white neo-border-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -499,19 +499,24 @@ function SpecsForm({
   onSave,
   onCancel,
 }: {
-  initialSpecs: any;
-  onSave: (specs: any) => void;
+  initialSpecs: Record<string, unknown> | null;
+  onSave: (specs: Record<string, string>) => void;
   onCancel: () => void;
 }) {
-  const [cpu, setCpu] = useState(initialSpecs?.cpu || "");
-  const [ram, setRam] = useState(initialSpecs?.ram || "");
-  const [storage, setStorage] = useState(initialSpecs?.storage || "");
-  const [os, setOs] = useState(initialSpecs?.os || "");
-  const [gpu, setGpu] = useState(initialSpecs?.gpu || "");
-  const [monitor, setMonitor] = useState(initialSpecs?.monitor || "");
+  const getSpec = (key: string): string => {
+    const v = initialSpecs?.[key];
+    return typeof v === "string" ? v : "";
+  };
+
+  const [cpu, setCpu] = useState(getSpec("cpu"));
+  const [ram, setRam] = useState(getSpec("ram"));
+  const [storage, setStorage] = useState(getSpec("storage"));
+  const [os, setOs] = useState(getSpec("os"));
+  const [gpu, setGpu] = useState(getSpec("gpu"));
+  const [monitor, setMonitor] = useState(getSpec("monitor"));
 
   function handleSave() {
-    const specs: any = {};
+    const specs: Record<string, string> = {};
     if (cpu) specs.cpu = cpu;
     if (ram) specs.ram = ram;
     if (storage) specs.storage = storage;

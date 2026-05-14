@@ -85,7 +85,7 @@ export default function ScanPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <div className="neo-card p-5 bg-white text-center neo-card-hover hover:-translate-y-1 transition-all duration-200 group">
           <div className="w-14 h-14 mx-auto rounded-xl bg-[#4b607f]/10 flex items-center justify-center mb-4 group-hover:bg-[#4b607f] transition-colors duration-200 neo-border shadow-[2px_2px_0px_#1a1a1a]">
             <TbKey size={28} className="text-[#4b607f] group-hover:text-white transition-colors duration-200" strokeWidth={2.2} />

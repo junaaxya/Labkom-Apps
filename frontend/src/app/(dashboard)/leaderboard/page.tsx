@@ -26,6 +26,33 @@ interface OverallStats {
   activeMissions: number;
 }
 
+interface LeaderboardUserDetail {
+  user?: {
+    name?: string;
+    email?: string;
+    avatar?: string | null;
+  };
+  name?: string;
+  email?: string;
+  avatar?: string | null;
+  totalPoints?: number;
+  missionsCompleted?: number;
+  totalAttendance?: number;
+  attendanceRate?: number;
+  dailyTasksCompleted?: number;
+  ticketsResolved?: number;
+  achievements?: unknown[];
+  pointsHistory?: Array<{ id?: string; reason?: string; amount?: number }>;
+  streak?: number;
+  missionStats?: {
+    completed?: number;
+    inProgress?: number;
+    approved?: number;
+    submitted?: number;
+    rejected?: number;
+  };
+}
+
 type Period = "all" | "semester" | "monthly" | "weekly";
 
 export default function LeaderboardPage() {
@@ -34,18 +61,38 @@ export default function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>("all");
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [userDetail, setUserDetail] = useState<any>(null);
+  const [userDetail, setUserDetail] = useState<LeaderboardUserDetail | null>(null);
 
-  useEffect(() => {
-    fetchLeaderboard();
-    fetchStats();
-  }, [period]);
+  const isLeaderboardEntry = (value: unknown): value is LeaderboardEntry => {
+    if (!value || typeof value !== "object") return false;
+    const v = value as Record<string, unknown>;
+    return (
+      typeof v.rank === "number" &&
+      typeof v.userId === "string" &&
+      typeof v.name === "string" &&
+      typeof v.email === "string" &&
+      typeof v.totalPoints === "number"
+    );
+  };
+
+  const isOverallStats = (value: unknown): value is OverallStats => {
+    if (!value || typeof value !== "object") return false;
+    const v = value as Record<string, unknown>;
+    return (
+      typeof v.totalAsistens === "number" &&
+      typeof v.totalMissionsCompleted === "number" &&
+      typeof v.totalPointsAwarded === "number" &&
+      typeof v.totalTicketsResolved === "number" &&
+      typeof v.activeMissions === "number"
+    );
+  };
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const res = await api.get<{ data: any[] }>(`/leaderboard?period=${period}`);
-      setLeaderboard(res.data || []);
+      const res = await api.get<{ data: unknown }>(`/leaderboard?period=${period}`);
+      const items = Array.isArray(res.data) ? res.data : [];
+      setLeaderboard(items.filter(isLeaderboardEntry));
     } catch {
       setLeaderboard([]);
     } finally {
@@ -55,8 +102,8 @@ export default function LeaderboardPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await api.get<{ data: any }>("/leaderboard/stats");
-      setStats(res.data || null);
+      const res = await api.get<{ data: unknown }>("/leaderboard/stats");
+      setStats(isOverallStats(res.data) ? res.data : null);
     } catch {
       setStats(null);
     }
@@ -64,13 +111,20 @@ export default function LeaderboardPage() {
 
   const fetchUserDetail = async (userId: string) => {
     try {
-      const res = await api.get<{ data: any }>(`/leaderboard/user/${userId}`);
-      setUserDetail(res.data);
+      const res = await api.get<{ data: unknown }>(`/leaderboard/user/${userId}`);
+      setUserDetail((res.data as LeaderboardUserDetail) ?? null);
       setSelectedUser(userId);
     } catch {
       setUserDetail(null);
     }
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchLeaderboard();
+      void fetchStats();
+    });
+  }, [period]);
 
   const periodLabels: Record<Period, string> = {
     all: "Semua Waktu",
@@ -182,7 +236,7 @@ export default function LeaderboardPage() {
                     <span className="text-sm font-bold text-[#f3701e]/80">pts</span>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-3 pt-4 border-t-2 border-[#1a1a1a]/10">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-4 border-t-2 border-[#1a1a1a]/10">
                     <div>
                       <p className="font-heading font-bold text-lg text-[#1a1a1a]">{entry.missionsCompleted}</p>
                       <p className="text-[#5a5a5a] text-xs font-bold uppercase tracking-wider mt-0.5">Misi</p>
@@ -309,15 +363,15 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            {userDetail.pointsHistory?.length > 0 && (
+            {(userDetail.pointsHistory?.length ?? 0) > 0 && (
               <div>
                 <h4 className="font-heading font-bold text-lg mb-4 text-[#1a1a1a]">Riwayat Poin Terakhir</h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
-                  {userDetail.pointsHistory.slice(0, 10).map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between text-base p-4 bg-white neo-border rounded-xl">
-                      <span className="font-medium text-[#1a1a1a] line-clamp-1 flex-1 pr-4">{p.reason}</span>
+                  {(userDetail.pointsHistory ?? []).slice(0, 10).map((p) => (
+                    <div key={p.id ?? "unknown"} className="flex items-center justify-between text-base p-4 bg-white neo-border rounded-xl">
+                      <span className="font-medium text-[#1a1a1a] line-clamp-1 flex-1 pr-4">{p.reason ?? "-"}</span>
                       <span className="font-bold text-[#f3701e] bg-orange-50 px-3 py-1 rounded-lg neo-border whitespace-nowrap">
-                        +{p.amount}
+                        +{p.amount ?? 0}
                       </span>
                     </div>
                   ))}

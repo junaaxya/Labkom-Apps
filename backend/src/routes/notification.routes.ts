@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { authenticate } from "../middlewares/auth.middleware";
+import { authenticate, authenticateQueryToken } from "../middlewares/auth.middleware";
 import {
   getMyNotifications,
   getUnreadCount,
@@ -11,7 +11,7 @@ import { sseManager } from "../services/sse.service";
 
 const router = Router();
 
-router.get("/stream", authenticate, (req: Request, res: Response) => {
+router.get("/stream", authenticateQueryToken, (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

@@ -126,7 +126,9 @@ export default function NotificationsPage() {
   }, [page, filter]);
 
   useEffect(() => {
-    fetchNotifications();
+    queueMicrotask(() => {
+      void fetchNotifications();
+    });
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {

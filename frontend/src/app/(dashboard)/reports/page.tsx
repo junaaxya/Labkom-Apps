@@ -7,6 +7,13 @@ import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import dynamic from "next/dynamic";
 
+type ReportResponse = {
+  summary?: ReportData;
+  labUsage?: ReportData["labUsage"];
+  ticketsByCategory?: ReportData["ticketsByCategory"];
+  topAssistants?: ReportData["topAssistants"];
+};
+
 const RechartsCharts = dynamic(() => import("./charts"), { ssr: false });
 
 interface ReportData {
@@ -54,14 +61,10 @@ export default function ReportsPage() {
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "charts">("charts");
 
-  useEffect(() => {
-    fetchReport();
-  }, [selectedMonth]);
-
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const res = await api.get<{ data: any }>(`/reports/monthly?month=${selectedMonth}`);
+      const res = await api.get<{ data: ReportResponse }>(`/reports/monthly?month=${selectedMonth}`);
       if (res.data) {
         setReport({
           logbooks: res.data.summary?.logbooks || emptyReport.logbooks,
@@ -79,6 +82,12 @@ export default function ReportsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchReport();
+    });
+  }, [selectedMonth]);
 
   const handleExport = async (format: "pdf" | "excel") => {
     setExporting(format);

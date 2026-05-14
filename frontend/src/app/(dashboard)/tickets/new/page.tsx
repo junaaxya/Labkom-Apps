@@ -16,6 +16,14 @@ import type { Lab, PC, TicketCategory } from "@/types";
 import { useToast } from "@/providers/toast-provider";
 import { PhotoUpload } from "@/components/ui/photo-upload";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 type CreateTicketBody = {
   labId: string;
   category: TicketCategory;
@@ -69,8 +77,8 @@ export default function NewTicketPage() {
     try {
       const res = await api.get<{ data: Lab[] }>("/labs");
       setLabs(res.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat daftar lab.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat daftar lab."));
       setLabs([]);
     } finally {
       setLoadingLabs(false);
@@ -95,12 +103,16 @@ export default function NewTicketPage() {
   };
 
   useEffect(() => {
-    fetchLabs();
+    queueMicrotask(() => {
+      void fetchLabs();
+    });
   }, []);
 
   useEffect(() => {
-    fetchPcs(form.labId);
-    setForm((prev) => ({ ...prev, pcId: "" }));
+    queueMicrotask(() => {
+      void fetchPcs(form.labId);
+      setForm((prev) => ({ ...prev, pcId: "" }));
+    });
   }, [form.labId]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -134,8 +146,8 @@ export default function NewTicketPage() {
       setTimeout(() => {
         router.push("/tickets/my");
       }, 1300);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengirim laporan kerusakan.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengirim laporan kerusakan."));
     } finally {
       setSubmitting(false);
     }

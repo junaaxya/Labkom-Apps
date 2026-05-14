@@ -8,6 +8,14 @@ import type { Lab } from "@/types";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 type LabWithCount = Lab & { _count?: { pcs: number; schedules: number } };
 
 type LabForm = {
@@ -61,8 +69,8 @@ export default function LabsPage() {
     try {
       const response = await api.get<{ success: boolean; data: LabWithCount[] }>("/labs");
       setLabs(response.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat data lab");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat data lab"));
       setLabs([]);
     } finally {
       setIsLoading(false);
@@ -70,7 +78,9 @@ export default function LabsPage() {
   };
 
   useEffect(() => {
-    fetchLabs();
+    queueMicrotask(() => {
+      void fetchLabs();
+    });
   }, []);
 
   const resetCreateForm = () => {
@@ -98,8 +108,8 @@ export default function LabsPage() {
       resetCreateForm();
       await fetchLabs();
       toast.success("Lab berhasil dibuat.");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal membuat lab");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal membuat lab"));
     } finally {
       setIsCreating(false);
     }
@@ -136,8 +146,8 @@ export default function LabsPage() {
       setEditingLabId(null);
       await fetchLabs();
       toast.success("Lab berhasil diperbarui.");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memperbarui lab");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memperbarui lab"));
     } finally {
       setIsEditing(false);
     }
@@ -153,8 +163,8 @@ export default function LabsPage() {
       await api.delete<{ success: boolean }>(`/labs/${labId}`);
       await fetchLabs();
       toast.success("Lab berhasil dihapus.");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal menghapus lab");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal menghapus lab"));
     } finally {
       setDeletingLabId(null);
     }

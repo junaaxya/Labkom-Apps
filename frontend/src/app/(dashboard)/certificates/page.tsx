@@ -6,6 +6,14 @@ import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 interface Certificate {
   id: string;
   userId: string;
@@ -63,12 +71,6 @@ export default function CertificatesPage() {
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templatePreview, setTemplatePreview] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCertificates();
-    fetchUsers();
-    fetchTemplates();
-  }, []);
-
   const fetchCertificates = async () => {
     setLoading(true);
     try {
@@ -92,17 +94,27 @@ export default function CertificatesPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get<{ data: { users: { id: string; name: string }[] } }>("/users?role=ASISTEN_LAB&limit=50");
+      const res = await api.get<{ data: { users: { id: string; name: string }[] } }>(
+        "/users?role=ASISTEN_LAB&limit=50"
+      );
       setUsers(res.data?.users || []);
     } catch {
       setUsers([]);
     }
   };
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchCertificates();
+      void fetchUsers();
+      void fetchTemplates();
+    });
+  }, []);
+
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      let body: any = {};
+      let body: Record<string, string> = {};
       if (genType === "monthly-best") {
         body = { month: genMonth };
       } else if (genType === "attendance-perfect") {
@@ -113,9 +125,9 @@ export default function CertificatesPage() {
 
       await api.post(`/certificates/${genType}`, body);
       setShowModal(false);
-      fetchCertificates();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal generate sertifikat");
+      void fetchCertificates();
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal generate sertifikat"));
     } finally {
       setGenerating(false);
     }
@@ -179,9 +191,9 @@ export default function CertificatesPage() {
       setTemplateType("MONTHLY_BEST");
       setTemplateFile(null);
       setTemplatePreview(null);
-      fetchTemplates();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal upload template");
+      void fetchTemplates();
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal upload template"));
     } finally {
       setUploading(false);
     }
@@ -191,7 +203,7 @@ export default function CertificatesPage() {
     if (!confirm("Hapus template ini?")) return;
     try {
       await api.delete(`/certificates/templates/${templateId}`);
-      fetchTemplates();
+      void fetchTemplates();
     } catch {
       toast.error("Gagal menghapus template");
     }

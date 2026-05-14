@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+type WebpackConfig = Parameters<NonNullable<NextConfig["webpack"]>>[0];
+
 const nextConfig: NextConfig = {
   // Production optimizations
   compress: true,
@@ -34,13 +36,15 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60,
   },
 
-  // Bundle analyzer (dev only)
+  // Bundle analyzer (dev only, requires `npm i -D webpack-bundle-analyzer`)
   ...(process.env.ANALYZE === "true" && {
-    webpack: (config: any) => {
+    webpack: async (config: WebpackConfig) => {
       if (process.env.NODE_ENV === "development") {
-        const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
+        const mod: { BundleAnalyzerPlugin: new (opts: unknown) => unknown } =
+          await import("webpack-bundle-analyzer" as string);
+        config.plugins = config.plugins ?? [];
         config.plugins.push(
-          new BundleAnalyzerPlugin({
+          new mod.BundleAnalyzerPlugin({
             analyzerMode: "server",
             openAnalyzer: false,
           })

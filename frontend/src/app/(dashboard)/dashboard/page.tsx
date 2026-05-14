@@ -56,12 +56,14 @@ export default function DashboardPage() {
   const [pcAgentStats, setPcAgentStats] = useState<PCAgentStats | null>(null);
 
   useEffect(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(parsed || {});
-    } catch {
-      setUser({});
-    }
+    queueMicrotask(() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+        setUser(parsed || {});
+      } catch {
+        setUser({});
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -136,7 +138,9 @@ export default function DashboardPage() {
       setLoading(false);
     };
 
-    load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [user]);
 
   const role: Role = user?.role || "MAHASISWA";

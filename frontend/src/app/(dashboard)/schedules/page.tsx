@@ -80,6 +80,34 @@ interface ScheduleChangeStats {
 
 type TabKey = "SCHEDULES" | "REQUESTS";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
+interface ApiScheduleEntry {
+  id: string;
+  title: string;
+  day: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  lab?: { name?: string } | null;
+  lecturerName?: string | null;
+  assistant?: { name?: string } | null;
+  semester?: string | null;
+  className?: string | null;
+  type: ScheduleType;
+  labId?: string;
+  assistantId?: string | null;
+}
+
+interface ScheduleChangeListResponse {
+  items?: ScheduleChangeItem[];
+}
+
 const days: DayOfWeek[] = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"];
 
 const dayLabels: Record<DayOfWeek, string> = {
@@ -215,8 +243,8 @@ export default function SchedulesPage() {
     try {
       const response = await api.get<{ data: { id: string; name: string }[] }>("/labs");
       setLabs(response.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat data lab");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat data lab"));
     } finally {
       setIsLabsLoading(false);
     }
@@ -235,7 +263,7 @@ export default function SchedulesPage() {
 
       const query = params.toString();
       const endpoint = query ? `/schedules?${query}` : "/schedules";
-      const response = await api.get<{ data: any[] }>(endpoint);
+      const response = await api.get<{ data: ApiScheduleEntry[] }>(endpoint);
 
       const mapped: ScheduleItem[] = (response.data ?? []).map((item) => ({
         id: item.id,
@@ -246,14 +274,14 @@ export default function SchedulesPage() {
         labName: item.lab?.name ?? "-",
         lecturerName: item.lecturerName ?? "-",
         assistantName: item.assistant?.name,
-        semester: item.semester,
-        className: item.className,
+        semester: item.semester ?? undefined,
+        className: item.className ?? undefined,
         type: item.type,
       }));
 
       setSchedules(mapped);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat jadwal");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat jadwal"));
       setSchedules([]);
     } finally {
       setIsLoading(false);
@@ -265,8 +293,8 @@ export default function SchedulesPage() {
     try {
       const response = await api.get<{ data: ScheduleChangeItem[] }>("/schedule-changes/my");
       setMyRequests(response.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat riwayat request");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat riwayat request"));
     } finally {
       setIsRequestsLoading(false);
     }
@@ -275,11 +303,15 @@ export default function SchedulesPage() {
   const fetchAllRequests = async () => {
     setIsRequestsLoading(true);
     try {
-      const response = await api.get<{ data: { items?: ScheduleChangeItem[]; } | ScheduleChangeItem[] }>("/schedule-changes");
+      const response = await api.get<{ data: ScheduleChangeListResponse | ScheduleChangeItem[] }>("/schedule-changes");
       const raw = response.data;
-      setAllRequests(Array.isArray(raw) ? raw : (raw as any)?.items ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat request perubahan");
+      if (Array.isArray(raw)) {
+        setAllRequests(raw);
+      } else {
+        setAllRequests(raw?.items ?? []);
+      }
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat request perubahan"));
     } finally {
       setIsRequestsLoading(false);
     }
@@ -295,46 +327,45 @@ export default function SchedulesPage() {
         approved: data.approved ?? 0,
         rejected: data.rejected ?? 0,
       });
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat statistik request");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat statistik request"));
     } finally {
       setIsStatsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLabs();
+    queueMicrotask(() => void fetchLabs());
   }, []);
 
   useEffect(() => {
-    fetchSchedules();
+    queueMicrotask(() => void fetchSchedules());
   }, [selectedDay, selectedLab]);
 
   useEffect(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-      setUser(parsed);
-    } catch {
-      setUser({});
-    }
+    queueMicrotask(() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+        setUser(parsed);
+      } catch {
+        setUser({});
+      }
+    });
   }, []);
 
   useEffect(() => {
-    if (isKetuaKelas) {
-      fetchMyRequests();
-    }
+    if (!isKetuaKelas) return;
+    queueMicrotask(() => void fetchMyRequests());
   }, [isKetuaKelas]);
 
   useEffect(() => {
-    if (canReviewRequests) {
-      fetchRequestStats();
-    }
+    if (!canReviewRequests) return;
+    queueMicrotask(() => void fetchRequestStats());
   }, [canReviewRequests]);
 
   useEffect(() => {
-    if (canReviewRequests && activeTab === "REQUESTS") {
-      fetchAllRequests();
-    }
+    if (!(canReviewRequests && activeTab === "REQUESTS")) return;
+    queueMicrotask(() => void fetchAllRequests());
   }, [canReviewRequests, activeTab]);
 
   const groupedByDay = useMemo(
@@ -393,8 +424,8 @@ export default function SchedulesPage() {
       });
 
       await fetchSchedules();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal membuat jadwal");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal membuat jadwal"));
     } finally {
       setIsCreating(false);
     }
@@ -408,10 +439,10 @@ export default function SchedulesPage() {
       onConfirm: async () => {
         setIsDeleting(true);
         try {
-          await api.delete<any>(`/schedules/${id}`);
+          await api.delete(`/schedules/${id}`);
           await fetchSchedules();
-        } catch (err: any) {
-          toast.error(err?.message ?? "Gagal menghapus jadwal");
+        } catch (err) {
+          toast.error(errMsg(err, "Gagal menghapus jadwal"));
         } finally {
           setIsDeleting(false);
           setConfirmModal((prev) => ({ ...prev, open: false }));
@@ -422,7 +453,7 @@ export default function SchedulesPage() {
 
   const openEditModal = async (schedule: ScheduleItem) => {
     try {
-      const res = await api.get<{ data: any }>(`/schedules/${schedule.id}`);
+      const res = await api.get<{ data: ApiScheduleEntry }>(`/schedules/${schedule.id}`);
       const detail = res.data;
       setEditingSchedule(schedule);
       setEditForm({
@@ -438,8 +469,8 @@ export default function SchedulesPage() {
         type: detail.type ?? "PRAKTIKUM",
       });
       setShowEditModal(true);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat detail jadwal");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat detail jadwal"));
     }
   };
 
@@ -465,8 +496,8 @@ export default function SchedulesPage() {
       setShowEditModal(false);
       setEditingSchedule(null);
       await fetchSchedules();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengupdate jadwal");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengupdate jadwal"));
     } finally {
       setIsEditing(false);
     }
@@ -481,11 +512,11 @@ export default function SchedulesPage() {
       onConfirm: async () => {
         setIsDeleting(true);
         try {
-          await api.post<any>("/schedules/bulk-delete", { ids: Array.from(selectedIds) });
+          await api.post("/schedules/bulk-delete", { ids: Array.from(selectedIds) });
           setSelectedIds(new Set());
           await fetchSchedules();
-        } catch (err: any) {
-          toast.error(err?.message ?? "Gagal menghapus jadwal");
+        } catch (err) {
+          toast.error(errMsg(err, "Gagal menghapus jadwal"));
         } finally {
           setIsDeleting(false);
           setConfirmModal((prev) => ({ ...prev, open: false }));
@@ -506,11 +537,11 @@ export default function SchedulesPage() {
           if (selectedLab !== "ALL") params.set("labId", selectedLab);
           if (selectedDay !== "ALL") params.set("day", selectedDay);
           const query = params.toString();
-          await api.delete<any>(`/schedules/all${query ? `?${query}` : ""}`);
+          await api.delete(`/schedules/all${query ? `?${query}` : ""}`);
           setSelectedIds(new Set());
           await fetchSchedules();
-        } catch (err: any) {
-          toast.error(err?.message ?? "Gagal menghapus semua jadwal");
+        } catch (err) {
+          toast.error(errMsg(err, "Gagal menghapus semua jadwal"));
         } finally {
           setIsDeleting(false);
           setConfirmModal((prev) => ({ ...prev, open: false }));
@@ -618,8 +649,8 @@ export default function SchedulesPage() {
       setShowRequestModal(false);
       resetRequestForm();
       await fetchMyRequests();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengirim request perubahan jadwal");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengirim request perubahan jadwal"));
     } finally {
       setIsSubmittingRequest(false);
     }
@@ -635,8 +666,8 @@ export default function SchedulesPage() {
       setApproveTarget(null);
       setAdminNotes("");
       await Promise.all([fetchAllRequests(), fetchRequestStats()]);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal menyetujui request");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal menyetujui request"));
     } finally {
       setRequestActionLoading(false);
     }
@@ -657,8 +688,8 @@ export default function SchedulesPage() {
       setRejectTarget(null);
       setRejectionReason("");
       await Promise.all([fetchAllRequests(), fetchRequestStats()]);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal menolak request");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal menolak request"));
     } finally {
       setRequestActionLoading(false);
     }

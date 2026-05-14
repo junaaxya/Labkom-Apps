@@ -95,10 +95,6 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [id, selectedMonth]);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -110,21 +106,40 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
       ]);
 
       if (userRes.status === "fulfilled") {
-        const raw = userRes.value.data as any;
-        setUser(raw?.data || raw);
+        const raw: unknown = userRes.value.data;
+        const detail =
+          raw && typeof raw === "object" && "data" in raw
+            ? (raw as { data?: unknown }).data
+            : raw;
+        setUser((detail as AslebUser) ?? null);
       }
 
       if (detailRes.status === "fulfilled") {
-        const raw = detailRes.value.data as any;
-        const detail = raw?.data || raw;
-        setStats(detail.stats || null);
-        setAttendances(detail.attendances || []);
-        setTasks(detail.tasks || []);
+        const raw: unknown = detailRes.value.data;
+        const detail =
+          raw && typeof raw === "object" && "data" in raw
+            ? (raw as { data?: unknown }).data
+            : raw;
+
+        const d = (detail ?? {}) as Partial<{
+          stats: AttendanceStats;
+          attendances: AttendanceRecord[];
+          tasks: DailyTask[];
+        }>;
+        setStats(d.stats ?? null);
+        setAttendances(Array.isArray(d.attendances) ? d.attendances : []);
+        setTasks(Array.isArray(d.tasks) ? d.tasks : []);
       }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchData();
+    });
+  }, [id, selectedMonth]);
 
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return "-";
@@ -339,7 +354,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
           <h3 className="font-heading font-bold text-lg text-[#1a1a1a] flex items-center gap-2 mb-3">
             <TbCircleCheck className="w-5 h-5 text-green-600" strokeWidth={2.2} /> Task Summary
           </h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <div className="bg-[#f5ede6] neo-border-sm p-3 rounded-lg text-center">
               <p className="font-heading font-bold text-2xl text-[#1a1a1a]">{tasks.length}</p>
               <p className="text-xs font-bold text-[#5a5a5a]">Total</p>
@@ -358,7 +373,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
           <h3 className="font-heading font-bold text-lg text-[#1a1a1a] flex items-center gap-2 mb-3">
             <TbClock className="w-5 h-5 text-[#4b607f]" strokeWidth={2.2} /> Jam Kerja
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="bg-[#f5ede6] neo-border-sm p-3 rounded-lg text-center">
               <p className="font-heading font-bold text-2xl text-[#4b607f]">{stats?.totalHours || 0}h</p>
               <p className="text-xs font-bold text-[#5a5a5a]">Total Bulan Ini</p>

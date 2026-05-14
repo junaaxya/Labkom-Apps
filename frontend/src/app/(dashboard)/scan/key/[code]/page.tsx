@@ -85,6 +85,14 @@ function formatDate(value?: string) {
   return date.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 export default function ScanKeyActionPage({
   params,
 }: {
@@ -111,8 +119,10 @@ export default function ScanKeyActionPage({
   const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-    setUser(parsed);
+    queueMicrotask(() => {
+      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(parsed);
+    });
   }, []);
 
   const fetchKeyData = async () => {
@@ -125,16 +135,16 @@ export default function ScanKeyActionPage({
         return;
       }
       setKeyData(res.data);
-    } catch (err: any) {
+    } catch (err) {
       setKeyData(null);
-      toast.error(err?.message || "Kunci tidak ditemukan.");
+      toast.error(errMsg(err, "Kunci tidak ditemukan."));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchKeyData();
+    queueMicrotask(() => void fetchKeyData());
   }, [code]);
 
   const currentUserId = user.id || user.userId;
@@ -178,8 +188,8 @@ export default function ScanKeyActionPage({
       await api.patch(`/keys/${keyData.id}/take`, {});
       toast.success("Kunci berhasil diambil.");
       await fetchKeyData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengambil kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengambil kunci."));
     } finally {
       setActing(false);
     }
@@ -188,7 +198,6 @@ export default function ScanKeyActionPage({
   const handleReturn = async () => {
     if (!keyData) return;
 
-    // If condition is needed and not yet submitted, show form
     if (returnStatus?.needsCondition) {
       setShowConditionForm(true);
       return;
@@ -201,8 +210,8 @@ export default function ScanKeyActionPage({
       setShowConditionForm(false);
       setReturnStatus(null);
       await fetchKeyData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengembalikan kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengembalikan kunci."));
     } finally {
       setActing(false);
     }
@@ -277,8 +286,8 @@ export default function ScanKeyActionPage({
       setKerusakanBaru("");
       setCatatan("");
       await fetchKeyData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal submit kondisi atau mengembalikan kunci.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal submit kondisi atau mengembalikan kunci."));
     } finally {
       setSubmittingCondition(false);
     }
