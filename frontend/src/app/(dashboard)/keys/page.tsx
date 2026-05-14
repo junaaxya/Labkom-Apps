@@ -23,6 +23,24 @@ interface KeyItem {
   qrCode: string;
 }
 
+interface RawKeyResponse {
+  id: string;
+  keyCode: string;
+  labId: string;
+  lab?: { name?: string } | null;
+  status: KeyStatus;
+  currentHolder?: { id: string; name: string; role?: string } | null;
+  qrCode: string;
+}
+
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 const statusConfig: Record<KeyStatus, { label: string; color: string; icon: string }> = {
   AVAILABLE: { label: "Tersedia", color: "bg-green-500 text-white", icon: "🔑" },
   BORROWED: { label: "Dipinjam", color: "bg-[#4b607f] text-white", icon: "🔒" },
@@ -46,20 +64,22 @@ export default function KeysPage() {
   const [forceReturning, setForceReturning] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      if (stored) {
-        const user = JSON.parse(stored);
-        setUserRole(user.role || "");
-      }
-    } catch {}
+    queueMicrotask(() => {
+      try {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          const user = JSON.parse(stored);
+          setUserRole(user.role || "");
+        }
+      } catch {}
+    });
   }, []);
 
   const fetchKeys = async () => {
     setIsLoading(true);
 
     try {
-      const response = await api.get<{ data: any[] }>("/keys");
+      const response = await api.get<{ data: RawKeyResponse[] }>("/keys");
       const mapped: KeyItem[] = (response.data ?? []).map((item) => ({
         id: item.id,
         keyCode: item.keyCode,
@@ -77,8 +97,8 @@ export default function KeysPage() {
       }));
 
       setKeys(mapped);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat data kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat data kunci"));
       setKeys([]);
     } finally {
       setIsLoading(false);
@@ -86,7 +106,7 @@ export default function KeysPage() {
   };
 
   useEffect(() => {
-    fetchKeys();
+    queueMicrotask(() => void fetchKeys());
   }, []);
 
   const handleTakeKey = async (id: string) => {
@@ -94,8 +114,8 @@ export default function KeysPage() {
     try {
       await api.patch(`/keys/${id}/take`, {});
       await fetchKeys();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengambil kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengambil kunci"));
     } finally {
       setActionLoadingId(null);
     }
@@ -112,8 +132,8 @@ export default function KeysPage() {
       await api.patch(`/keys/${id}/return`, {});
       toast.success("Kunci berhasil dikembalikan.");
       await fetchKeys();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengembalikan kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengembalikan kunci"));
     } finally {
       setActionLoadingId(null);
     }
@@ -134,8 +154,8 @@ export default function KeysPage() {
         label: "QR Kunci",
       });
       setQrModalOpen(true);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat QR kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat QR kunci"));
     } finally {
       setActionLoadingId(null);
     }
@@ -150,8 +170,8 @@ export default function KeysPage() {
       setForceReturnModal(null);
       setForceReturnReason("");
       await fetchKeys();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal force return kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal force return kunci"));
     } finally {
       setForceReturning(false);
     }
@@ -163,8 +183,8 @@ export default function KeysPage() {
       const response = await api.post<{ success?: boolean; message?: string }>("/qr/keys/bulk-generate", {});
       toast.success(response.message ?? "Berhasil generate QR untuk semua kunci.");
       await fetchKeys();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal generate semua QR kunci");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal generate semua QR kunci"));
     } finally {
       setBulkGenerating(false);
     }

@@ -92,11 +92,15 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    queueMicrotask(() => {
+      void fetchUsers();
+    });
   }, [fetchUsers]);
 
   useEffect(() => {
-    fetchStats();
+    queueMicrotask(() => {
+      void fetchStats();
+    });
   }, []);
 
   const handleToggleActive = async (u: User) => {
@@ -181,7 +185,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="lg:hidden space-y-3">
+      <div className="md:hidden space-y-3">
         {loading ? (
           <div className="neo-card p-8 text-center text-[#5a5a5a] font-bold bg-white">Memuat data...</div>
         ) : users.length === 0 ? (
@@ -248,7 +252,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <div className="hidden lg:block neo-card overflow-hidden bg-white">
+      <div className="hidden md:block neo-card overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-[#4b607f] text-white border-b-2 border-[#1a1a1a]">
@@ -360,7 +364,7 @@ export default function UsersPage() {
       </div>
 
       {totalPages > 1 && (
-        <div className="lg:hidden flex items-center justify-between p-4 neo-card bg-white">
+        <div className="md:hidden flex items-center justify-between p-4 neo-card bg-white">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
@@ -618,7 +622,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
           <div className="mt-5 pt-5 border-t-2 border-dashed border-[#d5c4b5]">
             <p className="text-xs font-bold uppercase tracking-wider text-[#4b607f] mb-4">Data Akademik</p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">NIM</label>
                 <input type="text" value={form.nim} onChange={(e) => setForm({ ...form, nim: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white" placeholder="2210xxx" />

@@ -15,19 +15,21 @@ export default function DashboardRootLayout({
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+    queueMicrotask(() => {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
-    if (!token || !userData) {
-      router.push("/login");
-      return;
-    }
+      if (!token || !userData) {
+        router.push("/login");
+        return;
+      }
 
-    try {
-      setUser(JSON.parse(userData));
-    } catch {
-      router.push("/login");
-    }
+      try {
+        setUser(JSON.parse(userData));
+      } catch {
+        router.push("/login");
+      }
+    });
   }, [router]);
 
   if (!user) {

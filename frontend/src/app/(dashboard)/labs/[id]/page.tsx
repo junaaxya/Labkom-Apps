@@ -99,7 +99,9 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
   }
 
   useEffect(() => {
-    fetchLabData();
+    queueMicrotask(() => {
+      void fetchLabData();
+    });
   }, [id]);
 
   async function handleCreatePC(e: FormEvent<HTMLFormElement>) {
@@ -441,7 +443,9 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
             <TbDeviceDesktop className="w-12 h-12 text-[#4b607f]" />
           </div>
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a] mb-2">Tidak ada PC</h2>
-          <p className="text-[#5a5a5a] mt-2 max-w-md mx-auto">Belum ada data PC pada filter ini. Klik tombol "Tambah PC" untuk mulai mendaftarkan perangkat.</p>
+          <p className="text-[#5a5a5a] mt-2 max-w-md mx-auto">
+            Belum ada data PC pada filter ini. Klik tombol &quot;Tambah PC&quot; untuk mulai mendaftarkan perangkat.
+          </p>
         </div>
       )}
 

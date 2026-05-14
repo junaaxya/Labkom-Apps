@@ -135,6 +135,14 @@ function pickBoolean(...values: Array<unknown>): boolean | undefined {
   return undefined;
 }
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 function ConditionCard({
   condition,
   canVerify,
@@ -326,8 +334,10 @@ export default function LogbookPage() {
   const [photoPreview, setPhotoPreview] = useState<string>("");
 
   useEffect(() => {
-    const parsed = JSON.parse(localStorage.getItem("user") || "{}");
-    setRole(parsed.role || "");
+    queueMicrotask(() => {
+      const parsed = JSON.parse(localStorage.getItem("user") || "{}");
+      setRole(parsed.role || "");
+    });
   }, []);
 
   const isAsleb = role === "ASISTEN_LAB";
@@ -338,8 +348,9 @@ export default function LogbookPage() {
       const response = await api.get<{ data?: Logbook }>("/logbooks/today");
       const payload = (response?.data as unknown as { data?: Logbook })?.data || response?.data;
       setTodayLogbook(payload || null);
-    } catch (err: any) {
-      if (err?.response?.status === 404) {
+    } catch (err) {
+      const status = (err as { response?: { status?: number } } | null)?.response?.status;
+      if (status === 404) {
         setTodayLogbook(null);
         return;
       }
@@ -362,8 +373,8 @@ export default function LogbookPage() {
       const response = await api.get<{ data?: Logbook }>(`/logbooks/${id}`);
       const payload = (response?.data as unknown as { data?: Logbook })?.data || response?.data;
       if (payload) setSelectedLogbook(payload);
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal memuat detail logbook.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat detail logbook."));
     } finally {
       setDetailLoading(false);
     }
@@ -378,15 +389,15 @@ export default function LogbookPage() {
       } else if (isKoordinator) {
         await fetchLogbookList(1);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal memuat data logbook.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat data logbook."));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    queueMicrotask(() => void loadData());
   }, [role]);
 
   const activeDetail = isAsleb ? todayLogbook : selectedLogbook;
@@ -436,8 +447,8 @@ export default function LogbookPage() {
     try {
       await api.post("/logbooks/checkin", {});
       await fetchTodayLogbook();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal check-in hari ini.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal check-in hari ini."));
     } finally {
       setCheckingIn(false);
     }
@@ -452,8 +463,8 @@ export default function LogbookPage() {
       } else if (selectedLogbook?.id) {
         await fetchLogbookDetail(selectedLogbook.id);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal verifikasi kondisi.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal verifikasi kondisi."));
     } finally {
       setVerifyingConditionId(null);
       setConfirmVerifyId(null);
@@ -467,8 +478,8 @@ export default function LogbookPage() {
       await api.patch(`/logbooks/${todayLogbook.id}/checkout`, {});
       setConfirmCheckout(false);
       await fetchTodayLogbook();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal checkout sesi hari ini.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal checkout sesi hari ini."));
     } finally {
       setCheckingOut(false);
     }

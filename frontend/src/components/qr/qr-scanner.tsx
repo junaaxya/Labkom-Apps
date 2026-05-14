@@ -28,10 +28,17 @@ const PERMISSION_DENIED_REGEX = /(permission|denied|notallowed|securityerror|cam
 
 export function QRScanner({ onScanSuccess, onScanError }: QRScannerProps) {
   const scannerRef = useRef<Html5QrcodeInstance | null>(null);
-  const isMountedRef = useRef(true);
   const isStartingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const handleScanSuccess = (decodedText: string) => {
+    onScanSuccess(decodedText);
+  };
+
+  const handleScanError = (message: string) => {
+    onScanError?.(message);
+  };
 
   const reactId = useId();
   const scannerElementId = useMemo(
@@ -39,14 +46,9 @@ export function QRScanner({ onScanSuccess, onScanError }: QRScannerProps) {
     [reactId]
   );
 
-  const onScanSuccessRef = useRef(onScanSuccess);
-  onScanSuccessRef.current = onScanSuccess;
-  const onScanErrorRef = useRef(onScanError);
-  onScanErrorRef.current = onScanError;
-
   useEffect(() => {
-    isMountedRef.current = true;
     let scanner: Html5QrcodeInstance | null = null;
+    let cancelled = false;
 
     const initScanner = async () => {
       if (isStartingRef.current) return;
@@ -55,7 +57,7 @@ export function QRScanner({ onScanSuccess, onScanError }: QRScannerProps) {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
 
-        if (!isMountedRef.current) {
+        if (cancelled) {
           isStartingRef.current = false;
           return;
         }
@@ -75,7 +77,7 @@ export function QRScanner({ onScanSuccess, onScanError }: QRScannerProps) {
             disableFlip: false,
           },
           (decodedText) => {
-            onScanSuccessRef.current(decodedText);
+            handleScanSuccess(decodedText);
           },
           () => {}
         );
@@ -88,17 +90,17 @@ export function QRScanner({ onScanSuccess, onScanError }: QRScannerProps) {
           ? "Izin kamera ditolak. Aktifkan izin kamera lalu coba lagi."
           : "Kamera tidak dapat dijalankan. Pastikan browser mendukung akses kamera.";
 
-        if (!isMountedRef.current) return;
+        if (cancelled) return;
 
         setErrorMessage(friendly);
-        onScanErrorRef.current?.(friendly);
+        handleScanError(friendly);
       }
     };
 
-    initScanner();
+    void initScanner();
 
     return () => {
-      isMountedRef.current = false;
+      cancelled = true;
 
       const currentScanner = scannerRef.current;
       scannerRef.current = null;

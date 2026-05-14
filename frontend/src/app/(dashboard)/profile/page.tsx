@@ -22,6 +22,14 @@ import { useToast } from "@/providers/toast-provider";
 import { SinglePhotoUpload } from "@/components/ui/photo-upload";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 interface ProfileData {
   id: string;
   email: string;
@@ -58,14 +66,6 @@ export default function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [avatar, profile?.avatar]);
-
   const fetchProfile = async () => {
     try {
       const res = await api.get<{ data: ProfileData }>("/auth/profile");
@@ -83,6 +83,18 @@ export default function ProfilePage() {
     }
   };
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchProfile();
+    });
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setAvatarLoadFailed(false);
+    });
+  }, [avatar, profile?.avatar]);
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -99,8 +111,8 @@ export default function ProfilePage() {
       setAvatarLoadFailed(false);
       localStorage.setItem("user", JSON.stringify(res.data));
       toast.success("Profil berhasil diperbarui");
-    } catch (err: any) {
-      toast.error(err.message || "Gagal update profil");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal update profil"));
     } finally {
       setSaving(false);
     }
@@ -119,8 +131,8 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
-      toast.error(err.message || "Gagal ubah password");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal ubah password"));
     } finally {
       setChangingPassword(false);
     }
@@ -266,7 +278,7 @@ export default function ProfilePage() {
                 </label>
                 <input type="email" value={profile?.email || ""} disabled className="neo-input w-full min-h-[44px] bg-[#f5ede6] text-[#5a5a5a] cursor-not-allowed px-4 py-3" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-[#1a1a1a]">Semester</label>
                   <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Contoh: 4" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />

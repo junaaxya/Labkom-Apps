@@ -74,6 +74,20 @@ type ShiftCreateBulkPayload = {
 
 type ApiMaybeWrapped<T> = T | { data?: T; items?: T };
 
+interface LeaveRequestItem {
+  id: string;
+  userId?: string;
+  user?: User | null;
+  type: "SICK" | "PERMISSION" | string;
+  date: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  evidenceUrl?: string | null;
+  reviewNote?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+}
+
 const TABS: Array<{ key: MonitoringTab; label: string; icon: typeof TbCalendarStats }> = [
   { key: "TODAY", label: "Today Monitoring", icon: TbCalendarStats },
   { key: "TASKS", label: "Task Verification", icon: TbChecklist },
@@ -227,9 +241,9 @@ export default function AttendanceMonitoringPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [leavesLoading, setLeavesLoading] = useState(false);
-  const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
+  const [pendingLeaves, setPendingLeaves] = useState<LeaveRequestItem[]>([]);
   const [leaveReviewOpen, setLeaveReviewOpen] = useState(false);
-  const [selectedLeave, setSelectedLeave] = useState<any>(null);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveRequestItem | null>(null);
   const [leaveReviewAction, setLeaveReviewAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
   const [leaveReviewNote, setLeaveReviewNote] = useState("");
   const [leaveReviewSubmitting, setLeaveReviewSubmitting] = useState(false);
@@ -345,20 +359,22 @@ export default function AttendanceMonitoringPage() {
   }, [scheduleMonth, toast]);
 
   useEffect(() => {
-    void loadTodayMonitoring();
-    void loadTaskVerifications();
-    void loadShiftReferences();
+    queueMicrotask(() => {
+      void loadTodayMonitoring();
+      void loadTaskVerifications();
+      void loadShiftReferences();
+    });
   }, [loadTodayMonitoring, loadTaskVerifications, loadShiftReferences]);
 
   useEffect(() => {
-    void loadShiftSchedules();
+    queueMicrotask(() => void loadShiftSchedules());
   }, [loadShiftSchedules]);
 
   const loadPendingLeaves = useCallback(async () => {
     setLeavesLoading(true);
     try {
-      const res = await api.get<any>("/attendance/leaves/pending");
-      const data = safeArray<any>(res, ["data"]);
+      const res = await api.get<unknown>("/attendance/leaves/pending");
+      const data = safeArray<LeaveRequestItem>(res, ["data"]);
       setPendingLeaves(data);
     } catch {
       setPendingLeaves([]);
@@ -368,10 +384,11 @@ export default function AttendanceMonitoringPage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "LEAVES") void loadPendingLeaves();
+    if (activeTab !== "LEAVES") return;
+    queueMicrotask(() => void loadPendingLeaves());
   }, [activeTab, loadPendingLeaves]);
 
-  const openLeaveReview = (leave: any) => {
+  const openLeaveReview = (leave: LeaveRequestItem) => {
     setSelectedLeave(leave);
     setLeaveReviewAction("APPROVED");
     setLeaveReviewNote("");
@@ -633,7 +650,7 @@ export default function AttendanceMonitoringPage() {
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada data kehadiran hari ini.</div>
                 ) : (
                   <>
-                    <div className="lg:hidden space-y-3">
+                    <div className="md:hidden space-y-3">
                       {todayAttendances.map((attendance) => {
                         const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
                         const StatusIcon = statusCfg?.icon ?? TbClock;
@@ -663,7 +680,7 @@ export default function AttendanceMonitoringPage() {
                         );
                       })}
                     </div>
-                    <div className="hidden lg:block overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[880px] border-collapse">
                         <thead>
                           <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
@@ -771,7 +788,7 @@ export default function AttendanceMonitoringPage() {
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Tidak ada task yang perlu direview.</div>
                 ) : (
                   <>
-                    <div className="lg:hidden space-y-3">
+                    <div className="md:hidden space-y-3">
                       {visibleTasks.map((task) => {
                         const statusCfg = TASK_STATUS_CONFIG[task.status];
                         const StatusIcon = statusCfg?.icon ?? TbClock;
@@ -803,7 +820,7 @@ export default function AttendanceMonitoringPage() {
                         );
                       })}
                     </div>
-                    <div className="hidden lg:block overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[1100px] border-collapse">
                         <thead>
                           <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
@@ -893,7 +910,7 @@ export default function AttendanceMonitoringPage() {
                   <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada jadwal shift untuk bulan ini.</div>
                 ) : (
                   <>
-                    <div className="lg:hidden space-y-3">
+                    <div className="md:hidden space-y-3">
                       {shiftSchedules.map((schedule) => {
                         const statusCfg = SHIFT_STATUS_CONFIG[schedule.status];
                         const StatusIcon = statusCfg?.icon ?? TbClock;
@@ -925,7 +942,7 @@ export default function AttendanceMonitoringPage() {
                         );
                       })}
                     </div>
-                    <div className="hidden lg:block overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[1000px] border-collapse">
                         <thead>
                           <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
@@ -1143,7 +1160,7 @@ export default function AttendanceMonitoringPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
                 <button
                   onClick={() => setVerifyAction("APPROVED")}
                   className={`neo-btn px-4 py-2 text-sm font-bold ${

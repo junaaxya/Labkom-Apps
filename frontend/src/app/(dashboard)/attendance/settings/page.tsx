@@ -222,7 +222,9 @@ export default function AttendanceSettingsPage() {
   }, [loadCategories, loadCorrections, loadLocations, loadSettings, globalToast]);
 
   useEffect(() => {
-    void initializeData();
+    queueMicrotask(() => {
+      void initializeData();
+    });
   }, [initializeData]);
 
   const resetLocationForm = () => {
@@ -583,7 +585,7 @@ export default function AttendanceSettingsPage() {
           </button>
         </div>
 
-        <div className="space-y-3 lg:hidden">
+        <div className="space-y-3 md:hidden">
           {locations.map((location) => (
             <MobileCard
               key={location.id}
@@ -622,7 +624,7 @@ export default function AttendanceSettingsPage() {
           )}
         </div>
 
-        <div className="hidden lg:block overflow-x-auto neo-border">
+        <div className="hidden md:block overflow-x-auto neo-border">
           <table className="w-full min-w-[900px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">
@@ -696,7 +698,7 @@ export default function AttendanceSettingsPage() {
           </button>
         </div>
 
-        <div className="space-y-3 lg:hidden">
+        <div className="space-y-3 md:hidden">
           {categories.map((category) => (
             <MobileCard
               key={category.id}
@@ -742,7 +744,7 @@ export default function AttendanceSettingsPage() {
           )}
         </div>
 
-        <div className="hidden lg:block overflow-x-auto neo-border">
+        <div className="hidden md:block overflow-x-auto neo-border">
           <table className="w-full min-w-[980px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">
@@ -812,7 +814,7 @@ export default function AttendanceSettingsPage() {
           <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Koreksi Absensi Pending</h2>
         </div>
 
-        <div className="space-y-3 lg:hidden">
+        <div className="space-y-3 md:hidden">
           {corrections.map((correction) => (
             <MobileCard
               key={correction.id}
@@ -847,7 +849,7 @@ export default function AttendanceSettingsPage() {
           )}
         </div>
 
-        <div className="hidden lg:block overflow-x-auto neo-border">
+        <div className="hidden md:block overflow-x-auto neo-border">
           <table className="w-full min-w-[1200px]">
             <thead className="bg-[#e8d8c9]">
               <tr className="text-left text-[#1a1a1a]">

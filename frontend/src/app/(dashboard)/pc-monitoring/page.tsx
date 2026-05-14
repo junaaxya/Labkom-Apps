@@ -25,7 +25,7 @@ import {
 } from "react-icons/tb";
 import api from "@/services/api";
 import { ResponsiveList } from "@/components/ui/responsive-list";
-import { TouchTarget } from "@/components/ui/touch-target";
+import { MobileCard } from "@/components/ui/mobile-card";
 import type {
   PC,
   PCDetail,
@@ -35,6 +35,38 @@ import type {
   PcWarning,
   PcAgentLog,
 } from "@/types/index";
+
+type CommandLite = { id: string; command: string; status: string; createdAt: string };
+
+type StatusLogLite = {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  reason?: string;
+  createdAt: string;
+};
+
+function isCommandLite(value: unknown): value is CommandLite {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.command === "string" &&
+    typeof v.status === "string" &&
+    typeof v.createdAt === "string"
+  );
+}
+
+function isStatusLogLite(value: unknown): value is StatusLogLite {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.fromStatus === "string" &&
+    typeof v.toStatus === "string" &&
+    typeof v.createdAt === "string"
+  );
+}
 
 const AGENT_STATUS_CONFIG: Record<AgentStatus, { label: string; color: string; bg: string }> = {
   ONLINE: { label: "Online", color: "text-green-700", bg: "bg-green-100" },
@@ -181,8 +213,10 @@ export default function PCMonitoringPage() {
   }, [filterLab]);
 
   useEffect(() => {
-    fetchPCs();
-    fetchAnalytics();
+    queueMicrotask(() => {
+      void fetchPCs();
+      void fetchAnalytics();
+    });
   }, [fetchPCs, fetchAnalytics]);
 
   useEffect(() => {
@@ -395,84 +429,81 @@ export default function PCMonitoringPage() {
 
       <ResponsiveList
         mobileCard={
-          <div className="neo-card overflow-hidden">
+          <div className="space-y-3">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="neo-card p-8 text-center">
                 <TbLoader2 className="w-6 h-6 animate-spin mx-auto text-[#4b607f]" />
               </div>
             ) : pcs.length === 0 ? (
-              <div className="p-8 text-center text-[#5a5a5a]">Tidak ada PC ditemukan</div>
+              <div className="neo-card p-8 text-center text-[#5a5a5a]">Tidak ada PC ditemukan</div>
             ) : (
-              <div className="divide-y divide-gray-200">
-                {pcs.map((pc) => (
-                  <div key={pc.id} className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={selectedPCs.includes(pc.id)}
-                          onChange={() => toggleSelect(pc.id)}
-                          className="rounded shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="font-mono font-bold text-[#1a1a1a] text-sm">{pc.pcCode}</p>
-                          <p className="text-xs text-[#5a5a5a] truncate">{pc.name}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <TouchTarget>
-                          <button
-                            onClick={() => openDetail(pc.id)}
-                            className="neo-btn px-2 py-1 text-xs"
-                            title="Detail"
-                          >
-                            <TbChevronRight className="w-4 h-4" />
-                          </button>
-                        </TouchTarget>
-                        <TouchTarget>
-                          <button
-                            onClick={() => openCommandModal(pc.id)}
-                            className="neo-btn px-2 py-1 text-xs bg-[#4b607f] text-white"
-                            title="Command"
-                          >
-                            <TbPower className="w-4 h-4" />
-                          </button>
-                        </TouchTarget>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[pc.agentStatus]?.bg} ${AGENT_STATUS_CONFIG[pc.agentStatus]?.color}`}>
-                        {AGENT_STATUS_CONFIG[pc.agentStatus]?.label || pc.agentStatus}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.bg} ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.color}`}>
-                        {HEALTH_STATUS_CONFIG[pc.healthStatus]?.label || pc.healthStatus}
-                      </span>
-                      <span className="text-xs text-[#5a5a5a]">{pc.lab?.name || "-"}</span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#5a5a5a] w-14 shrink-0">CPU</span>
-                        <MiniBar value={pc.cpuUsage} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#5a5a5a] w-14 shrink-0">RAM</span>
-                        <MiniBar value={pc.ramUsage} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#5a5a5a] w-14 shrink-0">Storage</span>
-                        <MiniBar value={pc.storageUsage} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-[#5a5a5a]">
-                      <span className="font-mono">{pc.ipAddress || "-"}</span>
-                      <span>{formatRelativeTime(pc.lastSeen)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              pcs.map((pc) => (
+                <MobileCard
+                  key={pc.id}
+                  title={
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedPCs.includes(pc.id)}
+                        onChange={() => toggleSelect(pc.id)}
+                        className="rounded shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="font-mono">{pc.pcCode}</span>
+                    </span>
+                  }
+                  subtitle={`${pc.name}${pc.lab?.name ? ` · ${pc.lab.name}` : ""}`}
+                  badge={
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[pc.agentStatus]?.bg} ${AGENT_STATUS_CONFIG[pc.agentStatus]?.color}`}>
+                      {AGENT_STATUS_CONFIG[pc.agentStatus]?.label || pc.agentStatus}
+                    </span>
+                  }
+                  fields={[
+                    {
+                      label: "Health",
+                      value: (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.bg} ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.color}`}>
+                          {HEALTH_STATUS_CONFIG[pc.healthStatus]?.label || pc.healthStatus}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "CPU",
+                      value: <MiniBar value={pc.cpuUsage} />,
+                    },
+                    {
+                      label: "RAM",
+                      value: <MiniBar value={pc.ramUsage} />,
+                    },
+                    {
+                      label: "Storage",
+                      value: <MiniBar value={pc.storageUsage} />,
+                    },
+                    {
+                      label: "IP Address",
+                      value: <span className="font-mono text-xs">{pc.ipAddress || "-"}</span>,
+                    },
+                    {
+                      label: "Last Seen",
+                      value: formatRelativeTime(pc.lastSeen),
+                    },
+                  ]}
+                  actions={[
+                    {
+                      label: "Detail",
+                      icon: <TbChevronRight className="w-4 h-4" />,
+                      onClick: () => openDetail(pc.id),
+                      variant: "secondary",
+                    },
+                    {
+                      label: "Command",
+                      icon: <TbPower className="w-4 h-4" />,
+                      onClick: () => openCommandModal(pc.id),
+                      variant: "primary",
+                    },
+                  ]}
+                />
+              ))
             )}
           </div>
         }
@@ -595,7 +626,7 @@ export default function PCMonitoringPage() {
             <div className="p-4 space-y-5">
               <section>
                 <h3 className="font-bold text-sm text-[#1a1a1a] mb-2 uppercase tracking-wider">Info Dasar</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                   <InfoRow label="Lab" value={detailPC.lab?.name || "-"} />
                   <InfoRow label="Status" value={PC_STATUS_CONFIG[detailPC.status]?.label || detailPC.status} />
                   <InfoRow label="Agent Status" value={AGENT_STATUS_CONFIG[detailPC.agentStatus]?.label || detailPC.agentStatus} />
@@ -609,7 +640,7 @@ export default function PCMonitoringPage() {
 
               <section>
                 <h3 className="font-bold text-sm text-[#1a1a1a] mb-2 uppercase tracking-wider">Hardware</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                   <InfoRow label="Hostname" value={detailPC.hostname || "-"} />
                   <InfoRow label="OS" value={detailPC.os || "-"} />
                   <InfoRow label="Arch" value={detailPC.architecture || "-"} />
@@ -682,7 +713,7 @@ export default function PCMonitoringPage() {
                 <section>
                   <h3 className="font-bold text-sm text-[#1a1a1a] mb-2 uppercase tracking-wider">Command Terakhir</h3>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {detailPC.commands.slice(0, 5).map((cmd: { id: string; command: string; status: string; createdAt: string }) => (
+                    {(detailPC.commands as unknown[]).filter(isCommandLite).slice(0, 5).map((cmd) => (
                       <div key={cmd.id} className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
                         <span className="font-medium">{COMMAND_OPTIONS.find((c) => c.value === cmd.command)?.label || cmd.command}</span>
                         <span className={`px-1.5 py-0.5 rounded ${
@@ -722,7 +753,7 @@ export default function PCMonitoringPage() {
                 <section>
                   <h3 className="font-bold text-sm text-[#1a1a1a] mb-2 uppercase tracking-wider">Status Logs</h3>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {detailPC.statusLogs.slice(0, 5).map((log: { id: string; fromStatus: string; toStatus: string; reason?: string; createdAt: string }) => (
+                    {(detailPC.statusLogs as unknown[]).filter(isStatusLogLite).slice(0, 5).map((log) => (
                       <div key={log.id} className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
                         <span className={`px-1.5 py-0.5 rounded ${PC_STATUS_CONFIG[log.fromStatus]?.bg || "bg-gray-100"}`}>
                           {PC_STATUS_CONFIG[log.fromStatus]?.label || log.fromStatus}
@@ -763,7 +794,7 @@ export default function PCMonitoringPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-[#1a1a1a]">Pilih Command</label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
                   {COMMAND_OPTIONS.map((cmd) => (
                     <button
                       key={cmd.value}

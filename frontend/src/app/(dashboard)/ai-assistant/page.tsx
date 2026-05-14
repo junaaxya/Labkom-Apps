@@ -31,19 +31,21 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchInsights();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<{ data: string[] }>("/ai/insights");
+        if (!cancelled) setInsights(res.data || []);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const fetchInsights = async () => {
-    try {
-      const res = await api.get<{ data: string[] }>("/ai/insights");
-      setInsights(res.data || []);
-    } catch {}
-  };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;

@@ -15,6 +15,14 @@ import api from "@/services/api";
 import type { Ticket, TicketStatus } from "@/types";
 import { useToast } from "@/providers/toast-provider";
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 type StatusFilter = "ALL" | TicketStatus;
 
 const statusConfig: Record<TicketStatus, { label: string; classes: string }> = {
@@ -50,8 +58,8 @@ export default function MyTicketsPage() {
     try {
       const res = await api.get<{ data: Ticket[] }>("/tickets/my");
       setTickets(res.data ?? []);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat riwayat tiket.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat riwayat tiket."));
       setTickets([]);
     } finally {
       setLoading(false);
@@ -59,7 +67,9 @@ export default function MyTicketsPage() {
   };
 
   useEffect(() => {
-    fetchMyTickets();
+    queueMicrotask(() => {
+      void fetchMyTickets();
+    });
   }, []);
 
   const filteredTickets = useMemo(() => {

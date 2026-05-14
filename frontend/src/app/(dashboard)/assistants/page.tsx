@@ -23,22 +23,47 @@ export default function AssistantsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const isAslebUser = (value: unknown): value is AslebUser => {
+    if (!value || typeof value !== "object") return false;
+    const v = value as Record<string, unknown>;
+    return (
+      typeof v.id === "string" &&
+      typeof v.name === "string" &&
+      typeof v.email === "string"
+    );
+  };
+
+  const extractUsers = (data: unknown): AslebUser[] => {
+    const rawItems: unknown = (() => {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object") {
+        const obj = data as Record<string, unknown>;
+        const maybeItems = obj.items ?? obj.users;
+        if (Array.isArray(maybeItems)) return maybeItems;
+      }
+      return [];
+    })();
+
+    return (rawItems as unknown[]).filter(isAslebUser);
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<{ data: any }>("/users?role=ASISTEN_LAB&limit=50");
-      const raw: any = res.data || [];
-      const items = Array.isArray(raw) ? raw : (raw.items ?? raw.users ?? []);
-      setAslebs(items);
+      const res = await api.get<{ data: unknown }>("/users?role=ASISTEN_LAB&limit=50");
+      setAslebs(extractUsers(res.data));
     } catch {
+      // keep previous behavior: no toast, just stop loading
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchData();
+    });
+  }, []);
 
   const filteredAslebs = aslebs.filter(
     (a) =>

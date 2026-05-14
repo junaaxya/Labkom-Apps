@@ -43,7 +43,7 @@ export default function LogbookConditionPage() {
   const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => void fetchData());
   }, []);
 
   async function fetchData() {
@@ -55,7 +55,14 @@ export default function LogbookConditionPage() {
       ]);
       const lb = logbookRes.data;
       setLogbook(lb || null);
-      const labList = Array.isArray(labsRes.data) ? labsRes.data : (labsRes.data as any)?.data || [];
+      const labsRaw: unknown = labsRes.data;
+      let labList: Lab[] = [];
+      if (Array.isArray(labsRaw)) {
+        labList = labsRaw as Lab[];
+      } else if (labsRaw && typeof labsRaw === "object" && "data" in labsRaw) {
+        const inner = (labsRaw as { data?: unknown }).data;
+        if (Array.isArray(inner)) labList = inner as Lab[];
+      }
       setLabs(labList);
     } catch {
       toast.error("Gagal memuat data");
@@ -108,8 +115,12 @@ export default function LogbookConditionPage() {
       setCatatan("");
       setSelectedLab(null);
       await fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal submit kondisi");
+    } catch (err) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? (err as { message?: unknown }).message
+          : undefined;
+      toast.error(typeof msg === "string" && msg ? msg : "Gagal submit kondisi");
     } finally {
       setSubmitting(false);
     }

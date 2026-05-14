@@ -23,6 +23,7 @@ import {
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import type { ReactNode } from "react";
+import { MobileCard } from "@/components/ui/mobile-card";
 
 export interface LocalUser {
   userId?: string;
@@ -495,7 +496,38 @@ export function KoordinatorDashboard({
           </Link>
         }
       >
-        <div className="overflow-x-auto rounded-xl neo-border-sm">
+        <div className="md:hidden space-y-3">
+          {schedules.map((schedule) => (
+            <MobileCard
+              key={schedule.id}
+              title={schedule.title}
+              subtitle={schedule.lab?.name || "-"}
+              badge={
+                <span className={`inline-block px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(schedule.status)}`}>
+                  {schedule.status}
+                </span>
+              }
+              fields={[
+                {
+                  label: "Waktu",
+                  value: (
+                    <span className="bg-[#e8d8c9] px-2 py-1 rounded-md text-[#1a1a1a] text-xs font-bold">
+                      {schedule.startTime} - {schedule.endTime}
+                    </span>
+                  ),
+                },
+                { label: "Dosen", value: schedule.lecturerName || "-" },
+              ]}
+            />
+          ))}
+          {schedules.length === 0 && (
+            <div className="p-8 text-center bg-white">
+              <TbCalendarEvent className="w-12 h-12 mx-auto text-[#e8d8c9] mb-3" />
+              <p className="text-sm font-bold text-[#5a5a5a]">Tidak ada jadwal hari ini.</p>
+            </div>
+          )}
+        </div>
+        <div className="hidden md:block overflow-x-auto rounded-xl neo-border-sm">
           <table className="w-full text-sm text-left">
             <thead className="bg-[#f5ede6] text-[#1a1a1a] font-bold border-b-2 border-[#1a1a1a]">
               <tr>

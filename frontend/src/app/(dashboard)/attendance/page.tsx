@@ -61,6 +61,37 @@ const correctionTypes = [
   { value: "STATUS_CORRECTION", label: "Koreksi Status" },
 ];
 
+interface LeaveRequestItem {
+  id: string;
+  type: "SICK" | "PERMISSION" | string;
+  date: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  evidenceUrl?: string | null;
+  reviewNote?: string | null;
+  createdAt: string;
+}
+
+type ApiEnvelope<T> = T | { data?: T; items?: T };
+
+function extractData<T>(response: unknown): T {
+  const env = response as ApiEnvelope<T> | undefined;
+  if (env && typeof env === "object") {
+    const obj = env as { data?: unknown; items?: unknown };
+    if ("data" in obj && obj.data !== undefined) return obj.data as T;
+    if ("items" in obj && obj.items !== undefined) return obj.items as T;
+  }
+  return env as T;
+}
+
+function errorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 export default function AttendancePage() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -78,7 +109,7 @@ export default function AttendancePage() {
   const [showCorrection, setShowCorrection] = useState(false);
   const [showLeaveRequest, setShowLeaveRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<"today" | "tasks" | "history" | "corrections" | "leaves">("today");
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequestItem[]>([]);
   const [leaveForm, setLeaveForm] = useState({ type: "SICK", date: "", reason: "", evidenceUrl: "" });
 
   // Forms
@@ -115,7 +146,7 @@ export default function AttendancePage() {
           api.get<{ data: TaskCategoryConfig[] }>("/attendance/task-categories"),
           api.get<{ data: Lab[] }>("/labs"),
           api.get<{ data: AttendanceCorrectionRequest[] }>("/attendance/corrections/me"),
-          api.get<{ data: any[] }>(`/attendance/leaves/me?month=${selectedMonth}`),
+          api.get<{ data: LeaveRequestItem[] }>(`/attendance/leaves/me?month=${selectedMonth}`),
         ]);
 
       if (shiftRes.status === "fulfilled") {
@@ -154,7 +185,7 @@ export default function AttendancePage() {
         setCorrections(extractData<AttendanceCorrectionRequest[]>(correctionsRes.value));
       }
       if (leavesRes.status === "fulfilled") {
-        setLeaveRequests(extractData<any[]>(leavesRes.value));
+        setLeaveRequests(extractData<LeaveRequestItem[]>(leavesRes.value));
       }
     } catch {
       // silent
@@ -164,16 +195,8 @@ export default function AttendancePage() {
   }, [selectedMonth]);
 
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => void fetchData());
   }, [fetchData]);
-
-  function extractData<T>(response: any): T {
-    const raw = response?.data || response;
-    if (Array.isArray(raw)) return raw as T;
-    if (raw?.items) return raw.items as T;
-    if (raw?.data) return raw.data as T;
-    return raw as T;
-  }
 
   const handleCheckin = async () => {
     setSubmitting(true);
@@ -194,8 +217,8 @@ export default function AttendancePage() {
       }
       await api.post("/attendance/checkin", { latitude, longitude });
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal check-in. Pastikan GPS aktif dan Anda berada di lokasi yang valid.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal check-in. Pastikan GPS aktif dan Anda berada di lokasi yang valid."));
     } finally {
       setSubmitting(false);
     }
@@ -220,8 +243,8 @@ export default function AttendancePage() {
       }
       await api.post("/attendance/checkout", { latitude, longitude });
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal check-out");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal check-out"));
     } finally {
       setSubmitting(false);
     }
@@ -242,8 +265,8 @@ export default function AttendancePage() {
       setTaskForm({ task: "", description: "", categoryConfigId: "", duration: "", labId: "", photoUrl: "" });
       setShowAddTask(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal menambah task");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal menambah task"));
     } finally {
       setSubmitting(false);
     }
@@ -253,8 +276,8 @@ export default function AttendancePage() {
     try {
       await api.patch(`/attendance/tasks/${taskId}`, { status: "SUBMITTED" });
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal submit task");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal submit task"));
     }
   };
 
@@ -273,8 +296,8 @@ export default function AttendancePage() {
       setCorrectionForm({ requestType: "CHECKIN_TIME", oldValue: "", newValue: "", reason: "", evidenceUrl: "" });
       setShowCorrection(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengajukan koreksi");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal mengajukan koreksi"));
     } finally {
       setSubmitting(false);
     }
@@ -293,8 +316,8 @@ export default function AttendancePage() {
       setLeaveForm({ type: "SICK", date: "", reason: "", evidenceUrl: "" });
       setShowLeaveRequest(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err?.message || "Gagal mengajukan izin");
+    } catch (err) {
+      toast.error(errorMessage(err, "Gagal mengajukan izin"));
     } finally {
       setSubmitting(false);
     }
@@ -399,7 +422,7 @@ export default function AttendancePage() {
               <h3 className="font-heading font-bold text-lg text-[#1a1a1a] mb-3 flex items-center gap-2">
                 <TbCalendar className="w-5 h-5 text-[#4b607f]" /> Shift Hari Ini
               </h3>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                 <div>
                   <p className="text-[#5a5a5a] font-medium">Lab</p>
                   <p className="font-bold text-[#1a1a1a]">{todayShift.lab?.name || "—"}</p>
@@ -879,7 +902,7 @@ export default function AttendancePage() {
                     className="w-full px-4 py-3 min-h-[80px] neo-input text-base bg-white resize-none"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Kategori</label>
                     <select
@@ -991,7 +1014,7 @@ export default function AttendancePage() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Nilai Lama</label>
                     <input

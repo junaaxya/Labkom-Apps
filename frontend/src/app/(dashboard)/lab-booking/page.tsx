@@ -37,6 +37,14 @@ function isApprovalRole(role?: Role): boolean {
   return role === "KOORDINATOR_LAB" || role === "ASISTEN_LAB";
 }
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
+
 export default function LabBookingPage() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>("request");
@@ -88,16 +96,17 @@ export default function LabBookingPage() {
     setLoading(true);
     try {
       await Promise.all([fetchLabs(), fetchMyBookings(), fetchPendingBookings()]);
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal memuat data peminjaman lab.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal memuat data peminjaman lab."));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const rawUser = localStorage.getItem("user");
-    if (rawUser) {
+    queueMicrotask(() => {
+      const rawUser = localStorage.getItem("user");
+      if (!rawUser) return;
       try {
         const parsed = JSON.parse(rawUser);
         setUser(parsed);
@@ -107,12 +116,12 @@ export default function LabBookingPage() {
       } catch {
         setUser(null);
       }
-    }
+    });
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    refreshData();
+    queueMicrotask(() => void refreshData());
   }, [user]);
 
   const stats = useMemo(() => {
@@ -153,8 +162,8 @@ export default function LabBookingPage() {
       });
       setActiveTab("history");
       await refreshData();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal mengajukan peminjaman lab.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal mengajukan peminjaman lab."));
     } finally {
       setSubmitting(false);
     }
@@ -166,8 +175,8 @@ export default function LabBookingPage() {
       await api.patch(`/bookings/${bookingId}/cancel`, {});
       toast.success("Pengajuan berhasil dibatalkan.");
       await refreshData();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal membatalkan pengajuan.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal membatalkan pengajuan."));
     } finally {
       setActingBookingId(null);
     }
@@ -180,8 +189,8 @@ export default function LabBookingPage() {
       toast.success("Pengajuan berhasil disetujui dan jadwal peminjaman dibuat.");
       setSelectedBooking(null);
       await refreshData();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal menyetujui pengajuan.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal menyetujui pengajuan."));
     } finally {
       setActingBookingId(null);
     }
@@ -200,8 +209,8 @@ export default function LabBookingPage() {
       setRejectReason("");
       setSelectedBooking(null);
       await refreshData();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal menolak pengajuan.");
+    } catch (err) {
+      toast.error(errMsg(err, "Gagal menolak pengajuan."));
     } finally {
       setActingBookingId(null);
     }
@@ -428,7 +437,7 @@ export default function LabBookingPage() {
                         </div>
                       </div>
                       
-                      <div className="bg-[#f8f9fa] rounded-xl p-4 neo-border mb-4 grid grid-cols-2 gap-y-3 gap-x-2">
+                      <div className="bg-[#f8f9fa] rounded-xl p-4 neo-border mb-4 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-2">
                         <div className="flex items-center gap-2 text-sm text-[#1a1a1a] font-medium">
                           <div className="w-6 h-6 rounded bg-[#e8d8c9] neo-border flex items-center justify-center shrink-0">
                             <TbMapPin size={14} />
