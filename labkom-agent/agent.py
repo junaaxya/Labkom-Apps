@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import platform
+import secrets
 import subprocess
 import sys
 import time
@@ -40,6 +41,8 @@ def get_headers(token: str) -> dict:
     return {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
+        "X-Agent-Timestamp": str(int(time.time() * 1000)),
+        "X-Agent-Nonce": secrets.token_hex(16),
     }
 
 
