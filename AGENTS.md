@@ -42,6 +42,7 @@ backend/src/
 **Key patterns:**
 - Routes registered in `routes/index.ts` → mounted at `/api/v1` in `app.ts`
 - Auth: JWT middleware (`authenticate` + `authorize(...roles)`)
+- Query-string JWT is only allowed through explicit route-scoped middleware, currently `authenticateQueryToken` for notification SSE (`/notifications/stream`)
 - Agent auth: SHA-256 token comparison (`agentAuth.middleware.ts`)
 - Prisma accessor for PC model: `prisma.pC` (not `prisma.pc`)
 - Import prisma: `import prisma from "../config/database"`
@@ -54,7 +55,8 @@ node dist/server.js  # Run (tsx broken under Bun 1.3.12)
 ```
 
 **Database:** PostgreSQL via Docker (`docker compose up -d postgres`)
-- Schema sync: `npx prisma db push` (no migrations folder — uses db push)
+- Local dev schema sync: `npx prisma db push` (rapid iteration, no migration history). The repo also keeps a baseline migration at `backend/prisma/migrations/0_init/` so production environments can run `prisma migrate deploy`.
+- Production schema sync: `npm run db:migrate:deploy` (alias of `npx prisma migrate deploy`). CI uses this in `.github/workflows/cd.yml`.
 - Seed: `npx prisma db seed` or manual Node.js scripts
 
 ---
@@ -134,8 +136,9 @@ npx next build
 | KOORDINATOR_LAB | Full access — semua management, analytics, AI, verifikasi, audit |
 | ASISTEN_LAB | Operasional — absensi, shift, logbook, kunci, ticketing, misi, monitoring |
 | MAHASISWA | Terbatas — jadwal, lapor kerusakan, FAQ, booking lab |
-| DOSEN | Buka/tutup sesi praktikum, lihat jadwal, validasi sesi |
-| KETUA_KELAS | Mahasiswa + ambil kunci, validasi kondisi akhir, kembalikan kunci |
+| MAHASISWA (`isKetuaKelas = true`) | Ketua kelas — mahasiswa + ambil kunci, validasi kondisi akhir, kembalikan kunci |
+
+**Current production role model:** Prisma `Role` enum only contains `KOORDINATOR_LAB`, `ASISTEN_LAB`, and `MAHASISWA`. There is no active `DOSEN` role. Lecturer data is stored as schedule text fields (for example `lecturerName`), not as login-capable users.
 
 Sidebar menu defined in `components/layout/neo-sidebar.tsx` (`menuByRole` object).
 
@@ -158,11 +161,11 @@ Dashboard, Jadwal Lab, Scan QR Kerusakan, Riwayat Laporan, Panduan Lab, AI Assis
 
 ```
 Koordinator membuat jadwal → Sistem cek bentrok lab → Jadwal tersimpan
-→ Jadwal tampil di dashboard mahasiswa, asleb, dan dosen
-→ Saat sesi dimulai, asleb/dosen membuka sesi
+→ Jadwal tampil di dashboard mahasiswa dan asleb
+→ Saat sesi dimulai, asleb membuka sesi
 → Sesi berlangsung
 → Ketua kelas mengisi validasi kondisi akhir
-→ Asleb/dosen memverifikasi dan menutup sesi
+→ Asleb memverifikasi dan menutup sesi
 → Logbook tersimpan
 ```
 
@@ -170,13 +173,13 @@ Koordinator membuat jadwal → Sistem cek bentrok lab → Jadwal tersimpan
 
 ```
 Jadwal dimulai
-→ Asleb/Dosen membuka sesi lab (check-in resmi)
+→ Asleb membuka sesi lab (check-in resmi)
 → Jika kunci diambil oleh ketua kelas/mahasiswa, sistem mencatat pemegang kunci
 → Sesi lab berjalan
 → Ketua kelas/mahasiswa mengisi validasi kondisi akhir ruangan
 → Ketua kelas/mahasiswa mengembalikan kunci atau menyerahkan ke asleb
-→ Asleb/Dosen melakukan verifikasi kondisi lab
-→ Asleb/Dosen menutup sesi (check-out resmi)
+→ Asleb melakukan verifikasi kondisi lab
+→ Asleb menutup sesi (check-out resmi)
 → Logbook final tersimpan
 ```
 
@@ -191,10 +194,10 @@ Condition Submitted → Problem Found → Ticket Created → Verified with Notes
 ```
 
 **Siapa yang boleh apa:**
-- Check-in resmi: Asleb atau Dosen
-- Ambil kunci: Asleb, Dosen, Ketua Kelas (jika ada jadwal aktif + diizinkan)
+- Check-in resmi: Asleb; Koordinator sebagai fallback operasional/admin jika diperlukan
+- Ambil kunci: Asleb, Ketua Kelas (jika ada jadwal aktif + diizinkan), atau Koordinator sebagai admin
 - Validasi kondisi akhir: Ketua kelas, pemegang kunci, atau role privileged
-- Verifikasi & check-out: Asleb atau Dosen
+- Verifikasi & check-out: Asleb; Koordinator sebagai fallback operasional/admin jika diperlukan
 
 ### Workflow 3: Peminjaman Kunci (QR-Based)
 
@@ -345,12 +348,12 @@ THEN shutdown_all_lab_pcs
 - Status tracking (Scheduled → Completed)
 - Check-in/check-out by authorized roles
 - Condition validation form
-- Verification by asleb/dosen
+- Verification by asleb, with Koordinator fallback where implemented
 
 ### `/schedules` (Jadwal Lab)
 - Calendar view (mingguan/bulanan)
 - CRUD jadwal by Koordinator
-- Conflict detection (lab/dosen/asisten)
+- Conflict detection (lab/asisten)
 - Filter by semester, lab, status
 
 ### `/tickets` (Ticketing)
@@ -430,7 +433,7 @@ THEN shutdown_all_lab_pcs
 - `Point` — id, userId, amount, reason, sourceType, sourceId
 
 ### Key Enums
-- `Role`: KOORDINATOR_LAB, ASISTEN_LAB, MAHASISWA, DOSEN
+- `Role`: KOORDINATOR_LAB, ASISTEN_LAB, MAHASISWA
 - `PCStatus`: AVAILABLE, IN_USE, BROKEN, MAINTENANCE, INACTIVE
 - `AgentStatus`: ONLINE, OFFLINE, UNKNOWN
 - `HealthStatus`: NORMAL, BROKEN, MAINTENANCE, NEEDS_CHECK
@@ -508,8 +511,8 @@ Smart Lock (ESP32, MQTT), Face Recognition Attendance, WebSocket real-time, Adva
 2. **Prisma PC model**: Accessor is `prisma.pC` not `prisma.pc`
 3. **Next.js 15**: Breaking changes from training data — check `node_modules/next/dist/docs/`
 4. **Agent auth**: Token is SHA-256 hashed (not bcrypt). Plain token shown only once at generation.
-5. **No migrations folder**: Project uses `prisma db push` for schema sync
-6. **Logbook roles**: Only Asleb/Dosen can check-in/check-out. Ketua kelas can only validate condition.
+5. **Migrations workflow**: `prisma db push` is for local dev. Production CI runs `prisma migrate deploy` against the tracked baseline at `backend/prisma/migrations/0_init/` — keep new schema changes in dedicated migration folders rather than relying on db push for prod.
+6. **Logbook roles**: Only Asleb can check-in/check-out; Koordinator may act as operational/admin fallback where implemented. Ketua kelas can only validate condition.
 7. **Key access**: Mahasiswa/Ketua kelas can only take key if there's an active schedule AND they're authorized.
 8. **GPS attendance**: Asleb attendance requires valid GPS location.
 9. **Ticket → Mission**: Tickets can become missions for gamification points.
