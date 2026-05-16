@@ -145,11 +145,11 @@ function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className={`neo-card p-3 sm:p-5 bg-white border-l-4 min-h-[104px] sm:min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
+      className={`neo-card p-3 sm:p-5 bg-white border-l-4 min-h-[88px] sm:min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
     >
       <div className="flex items-start justify-between gap-2 sm:gap-3 h-full">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] sm:text-xs uppercase font-bold text-[#5a5a5a] tracking-widest mb-1 truncate">{item.label}</p>
+          <p className="text-[9px] sm:text-xs uppercase font-bold text-[#5a5a5a] tracking-wider sm:tracking-widest mb-1 truncate">{item.label}</p>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -159,7 +159,7 @@ function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
             {item.value}
           </motion.p>
         </div>
-        <div className="w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center relative overflow-hidden">
+        <div className="w-8 h-8 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center relative overflow-hidden">
           <div className={`absolute inset-0 opacity-15 ${item.tone.replace('text-', 'bg-')}`}></div>
           <item.icon className={`w-4 h-4 sm:w-6 sm:h-6 relative z-10 ${item.tone}`} strokeWidth={2.2} />
         </div>
@@ -176,14 +176,16 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
       transition={{ duration: 0.4, delay }}
       className="neo-card bg-white flex flex-col h-full overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-3 sm:py-4 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="w-5 h-5 text-[#f3701e]" strokeWidth={2.5} />}
-          <h3 className="font-heading text-base sm:text-lg font-bold text-[#1a1a1a] tracking-tight">{title}</h3>
+      <div className="px-3 sm:px-5 py-2 sm:py-3 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#f3701e] shrink-0" strokeWidth={2.5} />}
+          <h3 className="font-heading text-xs sm:text-base font-bold text-[#1a1a1a] tracking-tight truncate uppercase sm:normal-case sm:tracking-tight">{title}</h3>
         </div>
-        {action}
+        {action && (
+          <div className="shrink-0">{action}</div>
+        )}
       </div>
-      <div className="p-4 sm:p-5 flex-1">{children}</div>
+      <div className="p-2.5 sm:p-5 flex-1">{children}</div>
     </motion.div>
   );
 }
@@ -191,17 +193,17 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
 function QuickActions({ items }: { items: { label: string; href: string; icon: IconType }[] }) {
   return (
     <Section title="Quick Actions" icon={TbTargetArrow} delay={0.4}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {items.map((item, idx) => (
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {items.map((item) => (
           <Link 
             key={item.href} 
             href={item.href} 
-            className="neo-btn bg-white text-[#1a1a1a] p-4 flex flex-col items-center justify-center gap-3 neo-hover group h-full"
+            className="neo-btn bg-white text-[#1a1a1a] p-3 sm:p-4 flex flex-col items-center justify-center gap-2 sm:gap-3 group min-h-[96px] sm:min-h-[auto] rounded-xl active:shadow-none active:translate-y-0 sm:neo-hover"
           >
             <div className="w-10 h-10 rounded-full bg-[#f5ede6] flex items-center justify-center group-hover:bg-[#f3701e] group-hover:text-white transition-colors duration-300">
               <item.icon className="w-5 h-5" strokeWidth={2.2} />
             </div>
-            <span className="font-bold text-sm text-center">{item.label}</span>
+            <span className="font-bold text-xs sm:text-sm text-center leading-tight">{item.label}</span>
           </Link>
         ))}
       </div>
@@ -232,20 +234,20 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
       <div className="absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
       <div className="absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
       
-      <div className="p-6 md:p-8 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-          <div className="inline-block neo-badge px-3 py-1.5 bg-[#f5ede6] text-[#1a1a1a] font-bold text-xs">
+      <div className="p-3 sm:p-6 md:p-8 relative z-10">
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="neo-badge px-2 py-0.5 sm:px-3 sm:py-1.5 bg-[#f5ede6] text-[#1a1a1a] font-bold text-[10px] sm:text-xs inline-block">
             {currentDate}
           </div>
-          <div className="inline-block px-3 py-1 bg-[#1a1a1a] text-white text-xs font-bold rounded-md">
+          <div className="px-2 py-0.5 sm:px-3 sm:py-1 bg-[#1a1a1a] text-white text-[10px] sm:text-xs font-bold rounded-md inline-block">
             {user?.role?.replace("_", " ")}
           </div>
         </div>
-        
-        <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold text-[#1a1a1a] mt-4 mb-2 tracking-tight">
+
+        <h1 className="font-heading text-lg sm:text-3xl lg:text-4xl font-bold text-[#1a1a1a] mt-2 sm:mt-3 mb-1 sm:mb-1.5 tracking-tight">
           {greeting}, <span className="text-[#4b607f]">{firstName}</span>! 👋
         </h1>
-        <p className="text-sm sm:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed">{subtitle}</p>
+        <p className="text-xs sm:text-sm md:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -285,7 +287,7 @@ export function KoordinatorDashboard({
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       {pcAgentStats && (
@@ -300,35 +302,35 @@ export function KoordinatorDashboard({
             delay={0.05}
             action={
               <Link href="/pc-monitoring" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-                Detail <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <span className="hidden sm:inline">Detail</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             }
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <div className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
-                <TbWifi className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
-                <p className="font-heading text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.onlineCount}</p>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-1">Online</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+                <TbWifi className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500 mx-auto mb-1 sm:mb-2" />
+                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.onlineCount}</p>
+                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Online</p>
               </div>
-              <div className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
-                <TbWifiOff className="w-6 h-6 text-[#6b7280] mx-auto mb-2" />
-                <p className="font-heading text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.offlineCount}</p>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-1">Offline</p>
+              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+                <TbWifiOff className="w-5 h-5 sm:w-6 sm:h-6 text-[#6b7280] mx-auto mb-1 sm:mb-2" />
+                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.offlineCount}</p>
+                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Offline</p>
               </div>
-              <div className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
-                <TbDeviceDesktop className="w-6 h-6 text-[#9ca3af] mx-auto mb-2" />
-                <p className="font-heading text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.unknownCount}</p>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-1">Unknown</p>
+              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+                <TbDeviceDesktop className="w-5 h-5 sm:w-6 sm:h-6 text-[#9ca3af] mx-auto mb-1 sm:mb-2" />
+                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.unknownCount}</p>
+                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Unknown</p>
               </div>
-              <div className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
-                <TbAlertTriangle className="w-6 h-6 text-[#f3701e] mx-auto mb-2" />
-                <p className="font-heading text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.warningCount}</p>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-1">Warnings</p>
+              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+                <TbAlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-[#f3701e] mx-auto mb-1 sm:mb-2" />
+                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.warningCount}</p>
+                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Warnings</p>
               </div>
-              <div className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
-                <TbClipboardList className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                <p className="font-heading text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.needsCheckCount}</p>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-1">Perlu Cek</p>
+              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+                <TbClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mx-auto mb-1 sm:mb-2" />
+                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.needsCheckCount}</p>
+                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Perlu Cek</p>
               </div>
             </div>
           </Section>
@@ -344,61 +346,64 @@ export function KoordinatorDashboard({
               const onlinePercentage = totalPc > 0 ? Math.round((onlinePc / totalPc) * 100) : 0;
               const activeSchedule = schedules.filter((s) => s.lab?.id === lab.id && ["SCHEDULED", "ONGOING"].includes(s.status)).length;
               return (
-                <div key={lab.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] hover:bg-[#f5ede6] transition-colors">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <p className="font-bold text-[#1a1a1a] text-sm sm:text-base leading-tight">{lab.name}</p>
-                    <span className="neo-badge px-3 py-1 text-xs bg-[#e8d8c9] text-[#1a1a1a] font-bold">{lab.status}</span>
+                <div key={lab.id} className="relative pl-3 sm:pl-0 sm:p-3 rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                  <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <p className="font-bold text-[#1a1a1a] text-sm leading-tight min-w-0 truncate">{lab.name}</p>
+                    <span className="neo-badge px-2 py-0.5 text-[9px] sm:text-xs bg-[#e8d8c9] text-[#1a1a1a] font-bold shrink-0">{lab.status}</span>
                   </div>
                   
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <div className="flex justify-between text-xs mb-1 font-medium">
                       <span className="text-[#5a5a5a]">PC Online: <span className="text-[#1a1a1a] font-bold">{onlinePc}/{totalPc}</span></span>
                       <span className="text-[#5a5a5a]">{onlinePercentage}%</span>
                     </div>
-                    <div className="w-full h-2 bg-[#e8d8c9] rounded-full overflow-hidden neo-border-sm">
+                    <div className="w-full h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${onlinePercentage}%` }}></div>
                     </div>
                   </div>
                   
                   {activeSchedule > 0 && (
-                    <div className="mt-3 pt-3 border-t border-[#e8d8c9] flex items-center gap-2 text-xs text-[#5a5a5a] font-medium">
-                      <TbCalendarEvent className="w-4 h-4 text-[#f3701e]" />
-                      <span>{activeSchedule} Jadwal Aktif Saat Ini</span>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#5a5a5a] font-medium">
+                      <TbCalendarEvent className="w-3.5 h-3.5 text-[#f3701e] shrink-0" />
+                      <span>{activeSchedule} Jadwal Aktif</span>
                     </div>
                   )}
                 </div>
               );
             })}
-            {labs.length === 0 && <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Belum ada data lab.</p>}
+            {labs.length === 0 && <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada data lab.</p>}
           </div>
         </Section>
 
         <Section title="Aktivitas Terbaru" icon={TbBell} delay={0.2}>
           <div className="space-y-3">
             {activeLogbooks.slice(0, 3).map((logbook) => (
-              <div key={logbook.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] flex gap-3 items-start group hover:bg-[#f5ede6] transition-colors">
-                <div className="mt-1 w-2 h-2 rounded-full bg-[#4b607f]"></div>
-                <div>
-                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors">Sesi aktif di {logbook.lab?.name || "Lab"}</p>
-                  <p className="text-xs text-[#5a5a5a] font-medium mt-1">Status: {logbook.status}</p>
+              <div key={logbook.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex gap-2 sm:gap-3 items-start group sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1.5 w-0.5 h-4 bg-[#4b607f] rounded-full sm:hidden"></div>
+                <div className="hidden sm:block mt-1 w-2 h-2 rounded-full bg-[#4b607f] shrink-0"></div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">Sesi aktif di {logbook.lab?.name || "Lab"}</p>
+                  <p className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium mt-0.5">Status: {logbook.status}</p>
                 </div>
               </div>
             ))}
             {tickets.slice(0, 3).map((ticket) => (
-              <div key={ticket.id} className="p-4 rounded-xl neo-border-sm bg-white flex gap-3 items-start group hover:bg-[#fcf8f4] transition-colors">
-                <div className="mt-1 w-2 h-2 rounded-full bg-[#f3701e]"></div>
-                <div>
-                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors line-clamp-1">{ticket.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-[#5a5a5a] font-medium">{ticket.lab?.name || "Lab"}</span>
+              <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex gap-2 sm:gap-3 items-start group sm:hover:bg-[#fcf8f4] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1.5 w-0.5 h-4 bg-[#f3701e] rounded-full sm:hidden"></div>
+                <div className="hidden sm:block mt-1 w-2 h-2 rounded-full bg-[#f3701e] shrink-0"></div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">{ticket.title}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium">{ticket.lab?.name || "Lab"}</span>
                     <span className="w-1 h-1 rounded-full bg-[#e8d8c9]"></span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(ticket.status)}`}>{ticket.status}</span>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(ticket.status)}`}>{ticket.status}</span>
                   </div>
                 </div>
               </div>
             ))}
             {activeLogbooks.length === 0 && tickets.length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Belum ada aktivitas terbaru.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada aktivitas terbaru.</p>
             )}
           </div>
         </Section>
@@ -438,15 +443,16 @@ export function KoordinatorDashboard({
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.3 + (idx * 0.1) }}
                       key={`${insight}-${idx}`} 
-                      className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-sm text-[#1a1a1a] font-medium leading-relaxed hover:bg-[#f5ede6] transition-colors"
+                      className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] text-sm text-[#1a1a1a] font-medium leading-relaxed sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-2.5 sm:pb-0 last:border-0 last:pb-0"
                     >
-                      <span className="text-[#f3701e] font-bold mr-2">→</span>
+                      <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
+                      <span className="hidden sm:inline text-[#f3701e] font-bold mr-2">→</span>
                       {insight}
                     </motion.div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Belum ada insight AI.</p>
+                <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada insight AI.</p>
               )}
             </div>
           </div>
@@ -458,29 +464,30 @@ export function KoordinatorDashboard({
           delay={0.3}
           action={
             <Link href="/keys" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-              Lihat Semua <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span className="hidden sm:inline">Lihat Semua</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="space-y-3">
             {borrowedKeys.map((key) => (
-              <div key={key.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] flex items-center justify-between gap-3 hover:bg-[#f5ede6] transition-colors group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#e8d8c9] flex items-center justify-center group-hover:bg-white transition-colors">
-                    <TbKey className="w-5 h-5 text-[#1a1a1a]" />
+              <div key={key.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex items-center justify-between gap-2 sm:hover:bg-[#f5ede6] transition-colors group border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#e8d8c9] flex items-center justify-center group-hover:bg-white transition-colors shrink-0">
+                    <TbKey className="w-4 h-4 sm:w-5 sm:h-5 text-[#1a1a1a]" />
                   </div>
-                  <div>
-                    <p className="font-bold text-sm text-[#1a1a1a] mb-1">
-                      <span className="text-[#f3701e]">{key.keyCode}</span> • {key.lab?.name || "Lab"}
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-[#1a1a1a] truncate">
+                      <span className="text-[#f3701e]">{key.keyCode}</span> · {key.lab?.name || "Lab"}
                     </p>
-                    <p className="text-xs text-[#5a5a5a] font-medium">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
+                    <p className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium truncate">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
                   </div>
                 </div>
-                <span className="neo-badge px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider bg-[#4b607f] text-white">Dipinjam</span>
+                <span className="neo-badge px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-[#4b607f] text-white shrink-0">Dipinjam</span>
               </div>
             ))}
             {borrowedKeys.length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Tidak ada kunci dipinjam saat ini.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada kunci dipinjam saat ini.</p>
             )}
           </div>
         </Section>
@@ -492,7 +499,7 @@ export function KoordinatorDashboard({
         delay={0.35}
         action={
           <Link href="/schedules" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-            Lihat Jadwal <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <span className="hidden sm:inline">Lihat Jadwal</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         }
       >
@@ -521,8 +528,8 @@ export function KoordinatorDashboard({
             />
           ))}
           {schedules.length === 0 && (
-            <div className="p-8 text-center bg-white">
-              <TbCalendarEvent className="w-12 h-12 mx-auto text-[#e8d8c9] mb-3" />
+            <div className="p-6 text-center bg-white">
+              <TbCalendarEvent className="w-10 h-10 mx-auto text-[#e8d8c9] mb-2" />
               <p className="text-sm font-bold text-[#5a5a5a]">Tidak ada jadwal hari ini.</p>
             </div>
           )}
@@ -562,8 +569,8 @@ export function KoordinatorDashboard({
             </tbody>
           </table>
           {schedules.length === 0 && (
-            <div className="p-8 text-center bg-white">
-              <TbCalendarEvent className="w-12 h-12 mx-auto text-[#e8d8c9] mb-3" />
+            <div className="p-6 text-center bg-white">
+              <TbCalendarEvent className="w-10 h-10 mx-auto text-[#e8d8c9] mb-2" />
               <p className="text-sm font-bold text-[#5a5a5a]">Tidak ada jadwal hari ini.</p>
             </div>
           )}
@@ -600,25 +607,26 @@ export function AsistenDashboard({
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
         <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
             {shifts.map((shift) => (
-              <div key={shift.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] flex flex-col gap-2 hover:bg-[#f5ede6] transition-colors">
-                <div className="flex justify-between items-center">
-                  <span className="neo-badge px-3 py-1 text-xs bg-[#4b607f] text-white font-bold">{shift.lab?.name || "Lab"}</span>
-                  <span className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-sm ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
+              <div key={shift.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex flex-col gap-1.5 sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="neo-badge px-2 py-0.5 text-[10px] bg-[#4b607f] text-white font-bold truncate">{shift.lab?.name || "Lab"}</span>
+                  <span className={`px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded-sm shrink-0 ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <TbCalendarEvent className="w-4 h-4 text-[#5a5a5a]" />
-                  <p className="font-heading text-lg sm:text-xl font-bold text-[#1a1a1a]">{shift.startTime || "-"} <span className="text-[#5a5a5a] text-sm mx-1">s/d</span> {shift.endTime || "-"}</p>
+                <div className="flex items-center gap-1.5">
+                  <TbCalendarEvent className="w-3.5 h-3.5 text-[#5a5a5a] shrink-0" />
+                  <p className="font-heading text-base sm:text-lg font-bold text-[#1a1a1a]">{shift.startTime || "-"} <span className="text-[#5a5a5a] text-xs mx-0.5">s/d</span> {shift.endTime || "-"}</p>
                 </div>
               </div>
             ))}
             {shifts.length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Tidak ada shift hari ini.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada shift hari ini.</p>
             )}
           </div>
         </Section>
@@ -626,21 +634,22 @@ export function AsistenDashboard({
         <Section title="Misi yang Sedang Dikerjakan" icon={TbTargetArrow} delay={0.2}>
           <div className="space-y-3">
             {myMissions.filter((m) => m.status === "TAKEN").slice(0, 5).map((mission) => (
-              <div key={mission.id} className="p-4 rounded-xl neo-border-sm bg-white hover:-translate-y-1 transition-transform shadow-[2px_2px_0px_#1a1a1a]">
-                <div className="flex justify-between items-start gap-2 mb-2">
-                  <p className="font-bold text-sm text-[#1a1a1a] line-clamp-2">{mission.title}</p>
-                  <span className="flex-shrink-0 inline-flex items-center justify-center bg-[#f5ede6] text-[#f3701e] font-bold text-xs px-2 py-1 rounded-md border-2 border-[#1a1a1a]">
+              <div key={mission.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:-translate-y-1 transition-transform sm:shadow-[2px_2px_0px_#1a1a1a] border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
+                <div className="flex justify-between items-start gap-2 mb-1.5">
+                  <p className="font-bold text-sm text-[#1a1a1a] line-clamp-2 min-w-0">{mission.title}</p>
+                  <span className="flex-shrink-0 inline-flex items-center justify-center bg-[#f5ede6] text-[#f3701e] font-bold text-xs px-2 py-0.5 rounded-md border-2 border-[#1a1a1a]">
                     +{mission.points || 0}
                   </span>
                 </div>
-                <div className="w-full bg-[#e8d8c9] rounded-full h-1.5 mt-3 mb-1 overflow-hidden">
-                  <div className="bg-[#4b607f] h-1.5 rounded-full" style={{ width: '60%' }}></div>
+                <div className="w-full bg-[#e8d8c9] rounded-full h-1 mt-2 mb-0.5 overflow-hidden">
+                  <div className="bg-[#4b607f] h-1 rounded-full" style={{ width: '60%' }}></div>
                 </div>
-                <p className="text-[10px] uppercase tracking-wider font-bold text-[#5a5a5a] text-right">In Progress</p>
+                <p className="text-[9px] uppercase tracking-wider font-bold text-[#5a5a5a] text-right">In Progress</p>
               </div>
             ))}
             {myMissions.filter((m) => m.status === "TAKEN").length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Tidak ada misi aktif.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada misi aktif.</p>
             )}
           </div>
         </Section>
@@ -654,11 +663,11 @@ export function AsistenDashboard({
               transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
               className="relative z-10"
             >
-              <TbTrophy className="w-16 h-16 mx-auto text-[#f3701e] drop-shadow-[0_0_15px_rgba(243,112,30,0.5)]" />
+              <TbTrophy className="w-10 h-10 sm:w-16 sm:h-16 mx-auto text-[#f3701e] drop-shadow-[0_0_15px_rgba(243,112,30,0.5)]" />
             </motion.div>
             
             <div className="relative z-10 mt-4">
-                <p className="font-heading text-4xl sm:text-6xl font-bold text-white drop-shadow-md">
+              <p className="font-heading text-3xl sm:text-4xl md:text-6xl font-bold text-white drop-shadow-md">
                 #{myRank > 0 ? myRank : "-"}
               </p>
               <p className="text-sm font-bold uppercase tracking-widest text-[#f3701e] mt-2">Peringkat Anda</p>
@@ -679,28 +688,29 @@ export function AsistenDashboard({
         delay={0.4}
         action={
           <Link href="/tickets" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-            Lihat Ticket <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <span className="hidden sm:inline">Lihat Ticket</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         }
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignedTickets.slice(0, 6).map((ticket) => (
-            <div key={ticket.id} className="p-4 rounded-xl neo-border-sm bg-white flex items-center justify-between gap-3 hover:shadow-[4px_4px_0px_#1a1a1a] hover:-translate-y-1 transition-all">
-              <div className="flex items-start gap-3">
-                <div className="w-3 h-3 rounded-full mt-1.5 bg-[#f3701e]"></div>
-                <div>
-                  <p className="font-bold text-sm text-[#1a1a1a] mb-1 line-clamp-1">{ticket.title}</p>
-                  <p className="text-xs font-medium text-[#5a5a5a] bg-[#f5ede6] inline-block px-2 py-0.5 rounded-md">{ticket.lab?.name || "Lab"}</p>
+            <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex items-center justify-between gap-2 sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
+              <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className="hidden sm:block w-3 h-3 rounded-full mt-1.5 bg-[#f3701e] shrink-0"></div>
+                <div className="min-w-0">
+                  <p className="font-bold text-sm text-[#1a1a1a] mb-0.5 truncate">{ticket.title}</p>
+                  <p className="text-[10px] font-medium text-[#5a5a5a] bg-[#f5ede6] inline-block px-2 py-0.5 rounded-md">{ticket.lab?.name || "Lab"}</p>
                 </div>
               </div>
-              <span className={`flex-shrink-0 px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
+              <span className={`flex-shrink-0 px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
                 {ticket.status}
               </span>
             </div>
           ))}
           {assignedTickets.length === 0 && (
             <div className="col-span-full">
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Belum ada ticket yang di-assign.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada ticket yang di-assign.</p>
             </div>
           )}
         </div>
@@ -717,7 +727,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500" },
   ];
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <div className="grid grid-cols-3 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section 
@@ -726,21 +736,22 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           delay={0.1}
           action={
             <Link href="/schedules" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-              Lihat Jadwal <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span className="hidden sm:inline">Lihat Jadwal</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="space-y-3">
             {schedules.map((schedule) => (
-              <div key={schedule.id} className="p-4 rounded-xl neo-border-sm bg-white flex flex-col sm:flex-row gap-4 items-start sm:items-center hover:bg-[#fcf8f4] transition-colors">
-                <div className="bg-[#e8d8c9] px-3 py-2 rounded-md border-2 border-[#1a1a1a] flex-shrink-0 min-w-[120px] text-center">
-                  <p className="font-bold text-[#1a1a1a] text-sm">{schedule.startTime}</p>
-                  <p className="text-xs font-medium text-[#5a5a5a]">s/d {schedule.endTime}</p>
+              <div key={schedule.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex gap-2 sm:gap-4 items-start sm:items-center sm:hover:bg-[#fcf8f4] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
+                <div className="bg-[#e8d8c9] px-2 py-1.5 sm:px-3 sm:py-2 rounded-md border-2 border-[#1a1a1a] shrink-0 min-w-[90px] sm:min-w-[120px] text-center">
+                  <p className="font-bold text-[#1a1a1a] text-xs sm:text-sm">{schedule.startTime}</p>
+                  <p className="text-[10px] font-medium text-[#5a5a5a]">s/d {schedule.endTime}</p>
                 </div>
-                <div>
-                  <p className="font-bold text-[#1a1a1a] text-sm sm:text-base mb-1 leading-tight">{schedule.title}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="neo-badge px-2 py-0.5 text-[10px] bg-[#4b607f] text-white uppercase tracking-wider">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[#1a1a1a] text-sm mb-0.5 leading-tight truncate">{schedule.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="neo-badge px-2 py-0.5 text-[9px] bg-[#4b607f] text-white uppercase tracking-wider">
                       {schedule.lab?.name || "Lab"}
                     </span>
                   </div>
@@ -748,7 +759,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
               </div>
             ))}
             {schedules.length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Tidak ada jadwal untuk kelas Anda hari ini.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada jadwal untuk kelas Anda hari ini.</p>
             )}
           </div>
         </Section>
@@ -759,27 +770,28 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           delay={0.2}
           action={
             <Link href="/tickets/my" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-              Lihat Riwayat <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span className="hidden sm:inline">Lihat Riwayat</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="space-y-3">
             {myTickets.slice(0, 5).map((ticket) => (
-              <div key={ticket.id} className="p-4 rounded-xl neo-border-sm bg-[#fcf8f4] flex items-center justify-between gap-3 hover:bg-[#f5ede6] transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f3701e]' : 'bg-[#4b607f]'}`}></div>
-                  <div>
-                    <p className="font-bold text-sm text-[#1a1a1a] mb-1 line-clamp-1">{ticket.title}</p>
-                    <p className="text-xs font-medium text-[#5a5a5a]">{dayjs(ticket.createdAt).format("DD MMM YYYY • HH:mm")}</p>
+              <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex items-center justify-between gap-2 sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full sm:hidden ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f3701e]' : 'bg-[#4b607f]'}`}></div>
+                <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className={`hidden sm:block w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f3701e]' : 'bg-[#4b607f]'}`}></div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-[#1a1a1a] mb-0.5 truncate">{ticket.title}</p>
+                    <p className="text-[10px] font-medium text-[#5a5a5a]">{dayjs(ticket.createdAt).format("DD MMM YYYY · HH:mm")}</p>
                   </div>
                 </div>
-                <span className={`flex-shrink-0 px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
+                <span className={`flex-shrink-0 px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
                   {ticket.status}
                 </span>
               </div>
             ))}
             {myTickets.length === 0 && (
-              <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Belum ada laporan kerusakan.</p>
+              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada laporan kerusakan.</p>
             )}
           </div>
         </Section>
@@ -792,30 +804,31 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           delay={0.3}
           action={
             <Link href="/keys" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-              Kelola Kunci <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span className="hidden sm:inline">Kelola Kunci</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {keys.slice(0, 6).map((key) => (
-              <div key={key.id} className="p-4 rounded-xl neo-border-sm bg-white flex items-center justify-between gap-3 hover:shadow-[4px_4px_0px_#1a1a1a] hover:-translate-y-1 transition-all">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#f5ede6] flex items-center justify-center">
-                    <TbKey className="w-5 h-5 text-[#f3701e]" />
+              <div key={key.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex items-center justify-between gap-2 sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#f5ede6] flex items-center justify-center shrink-0">
+                    <TbKey className="w-4 h-4 sm:w-5 sm:h-5 text-[#f3701e]" />
                   </div>
-                  <div>
-                    <p className="font-bold text-sm text-[#1a1a1a]">{key.keyCode}</p>
-                    <p className="text-xs font-medium text-[#5a5a5a] mt-0.5">{key.lab?.name || "Lab"}</p>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-[#1a1a1a] truncate">{key.keyCode}</p>
+                    <p className="text-[10px] font-medium text-[#5a5a5a] truncate">{key.lab?.name || "Lab"}</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(key.status)}`}>
+                <span className={`px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] shrink-0 ${statusBadge(key.status)}`}>
                   {key.status}
                 </span>
               </div>
             ))}
             {keys.length === 0 && (
               <div className="col-span-full">
-                <p className="text-sm text-[#5a5a5a] p-4 text-center neo-border border-dashed rounded-xl">Data kunci tidak tersedia.</p>
+                <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Data kunci tidak tersedia.</p>
               </div>
             )}
           </div>

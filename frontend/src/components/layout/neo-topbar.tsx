@@ -42,7 +42,7 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 w-full bg-[#e8d8c9]/90 backdrop-blur-md neo-border-sm border-t-0 border-x-0 px-4 sm:px-6 py-3 pt-safe-top">
+      <header className="sticky top-0 z-20 w-full bg-[#e8d8c9]/90 backdrop-blur-md neo-border-sm border-t-0 border-x-0 px-3 sm:px-6 py-2 sm:py-3 pt-safe-top">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
             <div className="hidden md:flex items-center gap-2 font-medium text-sm">
