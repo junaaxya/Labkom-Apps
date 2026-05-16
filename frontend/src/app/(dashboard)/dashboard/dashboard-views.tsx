@@ -119,7 +119,15 @@ interface StatCardItem {
   value: number;
   icon: IconType;
   tone: string;
+  variant?: "blue" | "emerald" | "orange" | "violet";
 }
+
+const STAT_VARIANT: Record<NonNullable<StatCardItem["variant"]>, { gradient: string; ring: string; iconBg: string }> = {
+  blue: { gradient: "from-[#3d5069] via-[#4b607f] to-[#2c3a52]", ring: "shadow-[0_10px_28px_-10px_rgba(75,96,127,0.7)]", iconBg: "bg-white/25" },
+  emerald: { gradient: "from-emerald-400 via-emerald-500 to-emerald-700", ring: "shadow-[0_10px_28px_-10px_rgba(16,185,129,0.7)]", iconBg: "bg-white/25" },
+  orange: { gradient: "from-[#f3701e] via-[#fb923c] to-[#ea580c]", ring: "shadow-[0_10px_28px_-10px_rgba(243,112,30,0.65)]", iconBg: "bg-white/25" },
+  violet: { gradient: "from-[#6d4dff] via-[#7c5cff] to-[#5a3fdc]", ring: "shadow-[0_10px_28px_-10px_rgba(124,92,255,0.65)]", iconBg: "bg-white/25" },
+};
 
 export function statusBadge(status?: string) {
   switch (status) {
@@ -140,6 +148,37 @@ export function statusBadge(status?: string) {
 }
 
 function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
+  const variant = item.variant ? STAT_VARIANT[item.variant] : null;
+
+  if (variant) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: index * 0.05 }}
+        className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${variant.gradient} ${variant.ring} border border-white/10 p-4 sm:p-5 min-h-[100px] sm:min-h-[128px] text-white md:neo-border md:rounded-xl md:shadow-[6px_6px_0px_#1a1a1a]`}
+      >
+        <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col h-full justify-between gap-3">
+          <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${variant.iconBg} backdrop-blur-sm flex items-center justify-center`}>
+            <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.4} />
+          </div>
+          <div>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.45, delay: 0.15 + (index * 0.05) }}
+              className="font-heading text-[28px] sm:text-3xl font-extrabold leading-none tracking-tight"
+            >
+              {item.value}
+            </motion.p>
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/90 mt-1.5 truncate">{item.label}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -176,10 +215,10 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
       transition={{ duration: 0.4, delay }}
       className="bg-white rounded-xl border border-[#1a1a1a]/15 shadow-[2px_2px_0px_rgba(26,26,26,0.10)] md:neo-card flex flex-col h-full overflow-hidden"
     >
-      <div className="px-3 sm:px-5 py-2 sm:py-3 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
+      <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-b border-[#e8d8c9] md:border-b-2 md:border-[#1a1a1a] bg-white md:bg-[#f5ede6] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#f3701e] shrink-0" strokeWidth={2.5} />}
-          <h3 className="font-heading text-xs sm:text-base font-bold text-[#1a1a1a] tracking-tight truncate uppercase sm:normal-case sm:tracking-tight">{title}</h3>
+          {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#5a5a5a] md:text-[#f3701e] shrink-0" strokeWidth={2.5} />}
+          <h3 className="font-heading text-[11px] sm:text-base font-bold text-[#5a5a5a] md:text-[#1a1a1a] tracking-wider md:tracking-tight uppercase md:normal-case truncate">{title}</h3>
         </div>
         {action && (
           <div className="shrink-0">{action}</div>
@@ -222,32 +261,37 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
   else if (hour >= 15 && hour < 18) greeting = "Selamat Sore";
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="neo-card bg-white relative overflow-hidden"
+      className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a1a1a] via-[#2c3a52] to-[#4b607f] text-white shadow-[0_12px_30px_-12px_rgba(26,26,26,0.55)] md:neo-card md:rounded-xl md:bg-white md:bg-none md:text-[#1a1a1a] md:shadow-[6px_6px_0px_#1a1a1a]"
     >
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f3701e] via-[#4b607f] to-[#f3701e]"></div>
-      
-      <div className="hidden sm:block absolute -right-4 -top-4 w-24 h-24 rounded-full border-4 border-[#e8d8c9] opacity-50"></div>
-      <div className="hidden sm:block absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
-      <div className="hidden sm:block absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
-      
-      <div className="p-3 sm:p-6 md:p-8 relative z-10">
-        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-          <div className="neo-badge px-2 py-0.5 sm:px-3 sm:py-1.5 bg-[#f5ede6] text-[#1a1a1a] font-bold text-[10px] sm:text-xs inline-block">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f3701e] via-[#4b607f] to-[#f3701e] hidden md:block"></div>
+
+      <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none md:hidden"></div>
+      <div className="absolute -right-6 bottom-6 w-24 h-24 rounded-full border border-white/15 pointer-events-none md:hidden"></div>
+
+      <div className="hidden md:block absolute -right-4 -top-4 w-24 h-24 rounded-full border-4 border-[#e8d8c9] opacity-50"></div>
+      <div className="hidden md:block absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
+      <div className="hidden md:block absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
+
+      <div className="p-4 sm:p-6 md:p-8 relative z-10">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-white/15 md:bg-[#f5ede6] backdrop-blur-sm md:backdrop-blur-0 text-white md:text-[#1a1a1a] font-semibold text-[10px] sm:text-xs rounded-full md:rounded-md md:neo-badge inline-block">
             {currentDate}
           </div>
-          <div className="px-2 py-0.5 sm:px-3 sm:py-1 bg-[#1a1a1a] text-white text-[10px] sm:text-xs font-bold rounded-md inline-block">
+          <div className="px-2.5 py-1 sm:px-3 sm:py-1 bg-[#f3701e] md:bg-[#1a1a1a] text-white text-[10px] sm:text-xs font-bold rounded-full md:rounded-md inline-block uppercase tracking-wide">
             {user?.role?.replace("_", " ")}
           </div>
         </div>
 
-        <h1 className="font-heading text-lg sm:text-3xl lg:text-4xl font-bold text-[#1a1a1a] mt-2 sm:mt-3 mb-1 sm:mb-1.5 tracking-tight">
-          {greeting}, <span className="text-[#4b607f]">{firstName}</span><span className="hidden sm:inline"> 👋</span>
+        <p className="text-[11px] sm:text-xs font-semibold text-white/80 md:text-[#5a5a5a] uppercase tracking-wider mb-1">{greeting}</p>
+        <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white md:text-[#1a1a1a] mb-1.5 tracking-tight leading-tight">
+          {firstName} <span className="hidden sm:inline">!</span>
+          <span className="hidden sm:inline-block ml-1">👋</span>
         </h1>
-        <p className="text-[11px] sm:text-sm md:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed line-clamp-2 sm:line-clamp-none">{subtitle}</p>
+        <p className="text-xs sm:text-sm md:text-base text-white/80 md:text-[#5a5a5a] max-w-2xl font-medium leading-relaxed line-clamp-2 sm:line-clamp-none">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -280,10 +324,10 @@ export function KoordinatorDashboard({
   const borrowedKeys = keys.filter((k) => k.status === "BORROWED");
 
   const stats: StatCardItem[] = [
-    { label: "Total Lab", value: labs.length, icon: TbBuildingWarehouse, tone: "text-[#4b607f]" },
-    { label: "PC Online", value: pcOnline, icon: TbDeviceDesktop, tone: "text-emerald-500" },
-    { label: "Ticket Aktif", value: activeTicketCount, icon: TbTicket, tone: "text-[#f3701e]" },
-    { label: "Asleb Bertugas", value: attendanceToday, icon: TbUserCode, tone: "text-[#4b607f]" },
+    { label: "Total Lab", value: labs.length, icon: TbBuildingWarehouse, tone: "text-[#4b607f]", variant: "blue" },
+    { label: "PC Online", value: pcOnline, icon: TbDeviceDesktop, tone: "text-emerald-500", variant: "emerald" },
+    { label: "Ticket Aktif", value: activeTicketCount, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange" },
+    { label: "Asleb Bertugas", value: attendanceToday, icon: TbUserCode, tone: "text-[#4b607f]", variant: "violet" },
   ];
 
   return (
@@ -609,10 +653,10 @@ export function AsistenDashboard({
   const activeMissionCount = myMissions.filter((m) => m.status === "TAKEN").length;
   const tasksToday = shifts.length + assignedTickets.filter((t) => ["OPEN", "IN_PROGRESS"].includes(t.status)).length;
   const stats: StatCardItem[] = [
-    { label: "Misi Aktif", value: activeMissionCount, icon: TbTargetArrow, tone: "text-[#f3701e]" },
-    { label: "Poin Saya", value: myPoints, icon: TbSparkles, tone: "text-[#4b607f]" },
-    { label: "Absensi Bulan Ini", value: attendanceMonthCount, icon: TbCircleCheck, tone: "text-emerald-500" },
-    { label: "Tugas Hari Ini", value: tasksToday, icon: TbClipboardList, tone: "text-[#4b607f]" },
+    { label: "Misi Aktif", value: activeMissionCount, icon: TbTargetArrow, tone: "text-[#f3701e]", variant: "orange" },
+    { label: "Poin Saya", value: myPoints, icon: TbSparkles, tone: "text-[#4b607f]", variant: "violet" },
+    { label: "Absensi Bulan Ini", value: attendanceMonthCount, icon: TbCircleCheck, tone: "text-emerald-500", variant: "emerald" },
+    { label: "Tugas Hari Ini", value: tasksToday, icon: TbClipboardList, tone: "text-[#4b607f]", variant: "blue" },
   ];
 
   return (
@@ -737,9 +781,9 @@ export function AsistenDashboard({
 
 export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, isKetuaKelas }: { schedules: ScheduleItem[]; myTickets: TicketItem[]; unreadCount: number; keys: KeyItem[]; isKetuaKelas: boolean }) {
   const stats: StatCardItem[] = [
-    { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]" },
-    { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]" },
-    { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500" },
+    { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue" },
+    { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange" },
+    { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald" },
   ];
   return (
     <div className="space-y-3 sm:space-y-6">
