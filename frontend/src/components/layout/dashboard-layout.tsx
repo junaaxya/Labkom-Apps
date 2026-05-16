@@ -28,7 +28,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
         <div className="lg:pl-[72px] transition-[padding] duration-300 ease-in-out min-h-screen flex flex-col relative z-10">
           <NeoTopbar user={user} />
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full relative z-10 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-safe">
+          <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full relative z-10 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-safe">
             <AnimatePresence mode="wait">
               <motion.div
                 key={pathname}
