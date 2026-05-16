@@ -120,6 +120,7 @@ interface StatCardItem {
   icon: IconType;
   tone: string;
   variant?: "blue" | "emerald" | "orange" | "violet";
+  href?: string;
 }
 
 const STAT_VARIANT: Record<NonNullable<StatCardItem["variant"]>, { gradient: string; ring: string; iconBg: string }> = {
@@ -150,61 +151,66 @@ export function statusBadge(status?: string) {
 function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
   const variant = item.variant ? STAT_VARIANT[item.variant] : null;
 
-  if (variant) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: index * 0.05 }}
-        className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${variant.gradient} ${variant.ring} border border-white/10 p-4 sm:p-5 min-h-[100px] sm:min-h-[128px] text-white md:neo-border md:rounded-xl md:shadow-[6px_6px_0px_#1a1a1a]`}
-      >
-        <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col h-full justify-between gap-3">
-          <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${variant.iconBg} backdrop-blur-sm flex items-center justify-center`}>
-            <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.4} />
-          </div>
-          <div>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.45, delay: 0.15 + (index * 0.05) }}
-              className="font-heading text-[28px] sm:text-3xl font-extrabold leading-none tracking-tight"
-            >
-              {item.value}
-            </motion.p>
-            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/90 mt-1.5 truncate">{item.label}</p>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
+  const inner = variant ? (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
-      className={`neo-card p-3 sm:p-5 bg-white border-l-4 min-h-[88px] sm:min-h-[120px] ${item.tone.replace('text-', 'border-')} hover:-translate-y-[3px] hover:shadow-[6px_6px_0px_#1a1a1a] transition-all duration-300`}
+      transition={{ duration: 0.35, delay: index * 0.05 }}
+      whileTap={{ scale: 0.97 }}
+      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${variant.gradient} ${variant.ring} border border-white/10 p-4 sm:p-5 min-h-[100px] sm:min-h-[128px] text-white md:neo-border md:rounded-xl md:shadow-[6px_6px_0px_#1a1a1a] active:scale-[0.98] transition-transform duration-100`}
     >
-      <div className="flex items-start justify-between gap-2 sm:gap-3 h-full">
-        <div className="min-w-0 flex-1">
-          <p className="text-[9px] sm:text-xs uppercase font-bold text-[#5a5a5a] tracking-wider sm:tracking-widest mb-1 truncate">{item.label}</p>
+      <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+      <div className="relative z-10 flex flex-col h-full justify-between gap-3">
+        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${variant.iconBg} backdrop-blur-sm flex items-center justify-center`}>
+          <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.4} />
+        </div>
+        <div>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 + (index * 0.05) }}
-            className="font-heading text-2xl sm:text-4xl font-bold text-[#1a1a1a] leading-none"
+            transition={{ duration: 0.45, delay: 0.15 + (index * 0.05) }}
+            className="font-heading text-[28px] sm:text-3xl font-extrabold leading-none tracking-tight"
           >
             {item.value}
           </motion.p>
-        </div>
-        <div className="w-8 h-8 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center relative overflow-hidden">
-          <div className={`absolute inset-0 opacity-15 ${item.tone.replace('text-', 'bg-')}`}></div>
-          <item.icon className={`w-4 h-4 sm:w-6 sm:h-6 relative z-10 ${item.tone}`} strokeWidth={2.2} />
+          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-white/75 mt-1">{item.label}</p>
         </div>
       </div>
     </motion.div>
+  ) : (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.05 }}
+      whileTap={{ scale: 0.97 }}
+      className="neo-card bg-white p-3 sm:p-5 flex items-center gap-3 sm:gap-4 min-h-[88px] sm:min-h-[120px] active:scale-[0.98] transition-transform duration-100"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[#5a5a5a] mb-1">{item.label}</p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, delay: 0.15 + (index * 0.05) }}
+          className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1a1a1a] leading-none"
+        >
+          {item.value}
+        </motion.p>
+      </div>
+      <div className="w-8 h-8 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center relative overflow-hidden">
+        <div className={`absolute inset-0 opacity-15 ${item.tone.replace('text-', 'bg-')}`}></div>
+        <item.icon className={`w-4 h-4 sm:w-6 sm:h-6 relative z-10 ${item.tone}`} strokeWidth={2.2} />
+      </div>
+    </motion.div>
   );
+
+  if (item.href) {
+    return (
+      <Link href={item.href} prefetch={true} aria-label={`${item.label}: ${item.value}`}>
+        {inner}
+      </Link>
+    );
+  }
+  return inner;
 }
 
 function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: string; action?: ReactNode; children: ReactNode; icon?: IconType; delay?: number }) {
@@ -276,7 +282,7 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
       <div className="hidden md:block absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
       <div className="hidden md:block absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
 
-      <div className="p-4 sm:p-6 md:p-8 relative z-10">
+      <div className="p-4 md:p-8 relative z-10">
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-white/15 md:bg-[#f5ede6] backdrop-blur-sm md:backdrop-blur-0 text-white md:text-[#1a1a1a] font-semibold text-[10px] sm:text-xs rounded-full md:rounded-md md:neo-badge inline-block">
             {currentDate}
@@ -291,7 +297,7 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
           {firstName} <span className="hidden sm:inline">!</span>
           <span className="hidden sm:inline-block ml-1">👋</span>
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-white/80 md:text-[#5a5a5a] max-w-2xl font-medium leading-relaxed line-clamp-2 sm:line-clamp-none">{subtitle}</p>
+        <p className="text-xs sm:text-sm md:text-base text-white/80 md:text-[#5a5a5a] max-w-2xl font-medium leading-relaxed line-clamp-1 sm:line-clamp-none">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -324,15 +330,17 @@ export function KoordinatorDashboard({
   const borrowedKeys = keys.filter((k) => k.status === "BORROWED");
 
   const stats: StatCardItem[] = [
-    { label: "Total Lab", value: labs.length, icon: TbBuildingWarehouse, tone: "text-[#4b607f]", variant: "blue" },
-    { label: "PC Online", value: pcOnline, icon: TbDeviceDesktop, tone: "text-emerald-500", variant: "emerald" },
-    { label: "Ticket Aktif", value: activeTicketCount, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange" },
-    { label: "Asleb Bertugas", value: attendanceToday, icon: TbUserCode, tone: "text-[#4b607f]", variant: "violet" },
+    { label: "Total Lab", value: labs.length, icon: TbBuildingWarehouse, tone: "text-[#4b607f]", variant: "blue", href: "/labs" },
+    { label: "PC Online", value: pcOnline, icon: TbDeviceDesktop, tone: "text-emerald-500", variant: "emerald", href: "/pc-monitoring" },
+    { label: "Ticket Aktif", value: activeTicketCount, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange", href: "/tickets" },
+    { label: "Asleb Bertugas", value: attendanceToday, icon: TbUserCode, tone: "text-[#4b607f]", variant: "violet", href: "/attendance/monitoring" },
   ];
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-6">
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+
+      <QuickActions items={[{ label: "Buat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Buat Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Laporan", href: "/reports", icon: TbClipboardList }]} />
 
       {pcAgentStats && (
         <motion.div
@@ -345,7 +353,7 @@ export function KoordinatorDashboard({
             icon={TbDeviceDesktop}
             delay={0.05}
             action={
-              <Link href="/pc-monitoring" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+              <Link href="/pc-monitoring" prefetch={true} aria-label="Detail PC Monitoring" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
                 <span className="hidden sm:inline">Detail</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             }
@@ -382,6 +390,7 @@ export function KoordinatorDashboard({
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
+        <div className="order-2 xl:order-1">
         <Section title="Status Lab" icon={TbBuildingWarehouse} delay={0.1}>
           <div className="space-y-3">
             {labs.map((lab) => {
@@ -420,11 +429,13 @@ export function KoordinatorDashboard({
             {labs.length === 0 && <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada data lab.</p>}
           </div>
         </Section>
+        </div>
 
+        <div className="order-3 xl:order-2">
         <Section title="Aktivitas Terbaru" icon={TbBell} delay={0.2}>
           <div className="space-y-3">
             {activeLogbooks.slice(0, 3).map((logbook) => (
-              <div key={logbook.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+              <Link key={logbook.id} href="/logbook" prefetch={true} aria-label={`Logbook sesi aktif di ${logbook.lab?.name || "Lab"}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
                   <TbClipboardList className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -436,10 +447,10 @@ export function KoordinatorDashboard({
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(logbook.status)}`}>{logbook.status}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {tickets.slice(0, 3).map((ticket) => (
-              <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+              <Link key={ticket.id} href={`/tickets/${ticket.id}`} prefetch={true} aria-label={`Ticket: ${ticket.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
                   <TbTicket className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -451,17 +462,53 @@ export function KoordinatorDashboard({
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(ticket.status)}`}>{ticket.status}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {activeLogbooks.length === 0 && tickets.length === 0 && (
               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada aktivitas terbaru.</p>
             )}
           </div>
         </Section>
-      </div>
+        </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
-        <Section title="AI Insights + Health Score" icon={TbBrain} delay={0.25}>
+        <div className="order-1 xl:order-3">
+        <Section 
+          title="Pemegang Kunci Saat Ini" 
+          icon={TbKey} 
+          delay={0.25}
+          action={
+            <Link href="/keys" prefetch={true} aria-label="Lihat semua kunci" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+              <span className="hidden sm:inline">Lihat Semua</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          }
+        >
+          <div className="space-y-3">
+            {borrowedKeys.map((key) => (
+              <Link key={key.id} href="/keys" prefetch={true} aria-label={`Kunci ${key.keyCode} dipinjam oleh ${key.currentHolder?.name || "pengguna"}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                  <TbKey className="w-4 h-4" strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">
+                    <span className="text-[#f3701e]">{key.keyCode}</span> · {key.lab?.name || "Lab"}
+                  </p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="neo-badge px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider bg-[#4b607f] text-white">Dipinjam</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+                </div>
+              </Link>
+            ))}
+            {borrowedKeys.length === 0 && (
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada kunci dipinjam saat ini.</p>
+            )}
+          </div>
+        </Section>
+        </div>
+
+        <div className={`order-4 xl:order-4 ${insights.length === 0 ? "hidden sm:block" : ""}`}>
+        <Section title="AI Insights + Health Score" icon={TbBrain} delay={0.3}>
           <div className="space-y-4">
             <div className="p-4 rounded-xl neo-border-sm bg-[#1a1a1a] text-white flex items-center justify-between shadow-[4px_4px_0px_#f3701e] hover:-translate-y-1 transition-transform">
               <div className="inline-flex items-center gap-3">
@@ -510,40 +557,7 @@ export function KoordinatorDashboard({
             </div>
           </div>
         </Section>
-
-        <Section 
-          title="Pemegang Kunci Saat Ini" 
-          icon={TbKey} 
-          delay={0.3}
-          action={
-            <Link href="/keys" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
-              <span className="hidden sm:inline">Lihat Semua</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          }
-        >
-          <div className="space-y-3">
-            {borrowedKeys.map((key) => (
-              <div key={key.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
-                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
-                  <TbKey className="w-4 h-4" strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">
-                    <span className="text-[#f3701e]">{key.keyCode}</span> · {key.lab?.name || "Lab"}
-                  </p>
-                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="neo-badge px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider bg-[#4b607f] text-white">Dipinjam</span>
-                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
-                </div>
-              </div>
-            ))}
-            {borrowedKeys.length === 0 && (
-              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada kunci dipinjam saat ini.</p>
-            )}
-          </div>
-        </Section>
+        </div>
       </div>
 
       <Section 
@@ -551,7 +565,7 @@ export function KoordinatorDashboard({
         icon={TbCalendarEvent} 
         delay={0.35}
         action={
-          <Link href="/schedules" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+          <Link href="/schedules" prefetch={true} aria-label="Lihat semua jadwal" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
             <span className="hidden sm:inline">Lihat Jadwal</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         }
@@ -629,8 +643,6 @@ export function KoordinatorDashboard({
           )}
         </div>
       </Section>
-
-      <QuickActions items={[{ label: "Buat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Buat Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Laporan", href: "/reports", icon: TbClipboardList }]} />
     </div>
   );
 }
@@ -653,20 +665,23 @@ export function AsistenDashboard({
   const activeMissionCount = myMissions.filter((m) => m.status === "TAKEN").length;
   const tasksToday = shifts.length + assignedTickets.filter((t) => ["OPEN", "IN_PROGRESS"].includes(t.status)).length;
   const stats: StatCardItem[] = [
-    { label: "Misi Aktif", value: activeMissionCount, icon: TbTargetArrow, tone: "text-[#f3701e]", variant: "orange" },
-    { label: "Poin Saya", value: myPoints, icon: TbSparkles, tone: "text-[#4b607f]", variant: "violet" },
-    { label: "Absensi Bulan Ini", value: attendanceMonthCount, icon: TbCircleCheck, tone: "text-emerald-500", variant: "emerald" },
-    { label: "Tugas Hari Ini", value: tasksToday, icon: TbClipboardList, tone: "text-[#4b607f]", variant: "blue" },
+    { label: "Misi Aktif", value: activeMissionCount, icon: TbTargetArrow, tone: "text-[#f3701e]", variant: "orange", href: "/missions" },
+    { label: "Poin Saya", value: myPoints, icon: TbSparkles, tone: "text-[#4b607f]", variant: "violet", href: "/leaderboard" },
+    { label: "Absensi Bulan Ini", value: attendanceMonthCount, icon: TbCircleCheck, tone: "text-emerald-500", variant: "emerald", href: "/attendance" },
+    { label: "Tugas Hari Ini", value: tasksToday, icon: TbClipboardList, tone: "text-[#4b607f]", variant: "blue", href: "/attendance#tasks" },
   ];
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-6">
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+
+      <QuickActions items={[{ label: "Absen Masuk", href: "/attendance", icon: TbCircleCheck }, { label: "Ambil Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Ticket", href: "/tickets", icon: TbTicket }]} />
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
         <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
             {shifts.map((shift) => (
-              <div key={shift.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+              <Link key={shift.id} href="/schedules" prefetch={true} aria-label={`Shift di ${shift.lab?.name || "Lab"}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
                   <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -678,7 +693,7 @@ export function AsistenDashboard({
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {shifts.length === 0 && (
               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada shift hari ini.</p>
@@ -689,7 +704,7 @@ export function AsistenDashboard({
         <Section title="Misi yang Sedang Dikerjakan" icon={TbTargetArrow} delay={0.2}>
           <div className="space-y-3">
             {myMissions.filter((m) => m.status === "TAKEN").slice(0, 5).map((mission) => (
-              <div key={mission.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:-translate-y-1 sm:shadow-[2px_2px_0px_#1a1a1a] transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+              <Link key={mission.id} href={`/missions/${mission.id}`} prefetch={true} aria-label={`Misi: ${mission.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:-translate-y-1 sm:shadow-[2px_2px_0px_#1a1a1a] active:bg-[#f5ede6] transition-all sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
                   <TbTargetArrow className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -705,7 +720,7 @@ export function AsistenDashboard({
                 <span className="flex-shrink-0 inline-flex items-center justify-center bg-[#f5ede6] text-[#f3701e] font-bold text-xs px-2 py-0.5 rounded-md border-2 border-[#1a1a1a]">
                   +{mission.points || 0}
                 </span>
-              </div>
+              </Link>
             ))}
             {myMissions.filter((m) => m.status === "TAKEN").length === 0 && (
               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada misi aktif.</p>
@@ -746,14 +761,14 @@ export function AsistenDashboard({
         icon={TbTicket} 
         delay={0.4}
         action={
-          <Link href="/tickets" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+          <Link href="/tickets" prefetch={true} aria-label="Lihat semua ticket" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
             <span className="hidden sm:inline">Lihat Ticket</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         }
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {assignedTickets.slice(0, 6).map((ticket) => (
-            <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+            <Link key={ticket.id} href={`/tickets/${ticket.id}`} prefetch={true} aria-label={`Ticket: ${ticket.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 active:bg-[#f5ede6] transition-all sm:border-0 sm:pb-0 sm:min-h-0">
               <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
                 <TbTicket className="w-4 h-4" strokeWidth={2.2} />
               </div>
@@ -765,7 +780,7 @@ export function AsistenDashboard({
                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>{ticket.status}</span>
                 <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
               </div>
-            </div>
+            </Link>
           ))}
           {assignedTickets.length === 0 && (
             <div className="col-span-full">
@@ -774,34 +789,36 @@ export function AsistenDashboard({
           )}
         </div>
       </Section>
-      <QuickActions items={[{ label: "Absen Masuk", href: "/attendance", icon: TbCircleCheck }, { label: "Ambil Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Ticket", href: "/tickets", icon: TbTicket }]} />
     </div>
   );
 }
 
 export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, isKetuaKelas }: { schedules: ScheduleItem[]; myTickets: TicketItem[]; unreadCount: number; keys: KeyItem[]; isKetuaKelas: boolean }) {
   const stats: StatCardItem[] = [
-    { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue" },
-    { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange" },
-    { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald" },
+    { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/schedules" },
+    { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange", href: "/tickets/my" },
+    { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
   ];
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-6">
       <div className="grid grid-cols-3 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
+
+      <QuickActions items={[{ label: "Lihat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbTicket }]} />
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section 
           title="Jadwal Lab Hari Ini" 
           icon={TbCalendarEvent} 
           delay={0.1}
           action={
-            <Link href="/schedules" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+            <Link href="/schedules" prefetch={true} aria-label="Lihat semua jadwal" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
               <span className="hidden sm:inline">Lihat Jadwal</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="space-y-3">
             {schedules.map((schedule) => (
-              <div key={schedule.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+              <Link key={schedule.id} href="/schedules" prefetch={true} aria-label={`Jadwal: ${schedule.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
                   <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -813,7 +830,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(schedule.status)}`}>{schedule.status}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {schedules.length === 0 && (
               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal untuk kelas Anda hari ini.</p>
@@ -826,14 +843,14 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           icon={TbTicket} 
           delay={0.2}
           action={
-            <Link href="/tickets/my" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+            <Link href="/tickets/my" prefetch={true} aria-label="Lihat riwayat laporan" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
               <span className="hidden sm:inline">Lihat Riwayat</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="space-y-3">
             {myTickets.slice(0, 5).map((ticket) => (
-              <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+              <Link key={ticket.id} href={`/tickets/${ticket.id}`} prefetch={true} aria-label={`Laporan: ${ticket.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-50 text-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f5ede6] text-[#f3701e]' : 'bg-[#f5ede6] text-[#4b607f]'}`}>
                   <TbTicket className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -845,7 +862,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>{ticket.status}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {myTickets.length === 0 && (
               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada laporan kerusakan.</p>
@@ -860,14 +877,14 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           icon={TbKey} 
           delay={0.3}
           action={
-            <Link href="/keys" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
+            <Link href="/keys" prefetch={true} aria-label="Kelola kunci lab" className="group flex items-center gap-1 text-sm font-bold text-[#f3701e] hover:text-[#1a1a1a] transition-colors">
               <span className="hidden sm:inline">Kelola Kunci</span> <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           }
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {keys.slice(0, 6).map((key) => (
-              <div key={key.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+              <Link key={key.id} href="/keys" prefetch={true} aria-label={`Kunci ${key.keyCode}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 active:bg-[#f5ede6] transition-all sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
                   <TbKey className="w-4 h-4" strokeWidth={2.2} />
                 </div>
@@ -879,7 +896,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(key.status)}`}>{key.status}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
-              </div>
+              </Link>
             ))}
             {keys.length === 0 && (
               <div className="col-span-full">
@@ -889,7 +906,6 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           </div>
         </Section>
       )}
-      <QuickActions items={[{ label: "Lihat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbTicket }]} />
     </div>
   );
 }
