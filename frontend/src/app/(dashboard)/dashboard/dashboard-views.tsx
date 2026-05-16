@@ -174,7 +174,7 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="neo-card bg-white flex flex-col h-full overflow-hidden"
+      className="bg-white rounded-xl border border-[#1a1a1a]/15 shadow-[2px_2px_0px_rgba(26,26,26,0.10)] md:neo-card flex flex-col h-full overflow-hidden"
     >
       <div className="px-3 sm:px-5 py-2 sm:py-3 border-b-2 border-[#1a1a1a] bg-[#f5ede6] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -185,7 +185,7 @@ function Section({ title, action, children, icon: Icon, delay = 0.1 }: { title: 
           <div className="shrink-0">{action}</div>
         )}
       </div>
-      <div className="p-2.5 sm:p-5 flex-1">{children}</div>
+      <div className="p-3 sm:p-5 flex-1">{children}</div>
     </motion.div>
   );
 }
@@ -198,12 +198,12 @@ function QuickActions({ items }: { items: { label: string; href: string; icon: I
           <Link 
             key={item.href} 
             href={item.href} 
-            className="neo-btn bg-white text-[#1a1a1a] p-3 sm:p-4 flex flex-col items-center justify-center gap-2 sm:gap-3 group min-h-[96px] sm:min-h-[auto] rounded-xl active:shadow-none active:translate-y-0 sm:neo-hover"
+            className="neo-btn bg-white text-[#1a1a1a] p-3 sm:p-4 flex flex-col items-center justify-center gap-2 sm:gap-3 group min-h-[88px] sm:min-h-[auto] rounded-xl active:shadow-none active:translate-y-0 sm:neo-hover"
           >
             <div className="w-10 h-10 rounded-full bg-[#f5ede6] flex items-center justify-center group-hover:bg-[#f3701e] group-hover:text-white transition-colors duration-300">
-              <item.icon className="w-5 h-5" strokeWidth={2.2} />
+              <item.icon className="w-6 h-6" strokeWidth={2.2} />
             </div>
-            <span className="font-bold text-xs sm:text-sm text-center leading-tight">{item.label}</span>
+            <span className="font-bold text-sm text-center leading-tight">{item.label}</span>
           </Link>
         ))}
       </div>
@@ -230,9 +230,9 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
     >
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f3701e] via-[#4b607f] to-[#f3701e]"></div>
       
-      <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full border-4 border-[#e8d8c9] opacity-50"></div>
-      <div className="absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
-      <div className="absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
+      <div className="hidden sm:block absolute -right-4 -top-4 w-24 h-24 rounded-full border-4 border-[#e8d8c9] opacity-50"></div>
+      <div className="hidden sm:block absolute right-12 top-12 w-4 h-4 bg-[#f3701e] rounded-sm transform rotate-45"></div>
+      <div className="hidden sm:block absolute right-24 bottom-6 w-8 h-8 rounded-full border-2 border-[#4b607f] opacity-30"></div>
       
       <div className="p-3 sm:p-6 md:p-8 relative z-10">
         <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -245,9 +245,9 @@ export function DashboardHeader({ user, subtitle }: { user: LocalUser | null; su
         </div>
 
         <h1 className="font-heading text-lg sm:text-3xl lg:text-4xl font-bold text-[#1a1a1a] mt-2 sm:mt-3 mb-1 sm:mb-1.5 tracking-tight">
-          {greeting}, <span className="text-[#4b607f]">{firstName}</span>! 👋
+          {greeting}, <span className="text-[#4b607f]">{firstName}</span><span className="hidden sm:inline"> 👋</span>
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed">{subtitle}</p>
+        <p className="text-[11px] sm:text-sm md:text-base text-[#5a5a5a] max-w-2xl font-medium leading-relaxed line-clamp-2 sm:line-clamp-none">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -306,31 +306,31 @@ export function KoordinatorDashboard({
               </Link>
             }
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-5">
+              <div className="p-2 sm:p-3 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
                 <TbWifi className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500 mx-auto mb-1 sm:mb-2" />
-                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.onlineCount}</p>
-                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Online</p>
+                <p className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.onlineCount}</p>
+                <p className="text-[9px] sm:text-xs uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Online</p>
               </div>
-              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+              <div className="p-2 sm:p-3 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
                 <TbWifiOff className="w-5 h-5 sm:w-6 sm:h-6 text-[#6b7280] mx-auto mb-1 sm:mb-2" />
-                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.offlineCount}</p>
-                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Offline</p>
+                <p className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.offlineCount}</p>
+                <p className="text-[9px] sm:text-xs uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Offline</p>
               </div>
-              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+              <div className="p-2 sm:p-3 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
                 <TbDeviceDesktop className="w-5 h-5 sm:w-6 sm:h-6 text-[#9ca3af] mx-auto mb-1 sm:mb-2" />
-                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.unknownCount}</p>
-                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Unknown</p>
+                <p className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.unknownCount}</p>
+                <p className="text-[9px] sm:text-xs uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Unknown</p>
               </div>
-              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+              <div className="p-2 sm:p-3 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
                 <TbAlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-[#f3701e] mx-auto mb-1 sm:mb-2" />
-                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.warningCount}</p>
-                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Warnings</p>
+                <p className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.warningCount}</p>
+                <p className="text-[9px] sm:text-xs uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Warnings</p>
               </div>
-              <div className="p-2.5 sm:p-4 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
+              <div className="p-2 sm:p-3 rounded-xl neo-border-sm bg-[#fcf8f4] text-center hover:bg-[#f5ede6] transition-colors">
                 <TbClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mx-auto mb-1 sm:mb-2" />
-                <p className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.needsCheckCount}</p>
-                <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Perlu Cek</p>
+                <p className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a]">{pcAgentStats.needsCheckCount}</p>
+                <p className="text-[9px] sm:text-xs uppercase font-bold tracking-wider text-[#5a5a5a] mt-0.5 sm:mt-1">Perlu Cek</p>
               </div>
             </div>
           </Section>
@@ -346,64 +346,71 @@ export function KoordinatorDashboard({
               const onlinePercentage = totalPc > 0 ? Math.round((onlinePc / totalPc) * 100) : 0;
               const activeSchedule = schedules.filter((s) => s.lab?.id === lab.id && ["SCHEDULED", "ONGOING"].includes(s.status)).length;
               return (
-                <div key={lab.id} className="relative pl-3 sm:pl-0 sm:p-3 rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                  <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <p className="font-bold text-[#1a1a1a] text-sm leading-tight min-w-0 truncate">{lab.name}</p>
-                    <span className="neo-badge px-2 py-0.5 text-[9px] sm:text-xs bg-[#e8d8c9] text-[#1a1a1a] font-bold shrink-0">{lab.status}</span>
+                <div key={lab.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                  <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0 sm:hidden">
+                    <TbBuildingWarehouse className="w-4 h-4" strokeWidth={2.2} />
                   </div>
-                  
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs mb-1 font-medium">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="font-bold text-[13px] text-[#1a1a1a] leading-tight min-w-0 truncate">{lab.name}</p>
+                      <span className="neo-badge px-2 py-0.5 text-[9px] sm:text-xs bg-[#e8d8c9] text-[#1a1a1a] font-bold shrink-0">{lab.status}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] mb-1 font-medium">
                       <span className="text-[#5a5a5a]">PC Online: <span className="text-[#1a1a1a] font-bold">{onlinePc}/{totalPc}</span></span>
                       <span className="text-[#5a5a5a]">{onlinePercentage}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${onlinePercentage}%` }}></div>
                     </div>
+                    {activeSchedule > 0 && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#5a5a5a] font-medium">
+                        <TbCalendarEvent className="w-3.5 h-3.5 text-[#f3701e] shrink-0" />
+                        <span>{activeSchedule} Jadwal Aktif</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  {activeSchedule > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#5a5a5a] font-medium">
-                      <TbCalendarEvent className="w-3.5 h-3.5 text-[#f3701e] shrink-0" />
-                      <span>{activeSchedule} Jadwal Aktif</span>
-                    </div>
-                  )}
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a] shrink-0 sm:hidden" />
                 </div>
               );
             })}
-            {labs.length === 0 && <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada data lab.</p>}
+            {labs.length === 0 && <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada data lab.</p>}
           </div>
         </Section>
 
         <Section title="Aktivitas Terbaru" icon={TbBell} delay={0.2}>
           <div className="space-y-3">
             {activeLogbooks.slice(0, 3).map((logbook) => (
-              <div key={logbook.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex gap-2 sm:gap-3 items-start group sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1.5 w-0.5 h-4 bg-[#4b607f] rounded-full sm:hidden"></div>
-                <div className="hidden sm:block mt-1 w-2 h-2 rounded-full bg-[#4b607f] shrink-0"></div>
+              <div key={logbook.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                  <TbClipboardList className="w-4 h-4" strokeWidth={2.2} />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">Sesi aktif di {logbook.lab?.name || "Lab"}</p>
-                  <p className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium mt-0.5">Status: {logbook.status}</p>
+                  <p className="font-bold text-[13px] text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">Sesi aktif di {logbook.lab?.name || "Lab"}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">{logbook.status}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(logbook.status)}`}>{logbook.status}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
               </div>
             ))}
             {tickets.slice(0, 3).map((ticket) => (
-              <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex gap-2 sm:gap-3 items-start group sm:hover:bg-[#fcf8f4] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1.5 w-0.5 h-4 bg-[#f3701e] rounded-full sm:hidden"></div>
-                <div className="hidden sm:block mt-1 w-2 h-2 rounded-full bg-[#f3701e] shrink-0"></div>
+              <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
+                  <TbTicket className="w-4 h-4" strokeWidth={2.2} />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-sm text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">{ticket.title}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <span className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium">{ticket.lab?.name || "Lab"}</span>
-                    <span className="w-1 h-1 rounded-full bg-[#e8d8c9]"></span>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(ticket.status)}`}>{ticket.status}</span>
-                  </div>
+                  <p className="font-bold text-[13px] text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors truncate">{ticket.title}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">{ticket.lab?.name || "Lab"}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(ticket.status)}`}>{ticket.status}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
               </div>
             ))}
             {activeLogbooks.length === 0 && tickets.length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada aktivitas terbaru.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada aktivitas terbaru.</p>
             )}
           </div>
         </Section>
@@ -443,16 +450,18 @@ export function KoordinatorDashboard({
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.3 + (idx * 0.1) }}
                       key={`${insight}-${idx}`} 
-                      className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] text-sm text-[#1a1a1a] font-medium leading-relaxed sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-2.5 sm:pb-0 last:border-0 last:pb-0"
+                      className="flex items-start gap-3 min-h-[44px] border-b border-[#e8d8c9] last:border-0 pb-2.5 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0"
                     >
-                      <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
-                      <span className="hidden sm:inline text-[#f3701e] font-bold mr-2">→</span>
-                      {insight}
+                      <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0 sm:hidden">
+                        <TbSparkles className="w-4 h-4" strokeWidth={2.2} />
+                      </div>
+                      <span className="hidden sm:inline text-[#f3701e] font-bold mr-2 mt-0.5">→</span>
+                      <p className="text-[13px] sm:text-sm text-[#1a1a1a] font-medium leading-relaxed">{insight}</p>
                     </motion.div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada insight AI.</p>
+                <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada insight AI.</p>
               )}
             </div>
           </div>
@@ -470,24 +479,24 @@ export function KoordinatorDashboard({
         >
           <div className="space-y-3">
             {borrowedKeys.map((key) => (
-              <div key={key.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex items-center justify-between gap-2 sm:hover:bg-[#f5ede6] transition-colors group border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#e8d8c9] flex items-center justify-center group-hover:bg-white transition-colors shrink-0">
-                    <TbKey className="w-4 h-4 sm:w-5 sm:h-5 text-[#1a1a1a]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-[#1a1a1a] truncate">
-                      <span className="text-[#f3701e]">{key.keyCode}</span> · {key.lab?.name || "Lab"}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-[#5a5a5a] font-medium truncate">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
-                  </div>
+              <div key={key.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0 group">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                  <TbKey className="w-4 h-4" strokeWidth={2.2} />
                 </div>
-                <span className="neo-badge px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider bg-[#4b607f] text-white shrink-0">Dipinjam</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">
+                    <span className="text-[#f3701e]">{key.keyCode}</span> · {key.lab?.name || "Lab"}
+                  </p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">Pemegang: <span className="text-[#1a1a1a] font-bold">{key.currentHolder?.name || "-"}</span></p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="neo-badge px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider bg-[#4b607f] text-white">Dipinjam</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+                </div>
               </div>
             ))}
             {borrowedKeys.length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada kunci dipinjam saat ini.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada kunci dipinjam saat ini.</p>
             )}
           </div>
         </Section>
@@ -528,9 +537,9 @@ export function KoordinatorDashboard({
             />
           ))}
           {schedules.length === 0 && (
-            <div className="p-6 text-center bg-white">
-              <TbCalendarEvent className="w-10 h-10 mx-auto text-[#e8d8c9] mb-2" />
-              <p className="text-sm font-bold text-[#5a5a5a]">Tidak ada jadwal hari ini.</p>
+            <div className="py-4 text-center">
+              <TbCalendarEvent className="w-5 h-5 inline mr-1.5 text-[#e8d8c9]" />
+              <span className="text-xs text-[#5a5a5a] italic">Tidak ada jadwal hari ini.</span>
             </div>
           )}
         </div>
@@ -613,20 +622,22 @@ export function AsistenDashboard({
         <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
             {shifts.map((shift) => (
-              <div key={shift.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex flex-col gap-1.5 sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="neo-badge px-2 py-0.5 text-[10px] bg-[#4b607f] text-white font-bold truncate">{shift.lab?.name || "Lab"}</span>
-                  <span className={`px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded-sm shrink-0 ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
+              <div key={shift.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                  <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <TbCalendarEvent className="w-3.5 h-3.5 text-[#5a5a5a] shrink-0" />
-                  <p className="font-heading text-base sm:text-lg font-bold text-[#1a1a1a]">{shift.startTime || "-"} <span className="text-[#5a5a5a] text-xs mx-0.5">s/d</span> {shift.endTime || "-"}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{shift.lab?.name || "Lab"}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium">{shift.startTime || "-"} – {shift.endTime || "-"}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
               </div>
             ))}
             {shifts.length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada shift hari ini.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada shift hari ini.</p>
             )}
           </div>
         </Section>
@@ -634,22 +645,26 @@ export function AsistenDashboard({
         <Section title="Misi yang Sedang Dikerjakan" icon={TbTargetArrow} delay={0.2}>
           <div className="space-y-3">
             {myMissions.filter((m) => m.status === "TAKEN").slice(0, 5).map((mission) => (
-              <div key={mission.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:-translate-y-1 transition-transform sm:shadow-[2px_2px_0px_#1a1a1a] border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
-                <div className="flex justify-between items-start gap-2 mb-1.5">
-                  <p className="font-bold text-sm text-[#1a1a1a] line-clamp-2 min-w-0">{mission.title}</p>
-                  <span className="flex-shrink-0 inline-flex items-center justify-center bg-[#f5ede6] text-[#f3701e] font-bold text-xs px-2 py-0.5 rounded-md border-2 border-[#1a1a1a]">
-                    +{mission.points || 0}
-                  </span>
+              <div key={mission.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:-translate-y-1 sm:shadow-[2px_2px_0px_#1a1a1a] transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
+                  <TbTargetArrow className="w-4 h-4" strokeWidth={2.2} />
                 </div>
-                <div className="w-full bg-[#e8d8c9] rounded-full h-1 mt-2 mb-0.5 overflow-hidden">
-                  <div className="bg-[#4b607f] h-1 rounded-full" style={{ width: '60%' }}></div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] line-clamp-1">{mission.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 bg-[#e8d8c9] rounded-full h-1 overflow-hidden">
+                      <div className="bg-[#4b607f] h-1 rounded-full" style={{ width: '60%' }}></div>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-[#5a5a5a]">In Progress</span>
+                  </div>
                 </div>
-                <p className="text-[9px] uppercase tracking-wider font-bold text-[#5a5a5a] text-right">In Progress</p>
+                <span className="flex-shrink-0 inline-flex items-center justify-center bg-[#f5ede6] text-[#f3701e] font-bold text-xs px-2 py-0.5 rounded-md border-2 border-[#1a1a1a]">
+                  +{mission.points || 0}
+                </span>
               </div>
             ))}
             {myMissions.filter((m) => m.status === "TAKEN").length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada misi aktif.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada misi aktif.</p>
             )}
           </div>
         </Section>
@@ -692,25 +707,25 @@ export function AsistenDashboard({
           </Link>
         }
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {assignedTickets.slice(0, 6).map((ticket) => (
-            <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex items-center justify-between gap-2 sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
-              <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
-                <div className="hidden sm:block w-3 h-3 rounded-full mt-1.5 bg-[#f3701e] shrink-0"></div>
-                <div className="min-w-0">
-                  <p className="font-bold text-sm text-[#1a1a1a] mb-0.5 truncate">{ticket.title}</p>
-                  <p className="text-[10px] font-medium text-[#5a5a5a] bg-[#f5ede6] inline-block px-2 py-0.5 rounded-md">{ticket.lab?.name || "Lab"}</p>
-                </div>
+            <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+              <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
+                <TbTicket className="w-4 h-4" strokeWidth={2.2} />
               </div>
-              <span className={`flex-shrink-0 px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
-                {ticket.status}
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{ticket.title}</p>
+                <p className="text-[11px] text-[#5a5a5a] font-medium truncate">{ticket.lab?.name || "Lab"}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>{ticket.status}</span>
+                <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+              </div>
             </div>
           ))}
           {assignedTickets.length === 0 && (
             <div className="col-span-full">
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada ticket yang di-assign.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada ticket yang di-assign.</p>
             </div>
           )}
         </div>
@@ -742,24 +757,22 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
         >
           <div className="space-y-3">
             {schedules.map((schedule) => (
-              <div key={schedule.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex gap-2 sm:gap-4 items-start sm:items-center sm:hover:bg-[#fcf8f4] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4b607f] rounded-full sm:hidden"></div>
-                <div className="bg-[#e8d8c9] px-2 py-1.5 sm:px-3 sm:py-2 rounded-md border-2 border-[#1a1a1a] shrink-0 min-w-[90px] sm:min-w-[120px] text-center">
-                  <p className="font-bold text-[#1a1a1a] text-xs sm:text-sm">{schedule.startTime}</p>
-                  <p className="text-[10px] font-medium text-[#5a5a5a]">s/d {schedule.endTime}</p>
+              <div key={schedule.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                  <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[#1a1a1a] text-sm mb-0.5 leading-tight truncate">{schedule.title}</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="neo-badge px-2 py-0.5 text-[9px] bg-[#4b607f] text-white uppercase tracking-wider">
-                      {schedule.lab?.name || "Lab"}
-                    </span>
-                  </div>
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{schedule.title}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium">{schedule.startTime} – {schedule.endTime} · {schedule.lab?.name || "Lab"}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(schedule.status)}`}>{schedule.status}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
               </div>
             ))}
             {schedules.length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Tidak ada jadwal untuk kelas Anda hari ini.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal untuk kelas Anda hari ini.</p>
             )}
           </div>
         </Section>
@@ -776,22 +789,22 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
         >
           <div className="space-y-3">
             {myTickets.slice(0, 5).map((ticket) => (
-              <div key={ticket.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] flex items-center justify-between gap-2 sm:hover:bg-[#f5ede6] transition-colors border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full sm:hidden ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f3701e]' : 'bg-[#4b607f]'}`}></div>
-                <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
-                  <div className={`hidden sm:block w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f3701e]' : 'bg-[#4b607f]'}`}></div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-[#1a1a1a] mb-0.5 truncate">{ticket.title}</p>
-                    <p className="text-[10px] font-medium text-[#5a5a5a]">{dayjs(ticket.createdAt).format("DD MMM YYYY · HH:mm")}</p>
-                  </div>
+              <div key={ticket.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${ticket.status === 'RESOLVED' || ticket.status === 'FINISHED' ? 'bg-emerald-50 text-emerald-500' : ticket.status === 'OPEN' ? 'bg-[#f5ede6] text-[#f3701e]' : 'bg-[#f5ede6] text-[#4b607f]'}`}>
+                  <TbTicket className="w-4 h-4" strokeWidth={2.2} />
                 </div>
-                <span className={`flex-shrink-0 px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>
-                  {ticket.status}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{ticket.title}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium">{dayjs(ticket.createdAt).format("DD MMM YYYY · HH:mm")}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(ticket.status)}`}>{ticket.status}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+                </div>
               </div>
             ))}
             {myTickets.length === 0 && (
-              <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Belum ada laporan kerusakan.</p>
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Belum ada laporan kerusakan.</p>
             )}
           </div>
         </Section>
@@ -810,25 +823,23 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {keys.slice(0, 6).map((key) => (
-              <div key={key.id} className="relative pl-3 sm:pl-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white flex items-center justify-between gap-2 sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all border-b border-[#e8d8c9] sm:border-0 pb-3 sm:pb-0 last:border-0 last:pb-0">
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#f3701e] rounded-full sm:hidden"></div>
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#f5ede6] flex items-center justify-center shrink-0">
-                    <TbKey className="w-4 h-4 sm:w-5 sm:h-5 text-[#f3701e]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-[#1a1a1a] truncate">{key.keyCode}</p>
-                    <p className="text-[10px] font-medium text-[#5a5a5a] truncate">{key.lab?.name || "Lab"}</p>
-                  </div>
+              <div key={key.id} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:shadow-[4px_4px_0px_#1a1a1a] sm:hover:-translate-y-1 transition-all sm:border-0 sm:pb-0 sm:min-h-0">
+                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#f3701e] shrink-0">
+                  <TbKey className="w-4 h-4" strokeWidth={2.2} />
                 </div>
-                <span className={`px-2 py-0.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider rounded-md border-2 border-[#1a1a1a] shrink-0 ${statusBadge(key.status)}`}>
-                  {key.status}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{key.keyCode}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium truncate">{key.lab?.name || "Lab"}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm border-2 border-[#1a1a1a] ${statusBadge(key.status)}`}>{key.status}</span>
+                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+                </div>
               </div>
             ))}
             {keys.length === 0 && (
               <div className="col-span-full">
-                <p className="text-xs sm:text-sm text-[#5a5a5a] p-3 sm:p-4 text-center neo-border border-dashed rounded-xl">Data kunci tidak tersedia.</p>
+                <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Data kunci tidak tersedia.</p>
               </div>
             )}
           </div>

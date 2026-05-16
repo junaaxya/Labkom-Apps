@@ -21,6 +21,7 @@ import {
   type ShiftItem,
   type TicketItem,
 } from "./dashboard-views";
+import { DashboardSkeleton } from "./dashboard-skeleton";
 
 dayjs.locale("id");
 
@@ -171,7 +172,7 @@ export default function DashboardPage() {
       />
 
       {loading ? (
-        <div className="neo-card p-8 text-center bg-white text-[#5a5a5a]">Memuat dashboard...</div>
+        <DashboardSkeleton role={role} />
       ) : role === "KOORDINATOR_LAB" ? (
         <KoordinatorDashboard
           labs={labs}
