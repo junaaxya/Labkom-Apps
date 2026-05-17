@@ -96,37 +96,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image env
-        run: |
-          cat > /srv/apps/labkom-apps/deploy/.env.images <<EOF
-          IMAGE_NAMESPACE=${{ needs.docker.outputs.image_namespace }}
-          IMAGE_TAG=${{ needs.docker.outputs.image_tag }}
-          EOF
-          cat /srv/apps/labkom-apps/deploy/.env.images
-
-      - name: Pull latest images
+      - name: Run structured deploy script
+        env:
+          IMAGE_NAMESPACE: ${{ needs.docker.outputs.image_namespace }}
+          IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
+          REPO_NAME: ${{ github.repository }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           cd /srv/apps/labkom-apps/deploy
-          docker compose -f docker-compose.yml -f docker-compose.images.yml --env-file .env.images pull backend frontend
-
-      - name: Run Prisma migrate deploy
-        run: |
-          cd /srv/apps/labkom-apps/deploy
-          docker compose -f docker-compose.yml -f docker-compose.images.yml --env-file .env.images run --rm backend sh -lc 'npx prisma migrate deploy'
-
-      - name: Restart app services
-        run: |
-          cd /srv/apps/labkom-apps/deploy
-          docker compose -f docker-compose.yml -f docker-compose.images.yml --env-file .env.images up -d backend frontend
-
-      - name: Health check backend
-        run: |
-          for i in {1..12}; do
-            if curl -fsS http://127.0.0.1:8004/api/v1/health; then
-              exit 0
-            fi
-            echo "Health check attempt $i failed, retrying in 5s..."
-            sleep 5
-          done
-          echo "Backend health check failed after retries"
-          exit 1
+          ./scripts/deploy-labkom.sh
