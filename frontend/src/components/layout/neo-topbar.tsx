@@ -18,6 +18,7 @@ import {
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useSidebar } from "@/providers/sidebar-context";
 import type { User } from "@/types";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 
 interface NeoTopbarProps {
   user: User;
@@ -107,8 +108,26 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
                 whileTap={{ scale: 0.98 }}
                 className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg bg-white neo-border-sm transition-shadow ${isDropdownOpen ? 'shadow-[2px_2px_0px_#f3701e]' : 'shadow-[2px_2px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_#1a1a1a]'}`}
               >
-                <div className="w-8 h-8 rounded-lg bg-[#4b607f] flex items-center justify-center text-white font-bold text-sm border border-[#1a1a1a]">
-                  {user.name.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 rounded-lg bg-[#4b607f] flex items-center justify-center text-white font-bold text-sm border border-[#1a1a1a] overflow-hidden">
+                  {user.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- backend-uploaded avatar, dynamic host resolved by toUploadDisplayUrl
+                    <img
+                      src={toUploadDisplayUrl(user.avatar)}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        img.style.display = "none";
+                        const span = img.nextElementSibling as HTMLElement | null;
+                        if (span) span.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className={`w-full h-full ${user.avatar ? "hidden" : "flex"} items-center justify-center`}
+                  >
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
                 </div>
                 <div className="text-left hidden sm:block">
                   <p className="text-sm font-bold text-[#1a1a1a] truncate max-w-[120px]">
