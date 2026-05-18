@@ -22,6 +22,31 @@ IMAGE_NAMESPACE=$IMAGE_NAMESPACE
 IMAGE_TAG=$IMAGE_TAG
 EOF
 
+wait_for_image() {
+  local service="$1"
+  local ref="$IMAGE_NAMESPACE/$service:$IMAGE_TAG"
+  local retries="${IMAGE_WAIT_RETRIES:-12}"
+  local sleep_seconds="${IMAGE_WAIT_SLEEP:-10}"
+
+  for ((i=1; i<=retries; i++)); do
+    echo "[INFO] Checking image availability ($i/$retries): $ref"
+    if docker manifest inspect "$ref" >/dev/null 2>&1; then
+      echo "[OK] Image available: $ref"
+      return 0
+    fi
+    if (( i < retries )); then
+      echo "[WARN] Image not ready yet: $ref — retrying in ${sleep_seconds}s"
+      sleep "$sleep_seconds"
+    fi
+  done
+
+  echo "[FAIL] Image never became available: $ref"
+  return 1
+}
+
+wait_for_image backend
+wait_for_image frontend
+
 echo "[INFO] Pulling candidate images"
 docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" pull backend-candidate frontend-candidate
 
