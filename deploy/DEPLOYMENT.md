@@ -47,3 +47,5 @@ IMAGE_NAMESPACE=ghcr.io/junaaxya/labkom-apps IMAGE_TAG=sha-<commit> PROMOTE_ON_S
 - Do not build production directly from mutable server source unless in an emergency.
 - Prefer deploys from GHCR image tags produced by GitHub Actions.
 - Keep `main` protected and tie production deploys to reviewed commits.
+- Use `DEPLOY_CHECKLIST.md` before and after important releases.
+- Use `DEPLOY_REPORT_TEMPLATE.md` to record a standard deployment result.
