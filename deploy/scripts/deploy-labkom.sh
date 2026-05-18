@@ -35,6 +35,31 @@ IMAGE_NAMESPACE=$IMAGE_NAMESPACE
 IMAGE_TAG=$IMAGE_TAG
 EOF
 
+wait_for_image() {
+  local service="$1"
+  local ref="$IMAGE_NAMESPACE/$service:$IMAGE_TAG"
+  local retries="${IMAGE_WAIT_RETRIES:-12}"
+  local sleep_seconds="${IMAGE_WAIT_SLEEP:-10}"
+
+  for ((i=1; i<=retries; i++)); do
+    echo "[INFO] Checking image availability ($i/$retries): $ref" | tee -a "$history_file"
+    if docker manifest inspect "$ref" >/dev/null 2>&1; then
+      echo "[OK] Image available: $ref" | tee -a "$history_file"
+      return 0
+    fi
+    if (( i < retries )); then
+      echo "[WARN] Image not ready yet: $ref — retrying in ${sleep_seconds}s" | tee -a "$history_file"
+      sleep "$sleep_seconds"
+    fi
+  done
+
+  echo "[FAIL] Image never became available: $ref" | tee -a "$history_file"
+  return 1
+}
+
+wait_for_image backend
+wait_for_image frontend
+
 echo "[INFO] Pulling images: $IMAGE_NAMESPACE/*:$IMAGE_TAG" | tee -a "$history_file"
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" pull backend frontend | tee -a "$history_file"
 
