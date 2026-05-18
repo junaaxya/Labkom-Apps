@@ -1,0 +1,28 @@
+services:
+  backend-candidate:
+    image: ${IMAGE_NAMESPACE}/backend:${IMAGE_TAG}
+    container_name: labkom-backend-candidate
+    restart: "no"
+    env_file:
+      - .env.backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - /mnt/data/apps/labkom-apps/uploads:/app/uploads
+      - /mnt/data/apps/labkom-apps/wa-auth:/app/.wa-auth
+    ports:
+      - "127.0.0.1:18004:5000"
+
+  frontend-candidate:
+    image: ${IMAGE_NAMESPACE}/frontend:${IMAGE_TAG}
+    container_name: labkom-frontend-candidate
+    restart: "no"
+    env_file:
+      - .env.frontend
+    depends_on:
+      - backend-candidate
+    ports:
+      - "127.0.0.1:13002:3000"
