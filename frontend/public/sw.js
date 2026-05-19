@@ -1,4 +1,4 @@
-const CACHE_NAME = "labkom-f3ef291e3846";
+const CACHE_NAME = "labkom-f8f409a217e1";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [

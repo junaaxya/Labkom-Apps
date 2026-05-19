@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
+import { PCService } from "./pc.service";
 
 const DAYS_MAP: Record<string, number> = {
   MINGGU: 0,
@@ -134,7 +135,47 @@ async function cleanupOldNotifications() {
   await notificationService.cleanup(30);
 }
 
+async function checkPcAgentOffline() {
+  const stalePCs = await PCService.markStaleAgentsOffline();
+  if (stalePCs.length === 0) return;
+
+  const recipients = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      role: { in: ["KOORDINATOR_LAB", "ASISTEN_LAB"] },
+    },
+    select: { id: true },
+  });
+
+  const userIds = recipients.map((user) => user.id);
+  if (userIds.length === 0) return;
+
+  const title = stalePCs.length === 1 ? "PC Agent Offline" : `${stalePCs.length} PC Agent Offline`;
+  const message =
+    stalePCs.length === 1
+      ? `${stalePCs[0].pcCode} (${stalePCs[0].name}) di ${stalePCs[0].lab.name} offline lebih dari 2 menit.`
+      : `${stalePCs.length} PC agent offline lebih dari 2 menit. Cek halaman PC Monitoring.`;
+
+  await notificationService.createBulk({
+    userIds,
+    type: "SYSTEM",
+    title,
+    message,
+    metadata: {
+      source: "pc-agent-offline-cron",
+      pcIds: stalePCs.map((pc) => pc.id),
+      pcCodes: stalePCs.map((pc) => pc.pcCode),
+      count: stalePCs.length,
+    },
+  });
+}
+
 export function startCronJobs() {
+  // Every minute: mark stale PC agents offline and notify operators once per offline transition
+  cron.schedule("* * * * *", () => {
+    checkPcAgentOffline().catch(console.error);
+  });
+
   // Every 5 minutes: check schedule reminders
   cron.schedule("*/5 * * * *", () => {
     checkScheduleReminders().catch(console.error);

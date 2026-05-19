@@ -1,9 +1,23 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { TbEdit, TbLoader2, TbTrash, TbX } from "react-icons/tb";
+import {
+  TbBuilding,
+  TbCalendar,
+  TbChevronRight,
+  TbDeviceDesktop,
+  TbEdit,
+  TbFilter,
+  TbLoader2,
+  TbMapPin,
+  TbPlus,
+  TbSearch,
+  TbTrash,
+  TbUsers,
+  TbX,
+} from "react-icons/tb";
 import type { Lab } from "@/types";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -25,6 +39,8 @@ type LabForm = {
   capacity: number;
 };
 
+type LabStatusFilter = "ALL" | Lab["status"];
+
 export default function LabsPage() {
   const toast = useToast();
   const [labs, setLabs] = useState<LabWithCount[]>([]);
@@ -35,6 +51,8 @@ export default function LabsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [deletingLabId, setDeletingLabId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<LabStatusFilter>("ALL");
 
   const [newLab, setNewLab] = useState<LabForm>({
     name: "",
@@ -63,7 +81,7 @@ export default function LabsPage() {
     MAINTENANCE: "Maintenance",
   };
 
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     setIsLoading(true);
 
     try {
@@ -75,13 +93,13 @@ export default function LabsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchLabs();
     });
-  }, []);
+  }, [fetchLabs]);
 
   const resetCreateForm = () => {
     setNewLab({
@@ -170,47 +188,163 @@ export default function LabsPage() {
     }
   };
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredLabs = labs.filter((lab) => {
+    const matchesStatus = statusFilter === "ALL" || lab.status === statusFilter;
+    const searchable = `${lab.name} ${lab.location} ${lab.description ?? ""}`.toLowerCase();
+    return matchesStatus && searchable.includes(normalizedSearch);
+  });
+  const totalPc = labs.reduce((sum, lab) => sum + (lab._count?.pcs ?? 0), 0);
+  const activeLabs = labs.filter((lab) => lab.status === "ACTIVE").length;
+  const maintenanceLabs = labs.filter((lab) => lab.status === "MAINTENANCE").length;
+  const statusFilters: { value: LabStatusFilter; label: string }[] = [
+    { value: "ALL", label: "Semua" },
+    { value: "ACTIVE", label: "Aktif" },
+    { value: "MAINTENANCE", label: "Maintenance" },
+    { value: "INACTIVE", label: "Nonaktif" },
+  ];
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Manajemen Lab</h1>
-          <p className="text-[#5a5a5a] mt-1 font-medium">Kelola laboratorium dan PC di dalamnya</p>
+    <div className="space-y-3 sm:space-y-6">
+      <section className="neo-card relative overflow-hidden bg-[#f5ede6] p-4 text-[#1a1a1a] sm:p-6 lg:p-7">
+        <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-[#f3701e]/25 blur-sm" />
+        <div className="absolute bottom-4 right-6 hidden h-16 w-16 rotate-12 rounded-2xl border-2 border-[#4b607f]/35 sm:block" />
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border-2 border-[#1a1a1a] bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-[#4b607f] shadow-[2px_2px_0px_rgba(26,26,26,0.18)]">
+                <TbBuilding className="h-4 w-4" /> LabKom
+              </span>
+              <div>
+                <h1 className="font-heading text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+                  Manajemen Lab
+                </h1>
+                <p className="mt-1 max-w-xl text-sm font-semibold leading-relaxed text-[#5a5a5a] sm:text-base">
+                  Kelola ruang, kapasitas, PC, dan jadwal lab dengan tampilan mobile yang cepat dipindai.
+                </p>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowCreateModal(true)}
+              className="neo-btn flex min-h-[48px] w-full items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 text-sm font-black text-white sm:w-auto"
+            >
+              <TbPlus className="h-5 w-5" /> Tambah Lab
+            </motion.button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { label: "Total Lab", value: labs.length, tone: "bg-white text-[#1a1a1a]" },
+              { label: "Aktif", value: activeLabs, tone: "bg-[#d1fae5] text-[#065f46]" },
+              { label: "Maintenance", value: maintenanceLabs, tone: "bg-[#fef3c7] text-[#92400e]" },
+              { label: "PC Terdaftar", value: totalPc, tone: "bg-[#dbeafe] text-[#1e3a8a]" },
+            ].map((stat) => (
+              <div key={stat.label} className={`${stat.tone} rounded-xl border-2 border-[#1a1a1a] p-3 shadow-[3px_3px_0px_rgba(26,26,26,0.35)]`}>
+                <p className="font-heading text-xl font-black leading-none sm:text-2xl">{stat.value}</p>
+                <p className="mt-1 text-[10px] font-black uppercase tracking-wide opacity-80 sm:text-xs">{stat.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowCreateModal(true)}
-          className="px-6 py-3 bg-[#f3701e] text-white neo-btn flex items-center justify-center gap-2"
-        >
-          <span className="text-lg font-bold">+</span> Tambah Lab
-        </motion.button>
-      </div>
+      </section>
+
+      <section className="sticky top-[64px] z-20 rounded-2xl border-2 border-[#1a1a1a] bg-[#e8d8c9]/95 p-3 shadow-[4px_4px_0px_rgba(26,26,26,0.12)] backdrop-blur-md sm:static sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex-1">
+            <TbSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#5a5a5a]" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nama, lokasi, deskripsi..."
+              className="neo-input min-h-[48px] w-full bg-white py-3 pl-11 pr-4 text-sm font-semibold outline-none"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0" aria-label="Filter status lab">
+            {statusFilters.map((filter) => {
+              const active = statusFilter === filter.value;
+              return (
+                <button
+                  key={filter.value}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.value)}
+                  className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl border-2 border-[#1a1a1a] px-3 py-2 text-xs font-black transition-transform active:scale-95 ${
+                    active ? "bg-[#1a1a1a] text-white" : "bg-white text-[#1a1a1a]"
+                  }`}
+                >
+                  <TbFilter className="h-4 w-4" /> {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {isLoading ? (
-        <div className="neo-card p-8 flex items-center justify-center gap-2">
-          <TbLoader2 className="w-5 h-5 animate-spin text-[#4b607f]" />
-          <span className="text-[#5a5a5a] font-medium">Memuat data lab...</span>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="neo-card p-4 sm:p-5">
+              <div className="animate-pulse space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="h-12 w-12 rounded-xl bg-[#e8d8c9]" />
+                  <div className="h-9 w-24 rounded-xl bg-[#e8d8c9]" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-5 w-2/3 rounded bg-[#e8d8c9]" />
+                  <div className="h-4 w-1/2 rounded bg-[#e8d8c9]" />
+                  <div className="h-4 w-full rounded bg-[#e8d8c9]" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="h-14 rounded-xl bg-[#e8d8c9]" />
+                  <div className="h-14 rounded-xl bg-[#e8d8c9]" />
+                  <div className="h-14 rounded-xl bg-[#e8d8c9]" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : labs.length === 0 ? (
-        <div className="neo-card p-12 text-center border-dashed bg-[#f5ede6]/50">
-            <div className="w-24 h-24 mx-auto bg-white rounded-2xl neo-border flex items-center justify-center mb-6 transform -rotate-6 shadow-[4px_4px_0px_#1a1a1a]">
-            <span className="text-5xl">🏢</span>
+        <div className="neo-card bg-[#f5ede6]/70 p-6 text-center sm:p-10">
+          <div className="mx-auto mb-4 flex h-16 w-16 -rotate-6 items-center justify-center rounded-2xl bg-white text-[#4b607f] neo-border shadow-[4px_4px_0px_#1a1a1a] sm:h-20 sm:w-20">
+            <TbBuilding className="h-9 w-9 sm:h-11 sm:w-11" />
           </div>
-          <h2 className="font-heading text-2xl font-bold text-[#1a1a1a] mb-2">Belum ada data lab</h2>
-          <p className="text-[#5a5a5a] max-w-md mx-auto mb-6">Mulai dengan menambahkan laboratorium baru untuk mengelola PC, jadwal, dan kapasitasnya.</p>
+          <h2 className="font-heading text-xl font-black text-[#1a1a1a] sm:text-2xl">Belum ada data lab</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#5a5a5a]">
+            Mulai dengan menambahkan laboratorium baru untuk mengelola PC, jadwal, dan kapasitasnya.
+          </p>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-[#f3701e] text-white neo-btn inline-flex items-center gap-2"
+            className="neo-btn mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 font-black text-white"
           >
-            + Tambah Lab Pertama
+            <TbPlus className="h-5 w-5" /> Tambah Lab Pertama
           </motion.button>
         </div>
+      ) : filteredLabs.length === 0 ? (
+        <div className="neo-card bg-white p-6 text-center sm:p-8">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5ede6] text-[#4b607f] neo-border-sm">
+            <TbSearch className="h-8 w-8" />
+          </div>
+          <h2 className="font-heading text-xl font-black text-[#1a1a1a]">Lab tidak ditemukan</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium text-[#5a5a5a]">
+            Coba ubah kata kunci atau filter status untuk melihat lab lain.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setStatusFilter("ALL");
+            }}
+            className="neo-btn mt-5 min-h-[44px] bg-white px-5 py-2 font-black text-[#1a1a1a]"
+          >
+            Reset Filter
+          </button>
+        </div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {labs.map((lab, i) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:gap-5">
+          {filteredLabs.map((lab, i) => (
             <motion.div
               key={lab.id}
               initial={{ opacity: 0, y: 20 }}
@@ -218,71 +352,84 @@ export default function LabsPage() {
               transition={{ delay: i * 0.1 }}
               className="h-full"
             >
-              <div className="neo-card-hover p-6 h-full flex flex-col relative group bg-white">
-                <div className="flex items-start justify-between mb-4 gap-3 relative z-10">
-                  <div className="w-14 h-14 rounded-xl bg-[#4b607f] neo-border-sm flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
-                    <span className="text-white text-2xl">🏢</span>
+              <div className="neo-card-hover group relative flex h-full flex-col overflow-hidden bg-white p-4 sm:p-5">
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-[#f3701e]/10" />
+                <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#4b607f] text-white neo-border-sm transition-transform group-hover:scale-105 sm:h-14 sm:w-14">
+                    <TbBuilding className="h-7 w-7" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`neo-badge px-2.5 py-1 ${statusColor[lab.status]}`}>
+                  <div className="flex min-w-0 flex-1 flex-col items-end gap-2">
+                    <span className={`neo-badge max-w-full truncate px-2.5 py-1 text-[10px] sm:text-xs ${statusColor[lab.status]}`}>
                       {statusLabel[lab.status]}
                     </span>
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => openEditModal(lab)}
-                      className="w-10 h-10 bg-white text-[#1a1a1a] neo-btn flex items-center justify-center"
-                      aria-label={`Edit ${lab.name}`}
-                    >
-                      <TbEdit className="w-5 h-5" />
-                    </motion.button>
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleDeleteLab(lab.id)}
-                      disabled={deletingLabId === lab.id}
-                      className="w-10 h-10 bg-white text-[#ef4444] neo-btn flex items-center justify-center disabled:opacity-60"
-                      aria-label={`Hapus ${lab.name}`}
-                    >
-                      {deletingLabId === lab.id ? (
-                        <TbLoader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <TbTrash className="w-5 h-5" />
-                      )}
-                    </motion.button>
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => openEditModal(lab)}
+                        className="flex h-11 w-11 items-center justify-center bg-white text-[#1a1a1a] neo-btn"
+                        aria-label={`Edit ${lab.name}`}
+                      >
+                        <TbEdit className="h-5 w-5" />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleDeleteLab(lab.id)}
+                        disabled={deletingLabId === lab.id}
+                        className="flex h-11 w-11 items-center justify-center bg-white text-[#ef4444] neo-btn disabled:opacity-60"
+                        aria-label={`Hapus ${lab.name}`}
+                      >
+                        {deletingLabId === lab.id ? (
+                          <TbLoader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <TbTrash className="h-5 w-5" />
+                        )}
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
 
-                <Link href={`/labs/${lab.id}`} className="block rounded-xl -m-2 p-2 flex-1 relative z-10">
-                  <h3 className="font-heading font-bold text-xl text-[#1a1a1a] group-hover:text-[#f3701e] transition-colors">{lab.name}</h3>
-                  <p className="text-sm font-medium text-[#4b607f] mt-1">{lab.location}</p>
+                <Link href={`/labs/${lab.id}`} className="relative z-10 -m-2 flex flex-1 flex-col rounded-xl p-2 active:bg-[#f5ede6]" prefetch={true}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="line-clamp-2 font-heading text-lg font-black leading-tight text-[#1a1a1a] transition-colors group-hover:text-[#f3701e] sm:text-xl">
+                        {lab.name}
+                      </h3>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-[#4b607f]">
+                        <TbMapPin className="h-4 w-4 shrink-0" />
+                        <span className="line-clamp-1">{lab.location}</span>
+                      </p>
+                    </div>
+                    <TbChevronRight className="mt-1 h-5 w-5 shrink-0 text-[#5a5a5a]" />
+                  </div>
                   {lab.description && (
-                    <p className="text-sm text-[#5a5a5a] mt-3 line-clamp-2 leading-relaxed">{lab.description}</p>
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#5a5a5a]">{lab.description}</p>
                   )}
 
-                  <div className="flex items-center gap-5 mt-6 pt-4 border-t-[3px] border-[#e8d8c9]">
-                    <div className="flex flex-col items-center flex-1 p-2 rounded-lg bg-[#f5ede6] neo-border-sm">
-                      <div className="flex items-center gap-1.5 text-[#1a1a1a]">
-                        <span className="text-xl">🖥️</span>
-                        <span className="text-xl font-bold font-heading">{lab._count?.pcs || 0}</span>
+                  <div className="mt-5 grid grid-cols-3 gap-2 border-t-2 border-[#e8d8c9] pt-3">
+                    <div className="rounded-xl bg-[#f5ede6] p-2 text-center neo-border-sm">
+                      <div className="flex items-center justify-center gap-1 text-[#1a1a1a]">
+                        <TbDeviceDesktop className="h-4 w-4 shrink-0 text-[#4b607f]" />
+                        <span className="font-heading text-lg font-black">{lab._count?.pcs || 0}</span>
                       </div>
-                      <span className="text-xs font-bold text-[#5a5a5a] mt-1 uppercase tracking-wider">PC</span>
+                      <span className="mt-1 block text-[10px] font-black uppercase tracking-wide text-[#5a5a5a]">PC</span>
                     </div>
-                    <div className="flex flex-col items-center flex-1 p-2 rounded-lg bg-[#f5ede6] neo-border-sm">
-                      <div className="flex items-center gap-1.5 text-[#1a1a1a]">
-                        <span className="text-xl">📅</span>
-                        <span className="text-xl font-bold font-heading">{lab._count?.schedules || 0}</span>
+                    <div className="rounded-xl bg-[#f5ede6] p-2 text-center neo-border-sm">
+                      <div className="flex items-center justify-center gap-1 text-[#1a1a1a]">
+                        <TbCalendar className="h-4 w-4 shrink-0 text-[#f3701e]" />
+                        <span className="font-heading text-lg font-black">{lab._count?.schedules || 0}</span>
                       </div>
-                      <span className="text-xs font-bold text-[#5a5a5a] mt-1 uppercase tracking-wider">Jadwal</span>
+                      <span className="mt-1 block text-[10px] font-black uppercase tracking-wide text-[#5a5a5a]">Jadwal</span>
                     </div>
-                    <div className="flex flex-col items-center flex-1 p-2 rounded-lg bg-[#f5ede6] neo-border-sm">
-                      <div className="flex items-center gap-1.5 text-[#1a1a1a]">
-                        <span className="text-xl">👥</span>
-                        <span className="text-xl font-bold font-heading">{lab.capacity}</span>
+                    <div className="rounded-xl bg-[#f5ede6] p-2 text-center neo-border-sm">
+                      <div className="flex items-center justify-center gap-1 text-[#1a1a1a]">
+                        <TbUsers className="h-4 w-4 shrink-0 text-[#4b607f]" />
+                        <span className="font-heading text-lg font-black">{lab.capacity}</span>
                       </div>
-                      <span className="text-xs font-bold text-[#5a5a5a] mt-1 uppercase tracking-wider">Kapasitas</span>
+                      <span className="mt-1 block text-[10px] font-black uppercase tracking-wide text-[#5a5a5a]">Kapasitas</span>
                     </div>
                   </div>
                 </Link>
@@ -298,20 +445,21 @@ export default function LabsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={{ scale: 0.98, y: 48 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
+              exit={{ scale: 0.98, y: 48 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[6px_6px_0px_#1a1a1a] sm:rounded-b-xl sm:p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
-                  Tambah Lab Baru
-                </h2>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#f3701e]">Lab baru</p>
+                  <h2 className="font-heading text-xl font-black text-[#1a1a1a]">Tambah Lab Baru</h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -363,13 +511,13 @@ export default function LabsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
                   <motion.button
                     type="submit"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isCreating}
-                    className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[48px] bg-[#4b607f] text-white neo-btn"
                   >
                     {isCreating ? "Menyimpan..." : "Simpan"}
                   </motion.button>
@@ -381,7 +529,7 @@ export default function LabsPage() {
                       setShowCreateModal(false);
                       resetCreateForm();
                     }}
-                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[48px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
@@ -398,21 +546,24 @@ export default function LabsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
             onClick={() => {
               setShowEditModal(false);
               setEditingLabId(null);
             }}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={{ scale: 0.98, y: 48 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
+              exit={{ scale: 0.98, y: 48 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[6px_6px_0px_#1a1a1a]"
+              className="neo-card max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[6px_6px_0px_#1a1a1a] sm:rounded-b-xl sm:p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Edit Lab</h2>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#f3701e]">Perbarui</p>
+                  <h2 className="font-heading text-xl font-black text-[#1a1a1a]">Edit Lab</h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -478,13 +629,13 @@ export default function LabsPage() {
                   </select>
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
                   <motion.button
                     type="submit"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isEditing}
-                    className="flex-1 py-3 min-h-[44px] bg-[#4b607f] text-white neo-btn"
+                    className="flex-1 py-3 min-h-[48px] bg-[#4b607f] text-white neo-btn"
                   >
                     {isEditing ? "Menyimpan..." : "Simpan Perubahan"}
                   </motion.button>
@@ -496,7 +647,7 @@ export default function LabsPage() {
                       setShowEditModal(false);
                       setEditingLabId(null);
                     }}
-                    className="flex-1 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
+                    className="flex-1 py-3 min-h-[48px] bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
