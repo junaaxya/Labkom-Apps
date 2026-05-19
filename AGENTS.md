@@ -90,7 +90,7 @@ frontend/src/
 │   ├── reports/         # Monthly reports
 │   └── ...              # 30+ other pages
 ├── app/offline/         # PWA offline fallback page
-├── components/layout/   # DashboardLayout, NeoSidebar, NeoTopbar
+├── components/layout/   # DashboardLayout, NeoSidebar, NeoTopbar, MobileBottomNav
 ├── components/pwa/      # OfflineIndicator, InstallPrompt, SWRegistration
 ├── components/ui/       # MobileCard, ResponsiveList, TouchTarget, etc.
 ├── services/api.ts      # Fetch wrapper with JWT auth
@@ -120,6 +120,9 @@ frontend/src/
 - ✅ Service worker (offline fallback, precache)
 - ✅ Manifest (standalone mode, theme colors)
 - ✅ Safe area insets (notch/home indicator clearance)
+- ✅ Hybrid mobile navigation (role-aware bottom nav + full sidebar drawer via Menu)
+- ✅ Mobile bottom-nav scroll clearance (`DashboardLayout` keeps extra bottom padding so final cards scroll above the fixed nav)
+- ✅ Topbar avatar uses uploaded profile photo (`User.avatar`) via upload URL helper, with initial-letter fallback
 
 **Build:**
 ```bash

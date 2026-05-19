@@ -3,6 +3,8 @@ import type { PCStatus, PCCommandType, CommandStatus } from "@prisma/client";
 import crypto from "crypto";
 import dgram from "dgram";
 
+const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
+
 /**
  * Send Wake-on-LAN magic packet to a MAC address.
  * Magic packet = 6x 0xFF + 16x MAC address bytes, sent as UDP broadcast on port 9.
@@ -45,6 +47,55 @@ function sendWolPacket(macAddress: string, broadcastAddr = "255.255.255.255"): P
 }
 
 export class PCService {
+  static async markStaleAgentsOffline(labId?: string) {
+    const staleBefore = new Date(Date.now() - AGENT_OFFLINE_AFTER_MS);
+
+    const stalePCs = await prisma.pC.findMany({
+      where: {
+        agentStatus: "ONLINE",
+        lastSeen: { lt: staleBefore },
+        ...(labId ? { labId } : {}),
+      },
+      select: {
+        id: true,
+        pcCode: true,
+        name: true,
+        lastSeen: true,
+        lab: { select: { id: true, name: true } },
+      },
+    });
+
+    if (stalePCs.length === 0) {
+      return [];
+    }
+
+    await prisma.pC.updateMany({
+      where: { id: { in: stalePCs.map((pc) => pc.id) } },
+      data: {
+        agentStatus: "OFFLINE",
+        isOnline: false,
+      },
+    });
+
+    return stalePCs;
+  }
+
+  private static async refreshStaleAgentStatusForPC(pcId: string) {
+    const staleBefore = new Date(Date.now() - AGENT_OFFLINE_AFTER_MS);
+
+    await prisma.pC.updateMany({
+      where: {
+        id: pcId,
+        agentStatus: "ONLINE",
+        lastSeen: { lt: staleBefore },
+      },
+      data: {
+        agentStatus: "OFFLINE",
+        isOnline: false,
+      },
+    });
+  }
+
   // ============================================
   // PC MONITORING & DETAILS
   // ============================================
@@ -57,6 +108,8 @@ export class PCService {
     healthStatus?: string;
     search?: string;
   }) {
+    await this.markStaleAgentsOffline(filters?.labId);
+
     const where: any = {};
 
     if (filters?.labId) where.labId = filters.labId;
@@ -84,6 +137,8 @@ export class PCService {
   }
 
   static async getPCDetail(id: string) {
+    await this.refreshStaleAgentStatusForPC(id);
+
     const pc = await prisma.pC.findUnique({
       where: { id },
       include: {
@@ -208,6 +263,8 @@ export class PCService {
   }
 
   static async getPCAnalytics(labId?: string) {
+    await this.markStaleAgentsOffline(labId);
+
     const where: any = labId ? { labId } : {};
 
     const [totalPCs, statusCounts, agentStatusCounts, healthStatusCounts, recentIssues, warningCount] = await Promise.all([
@@ -280,6 +337,8 @@ export class PCService {
     issuedBy: string,
     payload?: any
   ) {
+    await this.refreshStaleAgentStatusForPC(pcId);
+
     const pc = await prisma.pC.findUnique({ where: { id: pcId } });
     if (!pc) throw new Error("PC tidak ditemukan");
 
@@ -324,6 +383,8 @@ export class PCService {
     issuedBy: string,
     payload?: any
   ) {
+    await this.markStaleAgentsOffline();
+
     const pcs = await prisma.pC.findMany({
       where: { id: { in: pcIds } },
       select: { id: true, isOnline: true, macAddress: true },
