@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 source "$DEPLOY_DIR/scripts/resolve-deploy-paths.sh"
 STATE_DIR="$STATE_ROOT"
 DIAG_DIR="$DIAG_ROOT"
-COMPOSE_FILES=(-f "$REPO_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
+COMPOSE_FILES=(-f "$SERVER_DEPLOY_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
 mkdir -p "$DIAG_DIR"
 
 stamp="$(date -u +%Y-%m-%dT%H-%M-%SZ)"

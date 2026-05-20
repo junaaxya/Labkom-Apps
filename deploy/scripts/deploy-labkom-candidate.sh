@@ -7,8 +7,8 @@ REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 source "$DEPLOY_DIR/scripts/resolve-deploy-paths.sh"
 VERIFY_CANDIDATE_SCRIPT="$DEPLOY_DIR/scripts/verify-labkom-candidate.sh"
 VERIFY_LIVE_SCRIPT="$DEPLOY_DIR/scripts/verify-labkom.sh"
-COMPOSE_MAIN=(-f "$REPO_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
-COMPOSE_CANDIDATE=(-f "$REPO_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE" -f "$DEPLOY_DIR/docker-compose.candidate.yml")
+COMPOSE_MAIN=(-f "$SERVER_DEPLOY_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
+COMPOSE_CANDIDATE=(-f "$SERVER_DEPLOY_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE" -f "$DEPLOY_DIR/docker-compose.candidate.yml")
 IMAGE_NAMESPACE_DEFAULT="ghcr.io/junaaxya/labkom-apps"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-$IMAGE_NAMESPACE_DEFAULT}"
 IMAGE_TAG="${IMAGE_TAG:-}"
