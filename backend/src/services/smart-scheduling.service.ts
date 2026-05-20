@@ -1,16 +1,5 @@
 import prisma from "../config/database";
 
-interface ScheduleSuggestion {
-  labId: string;
-  labName: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  reason: string;
-  score: number;
-  conflicts: string[];
-}
-
 interface UsagePattern {
   day: string;
   hour: number;
@@ -39,6 +28,25 @@ interface OptimalSlot {
   reason: string;
 }
 
+interface ConflictScheduleInfo {
+  title: string;
+  time: string;
+  lab?: string;
+  lecturerName?: string;
+  assistant?: string;
+}
+
+interface ScheduleConflict {
+  schedule1: ConflictScheduleInfo;
+  schedule2: ConflictScheduleInfo;
+  type: "LAB_CONFLICT" | "LECTURER_CONFLICT" | "ASSISTANT_CONFLICT";
+}
+
+interface ScheduleInterval {
+  start: number;
+  end: number;
+}
+
 class SmartSchedulingService {
   private readonly DAYS = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
   private readonly TIME_SLOTS = [
@@ -47,6 +55,9 @@ class SmartSchedulingService {
     "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
     "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
   ];
+  private readonly OPERATING_START_MINUTES = 7 * 60;
+  private readonly OPERATING_END_MINUTES = 21 * 60;
+  private readonly SLOT_SIZE_MINUTES = 30;
 
   async suggestOptimalSlots(
     duration: number = 120,
@@ -65,7 +76,7 @@ class SmartSchedulingService {
 
     const slots: OptimalSlot[] = [];
     const daysToCheck = preferredDay ? [preferredDay] : this.DAYS;
-    const durationHours = duration / 60;
+    const durationMinutes = Math.max(this.SLOT_SIZE_MINUTES, duration);
 
     for (const lab of labs) {
       for (const day of daysToCheck) {
@@ -73,11 +84,9 @@ class SmartSchedulingService {
           (s) => s.labId === lab.id && s.day === day
         );
 
-        for (let i = 0; i < this.TIME_SLOTS.length - 1; i++) {
+        for (let i = 0; i < this.TIME_SLOTS.length; i++) {
           const startTime = this.TIME_SLOTS[i];
-          const endHour = parseInt(startTime.split(":")[0]) + durationHours;
-          const endMinute = parseInt(startTime.split(":")[1]);
-          const endTime = `${String(Math.floor(endHour)).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+          const endTime = this.minutesToTime(this.timeToMinutes(startTime) + durationMinutes);
 
           if (endTime > "21:00") continue;
 
@@ -86,7 +95,7 @@ class SmartSchedulingService {
           );
 
           if (!hasConflict) {
-            const score = this.calculateSlotScore(day, startTime, daySchedules.length, labs.length);
+            const score = this.calculateSlotScore(day, startTime, daySchedules.length);
             slots.push({
               day,
               startTime,
@@ -94,7 +103,7 @@ class SmartSchedulingService {
               labId: lab.id,
               labName: lab.name,
               availabilityScore: score,
-              reason: this.getSlotReason(score, day, startTime),
+              reason: this.getSlotReason(score),
             });
           }
         }
@@ -117,7 +126,7 @@ class SmartSchedulingService {
         const timeStr = `${String(hour).padStart(2, "0")}:00`;
         const usage = schedules.filter((s) => {
           if (s.day !== day) return false;
-          return s.startTime <= timeStr && s.endTime > timeStr;
+          return this.timeOverlaps(timeStr, this.minutesToTime(this.timeToMinutes(timeStr) + 60), s.startTime, s.endTime);
         }).length;
 
         const label = usage === 0 ? "Kosong" : usage === 1 ? "Normal" : usage >= 2 ? "Padat" : "Normal";
@@ -137,21 +146,28 @@ class SmartSchedulingService {
       },
     });
 
-    const maxSlotsPerDay = 13;
-    const totalPossibleSlots = maxSlotsPerDay * 6;
+    const totalPossibleMinutes = this.DAYS.length * (this.OPERATING_END_MINUTES - this.OPERATING_START_MINUTES);
+    const totalPossibleSlots = Math.round(totalPossibleMinutes / this.SLOT_SIZE_MINUTES);
 
     return labs.map((lab) => {
-      const usedSlots = lab.schedules.length;
-      const utilizationPercent = Math.round((usedSlots / totalPossibleSlots) * 100);
-
-      const dayCount: Record<string, number> = {};
-      this.DAYS.forEach((d) => (dayCount[d] = 0));
-      lab.schedules.forEach((s) => {
-        dayCount[s.day] = (dayCount[s.day] || 0) + 1;
+      const dayMinutes: Record<string, number> = {};
+      this.DAYS.forEach((day) => {
+        const intervals = lab.schedules
+          .filter((schedule) => schedule.day === day)
+          .map((schedule) => ({
+            start: Math.max(this.OPERATING_START_MINUTES, this.timeToMinutes(schedule.startTime)),
+            end: Math.min(this.OPERATING_END_MINUTES, this.timeToMinutes(schedule.endTime)),
+          }))
+          .filter((interval) => interval.end > interval.start);
+        dayMinutes[day] = this.mergeIntervals(intervals).reduce((sum, interval) => sum + interval.end - interval.start, 0);
       });
 
-      const peakDay = Object.entries(dayCount).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
-      const quietestDay = Object.entries(dayCount).sort(([, a], [, b]) => a - b)[0]?.[0] || "N/A";
+      const usedMinutes = Object.values(dayMinutes).reduce((sum, minutes) => sum + minutes, 0);
+      const usedSlots = Math.round(usedMinutes / this.SLOT_SIZE_MINUTES);
+      const utilizationPercent = Math.round((usedSlots / totalPossibleSlots) * 100);
+
+      const peakDay = Object.entries(dayMinutes).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
+      const quietestDay = Object.entries(dayMinutes).sort(([, a], [, b]) => a - b)[0]?.[0] || "N/A";
 
       let recommendation: string;
       if (utilizationPercent > 80) {
@@ -178,7 +194,7 @@ class SmartSchedulingService {
   }
 
   async detectConflicts(): Promise<{
-    conflicts: { schedule1: any; schedule2: any; type: string }[];
+    conflicts: ScheduleConflict[];
     warnings: string[];
   }> {
     const schedules = await prisma.schedule.findMany({
@@ -189,7 +205,7 @@ class SmartSchedulingService {
       },
     });
 
-    const conflicts: { schedule1: any; schedule2: any; type: string }[] = [];
+    const conflicts: ScheduleConflict[] = [];
     const warnings: string[] = [];
 
     for (let i = 0; i < schedules.length; i++) {
@@ -201,8 +217,8 @@ class SmartSchedulingService {
 
         if (s1.labId === s2.labId && this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)) {
           conflicts.push({
-            schedule1: { title: s1.title, time: `${s1.startTime}-${s1.endTime}`, lab: s1.lab.name },
-            schedule2: { title: s2.title, time: `${s2.startTime}-${s2.endTime}`, lab: s2.lab.name },
+            schedule1: this.formatConflictSchedule(s1),
+            schedule2: this.formatConflictSchedule(s2),
             type: "LAB_CONFLICT",
           });
         }
@@ -213,8 +229,8 @@ class SmartSchedulingService {
           this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
         ) {
           conflicts.push({
-            schedule1: { title: s1.title, time: `${s1.startTime}-${s1.endTime}`, lecturer: s1.lecturerName },
-            schedule2: { title: s2.title, time: `${s2.startTime}-${s2.endTime}`, lecturer: s2.lecturerName },
+            schedule1: this.formatConflictSchedule(s1),
+            schedule2: this.formatConflictSchedule(s2),
             type: "LECTURER_CONFLICT",
           });
         }
@@ -225,8 +241,8 @@ class SmartSchedulingService {
           this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
         ) {
           conflicts.push({
-            schedule1: { title: s1.title, time: `${s1.startTime}-${s1.endTime}`, assistant: s1.assistant?.name },
-            schedule2: { title: s2.title, time: `${s2.startTime}-${s2.endTime}`, assistant: s2.assistant?.name },
+            schedule1: this.formatConflictSchedule(s1),
+            schedule2: this.formatConflictSchedule(s2),
             type: "ASSISTANT_CONFLICT",
           });
         }
@@ -236,14 +252,14 @@ class SmartSchedulingService {
     const labLoad: Record<string, number> = {};
     schedules.forEach((s) => {
       const key = `${s.labId}-${s.day}`;
-      labLoad[key] = (labLoad[key] || 0) + 1;
+      labLoad[key] = (labLoad[key] || 0) + this.scheduleDurationMinutes(s.startTime, s.endTime);
     });
 
-    Object.entries(labLoad).forEach(([key, count]) => {
-      if (count >= 5) {
+    Object.entries(labLoad).forEach(([key, minutes]) => {
+      if (minutes >= 6 * 60) {
         const [labId, day] = key.split("-");
         const lab = schedules.find((s) => s.labId === labId)?.lab.name;
-        warnings.push(`${lab} memiliki ${count} jadwal pada hari ${day} — pertimbangkan redistribusi`);
+        warnings.push(`${lab} terpakai ${Math.round(minutes / 60 * 10) / 10} jam pada hari ${day} — pertimbangkan redistribusi`);
       }
     });
 
@@ -301,10 +317,58 @@ class SmartSchedulingService {
   }
 
   private timeOverlaps(start1: string, end1: string, start2: string, end2: string): boolean {
-    return start1 < end2 && start2 < end1;
+    return this.timeToMinutes(start1) < this.timeToMinutes(end2) && this.timeToMinutes(start2) < this.timeToMinutes(end1);
   }
 
-  private calculateSlotScore(day: string, startTime: string, existingCount: number, totalLabs: number): number {
+  private timeToMinutes(time: string): number {
+    const [hour = "0", minute = "0"] = time.split(":");
+    return parseInt(hour, 10) * 60 + parseInt(minute, 10);
+  }
+
+  private minutesToTime(minutes: number): string {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
+  private scheduleDurationMinutes(startTime: string, endTime: string): number {
+    return Math.max(0, this.timeToMinutes(endTime) - this.timeToMinutes(startTime));
+  }
+
+  private mergeIntervals(intervals: ScheduleInterval[]): ScheduleInterval[] {
+    const sorted = [...intervals].sort((a, b) => a.start - b.start);
+    const merged: ScheduleInterval[] = [];
+
+    sorted.forEach((interval) => {
+      const last = merged[merged.length - 1];
+      if (!last || interval.start > last.end) {
+        merged.push({ ...interval });
+        return;
+      }
+      last.end = Math.max(last.end, interval.end);
+    });
+
+    return merged;
+  }
+
+  private formatConflictSchedule(schedule: {
+    title: string;
+    startTime: string;
+    endTime: string;
+    lecturerName: string | null;
+    lab: { name: string };
+    assistant: { name: string } | null;
+  }): ConflictScheduleInfo {
+    return {
+      title: schedule.title,
+      time: `${schedule.startTime}-${schedule.endTime}`,
+      lab: schedule.lab.name,
+      lecturerName: schedule.lecturerName || undefined,
+      assistant: schedule.assistant?.name,
+    };
+  }
+
+  private calculateSlotScore(day: string, startTime: string, existingCount: number): number {
     let score = 100;
 
     const hour = parseInt(startTime.split(":")[0]);
@@ -321,7 +385,7 @@ class SmartSchedulingService {
     return Math.max(0, Math.min(100, score));
   }
 
-  private getSlotReason(score: number, day: string, startTime: string): string {
+  private getSlotReason(score: number): string {
     if (score >= 90) return "Slot ideal — jam produktif, lab kosong";
     if (score >= 70) return "Slot bagus — waktu yang baik dengan sedikit jadwal lain";
     if (score >= 50) return "Slot tersedia — bisa digunakan meski bukan waktu optimal";

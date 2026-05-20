@@ -124,12 +124,17 @@ export class LabService {
     const pc = await prisma.pC.findUnique({ where: { id } });
     if (!pc) throw new Error("PC tidak ditemukan");
 
-    await prisma.pC.delete({ where: { id } });
-
-    await prisma.lab.update({
-      where: { id: pc.labId },
-      data: { capacity: { decrement: 1 } },
-    });
+    await prisma.$transaction([
+      prisma.pCCommand.deleteMany({ where: { pcId: id } }),
+      prisma.pcAgentLog.deleteMany({ where: { pcId: id } }),
+      prisma.pcWarning.deleteMany({ where: { pcId: id } }),
+      prisma.pCStatusLog.deleteMany({ where: { pcId: id } }),
+      prisma.pC.delete({ where: { id } }),
+      prisma.lab.update({
+        where: { id: pc.labId },
+        data: { capacity: { decrement: 1 } },
+      }),
+    ]);
 
     return pc;
   }
