@@ -29,5 +29,22 @@ ensure_file "$FRONTEND_ENV_FILE" "frontend env file"
 
 mkdir -p "$STATE_ROOT" "$HISTORY_ROOT" "$DIAG_ROOT"
 
+load_env_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      local key="${line%%=*}"
+      local value="${line#*=}"
+      export "$key=$value"
+    fi
+  done < "$file"
+}
+
+load_env_file "$BACKEND_ENV_FILE"
+load_env_file "$SHARED_ENV_FILE"
+load_env_file "$FRONTEND_ENV_FILE"
+
 export SCRIPT_DIR DEPLOY_DIR REPO_ROOT SERVER_DEPLOY_ROOT STATE_ROOT HISTORY_ROOT DIAG_ROOT
 export ENV_IMAGE_FILE COMPOSE_OVERRIDE_FILE BACKEND_ENV_FILE FRONTEND_ENV_FILE SHARED_ENV_FILE
