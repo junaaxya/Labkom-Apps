@@ -2,21 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  TbBolt,
-  TbCalendar,
-  TbCalendarPlus,
-  TbChevronLeft,
-  TbChevronRight,
   TbClock,
-  TbCpu,
-  TbDeviceDesktop,
   TbLoader2,
-  TbSearch,
   TbTrendingUp,
-  TbTrendingDown,
   TbUsers,
-  TbWand,
-  TbX,
   TbBulb,
   TbChartBar,
   TbCalendarEvent,
@@ -24,6 +13,15 @@ import {
   TbCircleCheck
 } from "react-icons/tb";
 import api from "@/services/api";
+
+const errMsg = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null && "message" in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+};
 
 interface OptimalSlot {
   day: string;
@@ -87,10 +85,12 @@ export default function SmartSchedulingPage() {
   const [conflicts, setConflicts] = useState<{ conflicts: Conflict[]; warnings: string[] }>({ conflicts: [], warnings: [] });
   const [workload, setWorkload] = useState<{ assistants: Workload[]; recommendation: string }>({ assistants: [], recommendation: "" });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [duration, setDuration] = useState(120);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       switch (tab) {
         case "suggest": {
@@ -119,8 +119,11 @@ export default function SmartSchedulingPage() {
           break;
         }
       }
-    } catch {}
-    setLoading(false);
+    } catch (err) {
+      setError(errMsg(err, "Gagal memuat data smart scheduling dari server."));
+    } finally {
+      setLoading(false);
+    }
   }, [tab, duration]);
 
   useEffect(() => {
@@ -130,7 +133,7 @@ export default function SmartSchedulingPage() {
   }, [tab, duration, fetchData]);
 
   const DAYS = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-  const HOURS = Array.from({ length: 14 }, (_, i) => i + 7);
+  const HOURS = Array.from({ length: 15 }, (_, i) => i + 7);
 
   const getPatternColor = (usage: number) => {
     if (usage === 0) return "bg-[#22c55e] text-white neo-border-sm";
@@ -179,6 +182,15 @@ export default function SmartSchedulingPage() {
             <TbLoader2 className="w-12 h-12 animate-spin text-[#f3701e]" />
             <span className="font-bold font-heading text-[#4b607f]">Memuat Data Penjadwalan...</span>
           </div>
+        </div>
+      ) : error ? (
+        <div className="neo-card p-6 sm:p-8 text-center bg-white shadow-[4px_4px_0px_#1a1a1a]">
+          <TbAlertTriangle className="w-12 h-12 mx-auto text-[#f3701e] mb-3" />
+          <h3 className="font-heading font-bold text-xl text-[#1a1a1a] mb-2">Data real belum bisa dimuat</h3>
+          <p className="text-sm text-[#4b607f] mb-4">{error}</p>
+          <button type="button" onClick={() => void fetchData()} className="neo-btn bg-[#4b607f] text-white min-h-[44px] px-5">
+            Muat Ulang
+          </button>
         </div>
       ) : (
         <>
@@ -245,7 +257,7 @@ export default function SmartSchedulingPage() {
                 <div className="neo-card p-12 text-center bg-white shadow-[4px_4px_0px_#1a1a1a]">
                   <TbCalendarEvent className="w-16 h-16 mx-auto text-[#4b607f] mb-4" />
                   <h3 className="font-heading font-bold text-xl mb-2">Tidak Ada Slot</h3>
-                  <p className="text-[#4b607f]">Tidak ada slot tersedia untuk durasi {duration} menit. Coba kurangi durasi atau cari di hari lain.</p>
+                  <p className="text-[#4b607f]">Tidak ada slot real yang bebas untuk durasi {duration} menit. Coba kurangi durasi atau cek jadwal aktif di database.</p>
                 </div>
               )}
             </div>
