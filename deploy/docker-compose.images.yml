@@ -1,8 +1,6 @@
 services:
   backend:
     image: ${IMAGE_NAMESPACE}/backend:${IMAGE_TAG}
-    build: null
 
   frontend:
     image: ${IMAGE_NAMESPACE}/frontend:${IMAGE_TAG}
-    build: null

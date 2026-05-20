@@ -2,16 +2,24 @@
 set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_DIR="$DEPLOY_DIR/state"
-HISTORY_DIR="$STATE_DIR/deploy-history"
+REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
+# shellcheck disable=SC1091
+source "$DEPLOY_DIR/scripts/resolve-deploy-paths.sh"
+STATE_DIR="$STATE_ROOT"
+HISTORY_DIR="$HISTORY_ROOT"
 VERIFY_SCRIPT="$DEPLOY_DIR/scripts/verify-labkom.sh"
-COMPOSE_FILES=(-f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.images.yml")
-ENV_IMAGE_FILE="$DEPLOY_DIR/.env.images"
+DIAGNOSE_SCRIPT="$DEPLOY_DIR/scripts/diagnose-labkom.sh"
+COMPOSE_FILES=(-f "$REPO_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
 IMAGE_NAMESPACE_DEFAULT="ghcr.io/junaaxya/labkom-apps"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-$IMAGE_NAMESPACE_DEFAULT}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 REPO_NAME="${REPO_NAME:-junaaxya/Labkom-Apps}"
 BRANCH_NAME="${BRANCH_NAME:-main}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://lab-ilkom.my.id}"
+PUBLIC_BACKEND_URL="${PUBLIC_BACKEND_URL:-https://lab-ilkom.my.id/api/v1}"
+INTERNAL_FRONTEND_URL="${INTERNAL_FRONTEND_URL:-http://127.0.0.1:3002}"
+INTERNAL_BACKEND_URL="${INTERNAL_BACKEND_URL:-http://127.0.0.1:8004}"
+AUTO_ROLLBACK_ON_FAIL="${AUTO_ROLLBACK_ON_FAIL:-true}"
 
 if [[ -z "$IMAGE_TAG" ]]; then
   echo "IMAGE_TAG is required"
@@ -72,7 +80,27 @@ docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend 
 echo "[INFO] Waiting for services to settle" | tee -a "$history_file"
 sleep 5
 
-"$VERIFY_SCRIPT" "http://127.0.0.1" "http://127.0.0.1:8004" | tee -a "$history_file"
+set +e
+"$VERIFY_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "$INTERNAL_FRONTEND_URL" "$INTERNAL_BACKEND_URL" | tee -a "$history_file"
+verify_exit=${PIPESTATUS[0]}
+set -e
+
+if (( verify_exit != 0 )); then
+  echo "[FAIL] Verification failed for $IMAGE_TAG" | tee -a "$history_file"
+  diag_file="$($DIAGNOSE_SCRIPT)"
+  echo "[INFO] Diagnostics captured at $diag_file" | tee -a "$history_file"
+
+  if [[ "$AUTO_ROLLBACK_ON_FAIL" == "true" && -f "$previous_state" ]]; then
+    echo "[INFO] Auto rollback enabled; attempting rollback" | tee -a "$history_file"
+    if PUBLIC_BASE_URL="$PUBLIC_BASE_URL" PUBLIC_BACKEND_URL="$PUBLIC_BACKEND_URL" INTERNAL_FRONTEND_URL="$INTERNAL_FRONTEND_URL" INTERNAL_BACKEND_URL="$INTERNAL_BACKEND_URL" SERVER_DEPLOY_ROOT="$SERVER_DEPLOY_ROOT" "$DEPLOY_DIR/scripts/rollback-labkom.sh" | tee -a "$history_file"; then
+      echo "[INFO] Auto rollback completed successfully" | tee -a "$history_file"
+    else
+      echo "[FAIL] Auto rollback failed — manual intervention required" | tee -a "$history_file"
+    fi
+  fi
+
+  exit 1
+fi
 
 cat > "$current_state" <<EOF
 REPO_NAME=$REPO_NAME

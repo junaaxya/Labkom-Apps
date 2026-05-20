@@ -102,6 +102,13 @@ jobs:
           IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
           REPO_NAME: ${{ github.repository }}
           BRANCH_NAME: ${{ github.ref_name }}
+          SERVER_DEPLOY_ROOT: /srv/apps/labkom-apps/deploy
+          DEPLOY_COMPOSE_OVERRIDE_FILE: /srv/apps/labkom-apps/deploy/docker-compose.images.yml
+          DEPLOY_ENV_IMAGE_FILE: /srv/apps/labkom-apps/deploy/.env.images
+          DEPLOY_BACKEND_ENV_FILE: /srv/apps/labkom-apps/deploy/.env.backend
+          DEPLOY_FRONTEND_ENV_FILE: /srv/apps/labkom-apps/deploy/.env.frontend
+          DEPLOY_SHARED_ENV_FILE: /srv/apps/labkom-apps/deploy/.env
+          DEPLOY_STATE_ROOT: /srv/apps/labkom-apps/deploy/state
         run: |
-          cd /srv/apps/labkom-apps/deploy
-          ./scripts/deploy-labkom.sh
+          chmod +x ./deploy/scripts/*.sh
+          ./deploy/scripts/deploy-labkom.sh

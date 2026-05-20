@@ -4,7 +4,7 @@ services:
     container_name: labkom-backend-candidate
     restart: "no"
     env_file:
-      - .env.backend
+      - ${DEPLOY_BACKEND_ENV_FILE:-/srv/apps/labkom-apps/deploy/.env.backend}
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,7 +21,7 @@ services:
     container_name: labkom-frontend-candidate
     restart: "no"
     env_file:
-      - .env.frontend
+      - ${DEPLOY_FRONTEND_ENV_FILE:-/srv/apps/labkom-apps/deploy/.env.frontend}
     depends_on:
       - backend-candidate
     ports:
