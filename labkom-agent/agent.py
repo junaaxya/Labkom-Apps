@@ -5,11 +5,14 @@ import json
 import logging
 import os
 import platform
+import re
 import secrets
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import psutil
 import requests
@@ -33,8 +36,18 @@ def load_config() -> dict:
     if not CONFIG_PATH.exists():
         logger.error("config.json tidak ditemukan di %s", CONFIG_PATH)
         sys.exit(1)
-    with open(CONFIG_PATH) as f:
-        return json.load(f)
+    # utf-8-sig agar BOM dari PowerShell Set-Content -Encoding UTF8 tetap terbaca
+    with open(CONFIG_PATH, encoding="utf-8-sig") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "config.json tidak valid JSON di %s (%s). "
+                "Re-run installer atau perbaiki file secara manual.",
+                CONFIG_PATH,
+                exc,
+            )
+            sys.exit(1)
 
 
 def get_headers(token: str) -> dict:
@@ -187,7 +200,8 @@ def execute_command(cmd: dict) -> tuple[bool, str]:
     elif command_type == "LOCK":
         logger.info("Executing LOCK")
         if platform.system() == "Windows":
-            subprocess.Popen(["rundll32.exe", "user32.dll,LockWorkStation"])
+            result = lock_windows_workstation()
+            return True, result
         else:
             subprocess.Popen(["loginctl", "lock-session"])
         return True, "Lock initiated"
@@ -204,6 +218,43 @@ def execute_command(cmd: dict) -> tuple[bool, str]:
     else:
         logger.warning("Unknown command: %s", command_type)
         return False, f"Unknown command: {command_type}"
+
+
+def lock_windows_workstation() -> str:
+    tsdiscon = shutil.which("tsdiscon")
+    if tsdiscon:
+        session_id = get_active_windows_session_id()
+        if session_id:
+            result = subprocess.run([tsdiscon, session_id], check=False)
+            if result.returncode == 0:
+                return f"Active Windows session {session_id} disconnected/locked with tsdiscon"
+
+        result = subprocess.run([tsdiscon], check=False)
+        if result.returncode == 0:
+            return "Active Windows session disconnected/locked with tsdiscon"
+
+    subprocess.run(["rundll32.exe", "user32.dll,LockWorkStation"], check=False)
+    return "LockWorkStation command sent; if agent runs as SYSTEM, Windows Session 0 isolation may prevent visible lock"
+
+
+def get_active_windows_session_id() -> Optional[str]:
+    for command in (["query", "user"], ["query", "session"]):
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+        except OSError:
+            continue
+
+        if result.returncode != 0:
+            continue
+
+        for line in result.stdout.splitlines():
+            if "Active" not in line:
+                continue
+            match = re.search(r"\s+(\d+)\s+Active\b", line)
+            if match:
+                return match.group(1)
+
+    return None
 
 
 def report_result(config: dict, command_id: str, success: bool, result: str):

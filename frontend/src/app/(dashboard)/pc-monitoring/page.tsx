@@ -23,6 +23,7 @@ import {
   TbActivity,
   TbDeviceDesktopAnalytics,
   TbFilter,
+  TbNetwork,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { ResponsiveList } from "@/components/ui/responsive-list";
@@ -45,6 +46,11 @@ type StatusLogLite = {
   toStatus: string;
   reason?: string;
   createdAt: string;
+};
+
+type CommandPayload = {
+  message?: string;
+  broadcastAddress?: string;
 };
 
 function isCommandLite(value: unknown): value is CommandLite {
@@ -179,6 +185,7 @@ export default function PCMonitoringPage() {
   const [commandTarget, setCommandTarget] = useState<string>("");
   const [commandType, setCommandType] = useState("");
   const [commandPayload, setCommandPayload] = useState("");
+  const [commandBroadcastAddress, setCommandBroadcastAddress] = useState("");
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [analytics, setAnalytics] = useState<PCAnalytics | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -260,13 +267,20 @@ export default function PCMonitoringPage() {
     setCommandTarget(pcId);
     setCommandType("");
     setCommandPayload("");
+    setCommandBroadcastAddress("");
     setShowCommandModal(true);
   }
 
   async function confirmCommand() {
     if (!commandTarget || !commandType) return;
     try {
-      const payload = commandPayload ? { message: commandPayload } : undefined;
+      const payload: CommandPayload = {};
+      if (commandType === "MESSAGE" && commandPayload.trim()) {
+        payload.message = commandPayload.trim();
+      }
+      if (commandType === "WAKE_ON_LAN" && commandBroadcastAddress.trim()) {
+        payload.broadcastAddress = commandBroadcastAddress.trim();
+      }
       await api.post(`/pcs/${commandTarget}/command`, { command: commandType, payload });
       setShowCommandModal(false);
       if (detailPC && detailPC.id === commandTarget) {
@@ -900,8 +914,11 @@ export default function PCMonitoringPage() {
                       }`}
                     >
                       <cmd.icon className={`w-4 h-4 ${commandType === cmd.value ? "text-white" : cmd.color}`} />
-                      {cmd.label}
-                    </button>
+                    {cmd.label}
+                    {cmd.value === "WAKE_ON_LAN" && (
+                      <span className="sr-only">opsi broadcast address tersedia setelah dipilih</span>
+                    )}
+                  </button>
                   ))}
                 </div>
               </div>
@@ -915,6 +932,23 @@ export default function PCMonitoringPage() {
                     placeholder="Tulis pesan untuk PC..."
                     className="neo-input w-full mt-1"
                   />
+                </div>
+              )}
+              {commandType === "WAKE_ON_LAN" && (
+                <div className="rounded-2xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-3 shadow-[2px_2px_0px_rgba(26,26,26,0.16)]">
+                  <label className="flex items-center gap-2 text-sm font-black text-[#1a1a1a]">
+                    <TbNetwork className="h-4 w-4 text-[#4b607f]" /> Broadcast Address
+                  </label>
+                  <input
+                    type="text"
+                    value={commandBroadcastAddress}
+                    onChange={(e) => setCommandBroadcastAddress(e.target.value)}
+                    placeholder="Kosongkan untuk auto: 255.255.255.255 + subnet server"
+                    className="neo-input mt-2 w-full min-h-[44px] bg-white text-sm"
+                  />
+                  <p className="mt-2 text-xs leading-relaxed text-[#5a5a5a]">
+                    Kalau WoL belum nyala, isi broadcast subnet lab, contoh <strong>192.168.1.255</strong>. Backend juga otomatis kirim ke port 9 dan 7.
+                  </p>
                 </div>
               )}
               <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 justify-end bg-white/95 px-4 pb-4 pt-2 backdrop-blur-sm sm:static sm:mx-0 sm:flex-row sm:bg-transparent sm:p-0 sm:backdrop-blur-none">

@@ -2,6 +2,7 @@ import prisma from "../config/database";
 import type { PCStatus, PCCommandType, CommandStatus } from "@prisma/client";
 import crypto from "crypto";
 import dgram from "dgram";
+import os from "os";
 
 const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
 
@@ -9,7 +10,30 @@ const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
  * Send Wake-on-LAN magic packet to a MAC address.
  * Magic packet = 6x 0xFF + 16x MAC address bytes, sent as UDP broadcast on port 9.
  */
-function sendWolPacket(macAddress: string, broadcastAddr = "255.255.255.255"): Promise<void> {
+function getLocalBroadcastAddresses() {
+  const addresses = new Set<string>(["255.255.255.255"]);
+
+  for (const interfaces of Object.values(os.networkInterfaces())) {
+    for (const iface of interfaces || []) {
+      if (iface.family !== "IPv4" || iface.internal || !iface.address || !iface.netmask) {
+        continue;
+      }
+
+      const ip = iface.address.split(".").map((part) => Number(part));
+      const mask = iface.netmask.split(".").map((part) => Number(part));
+      if (ip.length !== 4 || mask.length !== 4 || ip.some(Number.isNaN) || mask.some(Number.isNaN)) {
+        continue;
+      }
+
+      const broadcast = ip.map((octet, index) => (octet | (~mask[index] & 255))).join(".");
+      addresses.add(broadcast);
+    }
+  }
+
+  return [...addresses];
+}
+
+function sendWolPacketToAddress(macAddress: string, broadcastAddr: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     // Parse MAC: accept AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF
     const macBytes = macAddress
@@ -37,13 +61,37 @@ function sendWolPacket(macAddress: string, broadcastAddr = "255.255.255.255"): P
 
     socket.bind(() => {
       socket.setBroadcast(true);
-      socket.send(magicPacket, 0, magicPacket.length, 9, broadcastAddr, (err) => {
+      socket.send(magicPacket, 0, magicPacket.length, port, broadcastAddr, (err) => {
         socket.close();
         if (err) reject(err);
         else resolve();
       });
     });
   });
+}
+
+async function sendWolPackets(macAddress: string, broadcastAddrs?: string[]) {
+  const targets = broadcastAddrs?.length ? broadcastAddrs : getLocalBroadcastAddresses();
+  const uniqueTargets = [...new Set(targets.filter((target): target is string => typeof target === "string").map((target) => target.trim()).filter(Boolean))];
+  const sentTargets: string[] = [];
+  const errors: string[] = [];
+
+  for (const target of uniqueTargets) {
+    for (const port of [9, 7]) {
+      try {
+        await sendWolPacketToAddress(macAddress, target, port);
+        sentTargets.push(`${target}:${port}`);
+      } catch (error) {
+        errors.push(`${target}:${port} ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  if (sentTargets.length === 0) {
+    throw new Error(`Gagal mengirim magic packet. ${errors.join("; ")}`);
+  }
+
+  return sentTargets;
 }
 
 export class PCService {
@@ -346,18 +394,22 @@ export class PCService {
       if (!pc.macAddress) {
         throw new Error("MAC address belum diset untuk PC ini. WoL tidak bisa dilakukan.");
       }
-      const broadcastAddr = payload?.broadcastAddress || "255.255.255.255";
-      await sendWolPacket(pc.macAddress, broadcastAddr);
+      const broadcastAddrs = Array.isArray(payload?.broadcastAddresses)
+        ? payload.broadcastAddresses
+        : payload?.broadcastAddress
+          ? [payload.broadcastAddress]
+          : undefined;
+      const sentTargets = await sendWolPackets(pc.macAddress, broadcastAddrs);
 
       return prisma.pCCommand.create({
         data: {
           pcId,
           command,
           status: "EXECUTED",
-          payload: payload || undefined,
+          payload: { ...(payload || {}), sentTargets },
           issuedBy,
           executedAt: new Date(),
-          result: `Magic packet sent to ${pc.macAddress} via ${broadcastAddr}`,
+          result: `Magic packet sent to ${pc.macAddress} via ${sentTargets.join(", ")}`,
         },
       });
     }
@@ -404,21 +456,25 @@ export class PCService {
     }
 
     if (command === "WAKE_ON_LAN") {
-      const broadcastAddr = payload?.broadcastAddress || "255.255.255.255";
+      const broadcastAddrs = Array.isArray(payload?.broadcastAddresses)
+        ? payload.broadcastAddresses
+        : payload?.broadcastAddress
+          ? [payload.broadcastAddress]
+          : undefined;
       const wolPromises = validPCs.map((pc) =>
-        sendWolPacket(pc.macAddress!, broadcastAddr).catch(() => null)
+        sendWolPackets(pc.macAddress!, broadcastAddrs).catch(() => null)
       );
-      await Promise.all(wolPromises);
+      const wolResults = await Promise.all(wolPromises);
 
       await prisma.pCCommand.createMany({
-        data: validPCs.map((pc) => ({
+        data: validPCs.map((pc, index) => ({
           pcId: pc.id,
           command,
           status: "EXECUTED" as CommandStatus,
-          payload: payload || undefined,
+          payload: { ...(payload || {}), sentTargets: wolResults[index] || [] },
           issuedBy,
           executedAt: new Date(),
-          result: `Magic packet sent to ${pc.macAddress}`,
+          result: `Magic packet sent to ${pc.macAddress} via ${(wolResults[index] || []).join(", ")}`,
         })),
       });
 
