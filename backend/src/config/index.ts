@@ -28,6 +28,8 @@ export const config = {
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/v1/calendar/callback",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
+  wolHostCommand: process.env.WOL_HOST_COMMAND || "",
+  wolDefaultBroadcast: process.env.WOL_DEFAULT_BROADCAST || "",
 };
 
 export function validateConfig(): void {

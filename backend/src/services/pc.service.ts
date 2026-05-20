@@ -3,6 +3,8 @@ import type { PCStatus, PCCommandType, CommandStatus } from "@prisma/client";
 import crypto from "crypto";
 import dgram from "dgram";
 import os from "os";
+import { execFile } from "child_process";
+import { config } from "../config";
 
 const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
 
@@ -71,10 +73,18 @@ function sendWolPacketToAddress(macAddress: string, broadcastAddr: string, port:
 }
 
 async function sendWolPackets(macAddress: string, broadcastAddrs?: string[]) {
-  const targets = broadcastAddrs?.length ? broadcastAddrs : getLocalBroadcastAddresses();
+  const targets = broadcastAddrs?.length
+    ? broadcastAddrs
+    : config.wolDefaultBroadcast
+      ? [config.wolDefaultBroadcast]
+      : getLocalBroadcastAddresses();
   const uniqueTargets = [...new Set(targets.filter((target): target is string => typeof target === "string").map((target) => target.trim()).filter(Boolean))];
   const sentTargets: string[] = [];
   const errors: string[] = [];
+
+  if (config.wolHostCommand) {
+    return sendWolViaHostCommand(macAddress, uniqueTargets);
+  }
 
   for (const target of uniqueTargets) {
     for (const port of [9, 7]) {
@@ -92,6 +102,33 @@ async function sendWolPackets(macAddress: string, broadcastAddrs?: string[]) {
   }
 
   return sentTargets;
+}
+
+function sendWolViaHostCommand(macAddress: string, broadcastAddrs: string[]) {
+  const broadcasts = broadcastAddrs.length
+    ? broadcastAddrs
+    : [config.wolDefaultBroadcast || "192.168.100.255"];
+  const sentTargets: string[] = [];
+  const errors: string[] = [];
+
+  return broadcasts.reduce<Promise<void>>(async (chain, broadcastAddr) => {
+    await chain;
+    await new Promise<void>((resolve, reject) => {
+      const args = [macAddress, broadcastAddr];
+      execFile(config.wolHostCommand, args, { timeout: 10_000 }, (error, stdout, stderr) => {
+        if (error) {
+          errors.push(`${broadcastAddr} ${stderr || stdout || error.message}`.trim());
+          reject(error);
+          return;
+        }
+        sentTargets.push(`${broadcastAddr} host-command`);
+        resolve();
+      });
+    });
+  }, Promise.resolve()).then(() => sentTargets).catch(() => {
+    if (sentTargets.length > 0) return sentTargets;
+    throw new Error(`Gagal mengirim WoL via host command. ${errors.join("; ")}`);
+  });
 }
 
 export class PCService {
