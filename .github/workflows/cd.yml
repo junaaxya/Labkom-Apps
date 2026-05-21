@@ -89,11 +89,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Preflight GitHub/GHCR connectivity (IPv4)
+      - name: Preflight registry connectivity
         run: |
           set -euo pipefail
-          curl -4 --connect-timeout 10 --max-time 30 -I https://github.com
-          curl -4 --connect-timeout 10 --max-time 30 -I https://ghcr.io/v2/
+          for attempt in 1 2 3; do
+            if curl --connect-timeout 10 --max-time 30 -I https://ghcr.io/v2/; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "[FAIL] ghcr.io preflight failed after $attempt attempts"
+              exit 1
+            fi
+            echo "[WARN] ghcr.io preflight failed on attempt $attempt, retrying in 5s"
+            sleep 5
+          done
+
+          if ! curl --connect-timeout 10 --max-time 30 -I https://github.com; then
+            echo "[WARN] github.com preflight failed, continuing because GHCR is the critical dependency for deploy"
+          fi
 
       - name: Login to GHCR
         uses: docker/login-action@v3
