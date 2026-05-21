@@ -96,13 +96,54 @@ docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" run --rm backe
 echo "[INFO] Updating backend/frontend services" | tee -a "$history_file"
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend | tee -a "$history_file"
 
+restart_proxy_if_needed() {
+  local attempts="${PROXY_RESTART_ATTEMPTS:-1}"
+  local proxy_name="${PROXY_CONTAINER_NAME:-monitor-nginx}"
+
+  if ! docker ps --format '{{.Names}}' | grep -Fxq "$proxy_name"; then
+    echo "[WARN] Proxy container not running or not found: $proxy_name" | tee -a "$history_file"
+    return 1
+  fi
+
+  for ((attempt=1; attempt<=attempts; attempt++)); do
+    echo "[INFO] Restarting proxy container ($attempt/$attempts): $proxy_name" | tee -a "$history_file"
+    if docker restart "$proxy_name" | tee -a "$history_file"; then
+      echo "[INFO] Waiting for proxy to settle" | tee -a "$history_file"
+      sleep "${PROXY_RESTART_SLEEP:-5}"
+      return 0
+    fi
+  done
+
+  echo "[WARN] Unable to restart proxy container: $proxy_name" | tee -a "$history_file"
+  return 1
+}
+
+run_verify() {
+  set +e
+  "$VERIFY_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "$INTERNAL_FRONTEND_URL" "$INTERNAL_BACKEND_URL" | tee -a "$history_file"
+  local verify_exit=${PIPESTATUS[0]}
+  set -e
+  return "$verify_exit"
+}
+
 echo "[INFO] Waiting for services to settle" | tee -a "$history_file"
 sleep 5
 
-set +e
-"$VERIFY_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "$INTERNAL_FRONTEND_URL" "$INTERNAL_BACKEND_URL" | tee -a "$history_file"
-verify_exit=${PIPESTATUS[0]}
-set -e
+if ! run_verify; then
+  echo "[WARN] Initial verification failed for $IMAGE_TAG" | tee -a "$history_file"
+
+  if restart_proxy_if_needed; then
+    if run_verify; then
+      echo "[INFO] Verification passed after proxy restart" | tee -a "$history_file"
+    else
+      verify_exit=1
+    fi
+  else
+    verify_exit=1
+  fi
+else
+  verify_exit=0
+fi
 
 if (( verify_exit != 0 )); then
   echo "[FAIL] Verification failed for $IMAGE_TAG" | tee -a "$history_file"

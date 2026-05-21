@@ -33,8 +33,21 @@ IMAGE_NAMESPACE=$IMAGE_NAMESPACE
 IMAGE_TAG=$IMAGE_TAG
 EOF
 
+pull_previous_images_if_needed() {
+  local backend_ref="$IMAGE_NAMESPACE/backend:$IMAGE_TAG"
+  local frontend_ref="$IMAGE_NAMESPACE/frontend:$IMAGE_TAG"
+
+  if docker image inspect "$backend_ref" >/dev/null 2>&1 && docker image inspect "$frontend_ref" >/dev/null 2>&1; then
+    echo "[INFO] Previous images already available locally; skipping registry pull"
+    return 0
+  fi
+
+  echo "[INFO] Pulling previous images from registry"
+  docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" pull backend frontend
+}
+
 echo "[INFO] Rolling back to $IMAGE_NAMESPACE:$IMAGE_TAG"
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" pull backend frontend
+pull_previous_images_if_needed
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend
 sleep 5
 "$VERIFY_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "$INTERNAL_FRONTEND_URL" "$INTERNAL_BACKEND_URL"
