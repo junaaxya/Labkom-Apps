@@ -12,8 +12,18 @@ const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
  * Send Wake-on-LAN magic packet to a MAC address.
  * Magic packet = 6x 0xFF + 16x MAC address bytes, sent as UDP broadcast on port 9.
  */
+function getSubnetBroadcastFromIp(ipAddress?: string | null) {
+  if (!ipAddress) return undefined;
+  const parts = ipAddress.split(".").map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+    return undefined;
+  }
+
+  return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
+}
+
 function getLocalBroadcastAddresses() {
-  const addresses = new Set<string>(["255.255.255.255"]);
+  const addresses = new Set<string>();
 
   for (const interfaces of Object.values(os.networkInterfaces())) {
     for (const iface of interfaces || []) {
@@ -32,7 +42,7 @@ function getLocalBroadcastAddresses() {
     }
   }
 
-  return [...addresses];
+  return [...addresses, "255.255.255.255"];
 }
 
 function sendWolPacketToAddress(macAddress: string, broadcastAddr: string, port: number): Promise<void> {
@@ -72,12 +82,11 @@ function sendWolPacketToAddress(macAddress: string, broadcastAddr: string, port:
   });
 }
 
-async function sendWolPackets(macAddress: string, broadcastAddrs?: string[]) {
+async function sendWolPackets(macAddress: string, broadcastAddrs?: string[], pcIpAddress?: string | null) {
+  const pcDerivedBroadcast = getSubnetBroadcastFromIp(pcIpAddress);
   const targets = broadcastAddrs?.length
     ? broadcastAddrs
-    : config.wolDefaultBroadcast
-      ? [config.wolDefaultBroadcast]
-      : getLocalBroadcastAddresses();
+    : [config.wolDefaultBroadcast, pcDerivedBroadcast, ...getLocalBroadcastAddresses()];
   const uniqueTargets = [...new Set(targets.filter((target): target is string => typeof target === "string").map((target) => target.trim()).filter(Boolean))];
   const sentTargets: string[] = [];
   const errors: string[] = [];
@@ -121,7 +130,7 @@ function sendWolViaHostCommand(macAddress: string, broadcastAddrs: string[]) {
           reject(error);
           return;
         }
-        sentTargets.push(`${broadcastAddr} host-command`);
+        sentTargets.push(`${broadcastAddr}:9 host-command`, `${broadcastAddr}:7 host-command`);
         resolve();
       });
     });
@@ -436,7 +445,7 @@ export class PCService {
         : payload?.broadcastAddress
           ? [payload.broadcastAddress]
           : undefined;
-      const sentTargets = await sendWolPackets(pc.macAddress, broadcastAddrs);
+      const sentTargets = await sendWolPackets(pc.macAddress, broadcastAddrs, pc.ipAddress);
 
       return prisma.pCCommand.create({
         data: {
@@ -476,7 +485,7 @@ export class PCService {
 
     const pcs = await prisma.pC.findMany({
       where: { id: { in: pcIds } },
-      select: { id: true, isOnline: true, macAddress: true },
+      select: { id: true, isOnline: true, macAddress: true, ipAddress: true },
     });
 
     if (pcs.length === 0) throw new Error("Tidak ada PC yang ditemukan");
@@ -499,7 +508,7 @@ export class PCService {
           ? [payload.broadcastAddress]
           : undefined;
       const wolPromises = validPCs.map((pc) =>
-        sendWolPackets(pc.macAddress!, broadcastAddrs).catch(() => null)
+        sendWolPackets(pc.macAddress!, broadcastAddrs, pc.ipAddress).catch(() => null)
       );
       const wolResults = await Promise.all(wolPromises);
 
