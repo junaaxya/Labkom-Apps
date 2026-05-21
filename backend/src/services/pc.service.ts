@@ -6,7 +6,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { config } from "../config";
 
-const AGENT_OFFLINE_AFTER_MS = 2 * 60 * 1000;
+const AGENT_OFFLINE_AFTER_MS = 90 * 1000;
 
 /**
  * Send Wake-on-LAN magic packet to a MAC address.

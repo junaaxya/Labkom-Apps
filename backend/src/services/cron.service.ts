@@ -153,8 +153,8 @@ async function checkPcAgentOffline() {
   const title = stalePCs.length === 1 ? "PC Agent Offline" : `${stalePCs.length} PC Agent Offline`;
   const message =
     stalePCs.length === 1
-      ? `${stalePCs[0].pcCode} (${stalePCs[0].name}) di ${stalePCs[0].lab.name} offline lebih dari 2 menit.`
-      : `${stalePCs.length} PC agent offline lebih dari 2 menit. Cek halaman PC Monitoring.`;
+      ? `${stalePCs[0].pcCode} (${stalePCs[0].name}) di ${stalePCs[0].lab.name} offline lebih dari 90 detik.`
+      : `${stalePCs.length} PC agent offline lebih dari 90 detik. Cek halaman PC Monitoring.`;
 
   await notificationService.createBulk({
     userIds,
