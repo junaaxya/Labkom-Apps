@@ -65,11 +65,30 @@ wait_for_image() {
   return 1
 }
 
+pull_images_with_retry() {
+  local retries="${PULL_RETRIES:-4}"
+  local sleep_seconds="${PULL_RETRY_SLEEP:-15}"
+
+  for ((i=1; i<=retries; i++)); do
+    echo "[INFO] Pull attempt ($i/$retries): $IMAGE_NAMESPACE/*:$IMAGE_TAG" | tee -a "$history_file"
+    if docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" pull backend frontend | tee -a "$history_file"; then
+      return 0
+    fi
+    if (( i < retries )); then
+      echo "[WARN] Pull failed — retrying in ${sleep_seconds}s" | tee -a "$history_file"
+      sleep "$sleep_seconds"
+    fi
+  done
+
+  echo "[FAIL] Unable to pull images after ${retries} attempts" | tee -a "$history_file"
+  return 1
+}
+
 wait_for_image backend
 wait_for_image frontend
 
 echo "[INFO] Pulling images: $IMAGE_NAMESPACE/*:$IMAGE_TAG" | tee -a "$history_file"
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" pull backend frontend | tee -a "$history_file"
+pull_images_with_retry
 
 echo "[INFO] Running prisma migrate deploy" | tee -a "$history_file"
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" run --rm backend sh -lc 'npx prisma migrate deploy' | tee -a "$history_file"
