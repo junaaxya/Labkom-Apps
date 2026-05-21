@@ -54,6 +54,7 @@ type CommandPayload = {
 };
 
 const DEFAULT_WOL_BROADCAST = "192.168.100.255";
+const AGENT_STALE_AFTER_MS = 90 * 1000;
 
 function isCommandLite(value: unknown): value is CommandLite {
   if (!value || typeof value !== "object") return false;
@@ -106,6 +107,16 @@ const COMMAND_OPTIONS = [
   { value: "LOCK", label: "Lock", icon: TbLock, color: "text-blue-600" },
   { value: "MESSAGE", label: "Kirim Pesan", icon: TbMessage, color: "text-teal-600" },
 ];
+
+function getDisplayAgentStatus(pc: { agentStatus: AgentStatus; lastSeen?: string | null }): AgentStatus {
+  if (pc.agentStatus !== "ONLINE") return pc.agentStatus;
+  if (!pc.lastSeen) return "OFFLINE";
+
+  const lastSeenTime = new Date(pc.lastSeen).getTime();
+  if (Number.isNaN(lastSeenTime)) return pc.agentStatus;
+
+  return Date.now() - lastSeenTime > AGENT_STALE_AFTER_MS ? "OFFLINE" : pc.agentStatus;
+}
 
 function formatRelativeTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "Tidak pernah";
@@ -207,7 +218,13 @@ export default function PCMonitoringPage() {
       if (filterLab) params.set("labId", filterLab);
       if (search) params.set("search", search);
       const res = await api.get<{ data: PC[] }>(`/pcs?${params.toString()}`);
-      setPCs(res.data || []);
+      const normalizedPCs = (res.data || []).map((pc) => {
+        const displayAgentStatus = getDisplayAgentStatus(pc);
+        return displayAgentStatus === pc.agentStatus
+          ? pc
+          : { ...pc, agentStatus: displayAgentStatus, isOnline: false };
+      });
+      setPCs(normalizedPCs);
     } catch {
       setPCs([]);
     } finally {
@@ -218,7 +235,18 @@ export default function PCMonitoringPage() {
   const fetchAnalytics = useCallback(async () => {
     try {
       const res = await api.get<{ data: PCAnalytics }>(`/pcs/analytics${filterLab ? `?labId=${filterLab}` : ""}`);
-      setAnalytics(res.data);
+      const currentPCs = await api.get<{ data: PC[] }>(`/pcs${filterLab ? `?labId=${filterLab}` : ""}`);
+      const displayCounts = currentPCs.data.reduce(
+        (acc, pc) => {
+          const status = getDisplayAgentStatus(pc);
+          if (status === "ONLINE") acc.onlineCount++;
+          if (status === "OFFLINE") acc.offlineCount++;
+          if (status === "UNKNOWN") acc.unknownCount++;
+          return acc;
+        },
+        { onlineCount: 0, offlineCount: 0, unknownCount: 0 }
+      );
+      setAnalytics({ ...res.data, ...displayCounts });
     } catch {}
   }, [filterLab]);
 
@@ -533,11 +561,14 @@ export default function PCMonitoringPage() {
                     </span>
                   }
                   subtitle={pc.lab?.name || "Belum ada lab"}
-                  badge={
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[pc.agentStatus]?.bg} ${AGENT_STATUS_CONFIG[pc.agentStatus]?.color}`}>
-                      {AGENT_STATUS_CONFIG[pc.agentStatus]?.label || pc.agentStatus}
-                    </span>
-                  }
+                  badge={(() => {
+                    const displayStatus = getDisplayAgentStatus(pc);
+                    return (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
+                        {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
+                      </span>
+                    );
+                  })()}
                   fields={[
                     {
                       label: "Health",
@@ -643,9 +674,14 @@ export default function PCMonitoringPage() {
                         <td className="p-3 text-[#1a1a1a]">{pc.name}</td>
                         <td className="p-3 text-[#5a5a5a]">{pc.lab?.name || "-"}</td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[pc.agentStatus]?.bg} ${AGENT_STATUS_CONFIG[pc.agentStatus]?.color}`}>
-                            {AGENT_STATUS_CONFIG[pc.agentStatus]?.label || pc.agentStatus}
-                          </span>
+                          {(() => {
+                            const displayStatus = getDisplayAgentStatus(pc);
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
+                                {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.bg} ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.color}`}>
@@ -709,9 +745,14 @@ export default function PCMonitoringPage() {
                     </h2>
                     <p className="mt-0.5 truncate text-xs font-bold text-[#5a5a5a]">{detailPC.name}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black ${AGENT_STATUS_CONFIG[detailPC.agentStatus]?.bg} ${AGENT_STATUS_CONFIG[detailPC.agentStatus]?.color}`}>
-                        {AGENT_STATUS_CONFIG[detailPC.agentStatus]?.label || detailPC.agentStatus}
-                      </span>
+                      {(() => {
+                        const displayStatus = getDisplayAgentStatus(detailPC);
+                        return (
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-black ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
+                            {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
+                          </span>
+                        );
+                      })()}
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black ${HEALTH_STATUS_CONFIG[detailPC.healthStatus]?.bg} ${HEALTH_STATUS_CONFIG[detailPC.healthStatus]?.color}`}>
                         {HEALTH_STATUS_CONFIG[detailPC.healthStatus]?.label || detailPC.healthStatus}
                       </span>
@@ -730,7 +771,7 @@ export default function PCMonitoringPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                   <InfoRow label="Lab" value={detailPC.lab?.name || "-"} />
                   <InfoRow label="Status" value={PC_STATUS_CONFIG[detailPC.status]?.label || detailPC.status} />
-                  <InfoRow label="Agent Status" value={AGENT_STATUS_CONFIG[detailPC.agentStatus]?.label || detailPC.agentStatus} />
+                  <InfoRow label="Agent Status" value={AGENT_STATUS_CONFIG[getDisplayAgentStatus(detailPC)]?.label || getDisplayAgentStatus(detailPC)} />
                   <InfoRow label="Health" value={HEALTH_STATUS_CONFIG[detailPC.healthStatus]?.label || detailPC.healthStatus} />
                   <InfoRow label="IP Address" value={detailPC.ipAddress || "-"} />
                   <InfoRow label="MAC" value={detailPC.macAddress || "-"} />
