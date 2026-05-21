@@ -53,6 +53,8 @@ type CommandPayload = {
   broadcastAddress?: string;
 };
 
+const DEFAULT_WOL_BROADCAST = "192.168.100.255";
+
 function isCommandLite(value: unknown): value is CommandLite {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -267,7 +269,7 @@ export default function PCMonitoringPage() {
     setCommandTarget(pcId);
     setCommandType("");
     setCommandPayload("");
-    setCommandBroadcastAddress("");
+    setCommandBroadcastAddress(DEFAULT_WOL_BROADCAST);
     setShowCommandModal(true);
   }
 
@@ -943,11 +945,11 @@ export default function PCMonitoringPage() {
                     type="text"
                     value={commandBroadcastAddress}
                     onChange={(e) => setCommandBroadcastAddress(e.target.value)}
-                    placeholder="Kosongkan untuk auto: 255.255.255.255 + subnet server"
+                    placeholder={DEFAULT_WOL_BROADCAST}
                     className="neo-input mt-2 w-full min-h-[44px] bg-white text-sm"
                   />
                   <p className="mt-2 text-xs leading-relaxed text-[#5a5a5a]">
-                    Kalau WoL belum nyala, isi broadcast subnet lab, contoh <strong>192.168.1.255</strong>. Backend juga otomatis kirim ke port 9 dan 7.
+                    Default subnet lab: <strong>{DEFAULT_WOL_BROADCAST}</strong>. Ubah hanya kalau PC berada di subnet lain. Backend juga otomatis kirim ke port 9 dan 7.
                   </p>
                 </div>
               )}
