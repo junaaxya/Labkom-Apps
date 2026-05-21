@@ -935,8 +935,8 @@ export default function PCMonitoringPage() {
       )}
 
       {showCommandModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4" onClick={() => setShowCommandModal(false)}>
-          <div className="mx-auto w-full max-w-[calc(100vw-1.5rem)] bg-white neo-card shadow-[0px_-6px_20px_rgba(0,0,0,0.16)] sm:shadow-[6px_6px_0px_#1a1a1a] rounded-3xl sm:rounded-xl p-4 sm:p-6 max-h-[calc(100dvh-6rem)] sm:max-h-[90vh] overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))] sm:max-w-md sm:pb-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-end sm:items-center justify-center p-3 sm:p-4" onClick={() => setShowCommandModal(false)}>
+          <div className="mx-auto mb-[calc(88px+env(safe-area-inset-bottom))] w-full max-w-[calc(100vw-1.5rem)] bg-white neo-card shadow-[0px_-6px_20px_rgba(0,0,0,0.16)] sm:mb-0 sm:shadow-[6px_6px_0px_#1a1a1a] rounded-3xl sm:rounded-xl p-4 sm:p-6 max-h-[calc(100dvh-8.5rem)] sm:max-h-[90vh] overflow-y-auto pb-4 sm:max-w-md sm:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#1a1a1a]/25 sm:hidden" />
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-heading font-bold">Kirim Command</h3>
@@ -994,7 +994,7 @@ export default function PCMonitoringPage() {
                   </p>
                 </div>
               )}
-              <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 justify-end bg-white/95 px-4 pb-4 pt-2 backdrop-blur-sm sm:static sm:mx-0 sm:flex-row sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+              <div className="flex flex-col-reverse gap-2 justify-end bg-white sm:flex-row">
                 <button onClick={() => setShowCommandModal(false)} className="neo-btn px-4 py-2 min-h-[48px]">Batal</button>
                 <button
                   onClick={confirmCommand}
