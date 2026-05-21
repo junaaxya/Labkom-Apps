@@ -96,12 +96,12 @@ async function sendWolViaRelay(macAddress: string, broadcastAddrs: string[]) {
     body: JSON.stringify({ macAddress, broadcastAddresses: broadcastAddrs }),
   });
 
-  const body = await response.json().catch(() => ({}));
+  const body = (await response.json().catch(() => ({}))) as { message?: string; sentTargets?: unknown[] };
   if (!response.ok) {
-    throw new Error(body?.message || `WOL relay gagal (HTTP ${response.status})`);
+    throw new Error(body.message || `WOL relay gagal (HTTP ${response.status})`);
   }
 
-  const sentTargets = Array.isArray(body?.sentTargets)
+  const sentTargets = Array.isArray(body.sentTargets)
     ? body.sentTargets.filter((target: unknown): target is string => typeof target === "string" && target.trim().length > 0)
     : [];
 
