@@ -29,6 +29,8 @@ export const config = {
   googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/v1/calendar/callback",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
   wolHostCommand: process.env.WOL_HOST_COMMAND || "",
+  wolRelayUrl: process.env.WOL_RELAY_URL || "",
+  wolRelayToken: process.env.WOL_RELAY_TOKEN || "",
   wolDefaultBroadcast: process.env.WOL_DEFAULT_BROADCAST || "",
 };
 

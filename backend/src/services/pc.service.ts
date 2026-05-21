@@ -82,6 +82,36 @@ function sendWolPacketToAddress(macAddress: string, broadcastAddr: string, port:
   });
 }
 
+async function sendWolViaRelay(macAddress: string, broadcastAddrs: string[]) {
+  if (!config.wolRelayUrl) {
+    throw new Error("WOL relay URL tidak dikonfigurasi");
+  }
+
+  const response = await fetch(config.wolRelayUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(config.wolRelayToken ? { Authorization: `Bearer ${config.wolRelayToken}` } : {}),
+    },
+    body: JSON.stringify({ macAddress, broadcastAddresses: broadcastAddrs }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body?.message || `WOL relay gagal (HTTP ${response.status})`);
+  }
+
+  const sentTargets = Array.isArray(body?.sentTargets)
+    ? body.sentTargets.filter((target: unknown): target is string => typeof target === "string" && target.trim().length > 0)
+    : [];
+
+  if (sentTargets.length === 0) {
+    throw new Error("WOL relay tidak mengembalikan target pengiriman");
+  }
+
+  return sentTargets;
+}
+
 async function sendWolPackets(macAddress: string, broadcastAddrs?: string[], pcIpAddress?: string | null) {
   const pcDerivedBroadcast = getSubnetBroadcastFromIp(pcIpAddress);
   const targets = broadcastAddrs?.length
@@ -90,6 +120,10 @@ async function sendWolPackets(macAddress: string, broadcastAddrs?: string[], pcI
   const uniqueTargets = [...new Set(targets.filter((target): target is string => typeof target === "string").map((target) => target.trim()).filter(Boolean))];
   const sentTargets: string[] = [];
   const errors: string[] = [];
+
+  if (config.wolRelayUrl) {
+    return sendWolViaRelay(macAddress, uniqueTargets);
+  }
 
   if (config.wolHostCommand) {
     return sendWolViaHostCommand(macAddress, uniqueTargets);
@@ -125,12 +159,30 @@ function sendWolViaHostCommand(macAddress: string, broadcastAddrs: string[]) {
     await new Promise<void>((resolve, reject) => {
       const args = [macAddress, broadcastAddr];
       execFile(config.wolHostCommand, args, { timeout: 10_000 }, (error, stdout, stderr) => {
+        const combinedOutput = `${stdout || ""}${stderr || ""}`.trim();
+
         if (error) {
-          errors.push(`${broadcastAddr} ${stderr || stdout || error.message}`.trim());
+          errors.push(`${broadcastAddr} ${combinedOutput || error.message}`.trim());
           reject(error);
           return;
         }
-        sentTargets.push(`${broadcastAddr}:9 host-command`, `${broadcastAddr}:7 host-command`);
+
+        const explicitTargets = combinedOutput
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const match = line.match(/^sent\s+.+?\s+to\s+([^:]+):(\d+)$/i);
+            if (!match) return `${broadcastAddr} host-command`; 
+            const [, host, port] = match;
+            return `${host}:${port} host-command`;
+          });
+
+        if (explicitTargets.length > 0) {
+          sentTargets.push(...explicitTargets);
+        } else {
+          sentTargets.push(`${broadcastAddr}:9 host-command`, `${broadcastAddr}:7 host-command`);
+        }
         resolve();
       });
     });
