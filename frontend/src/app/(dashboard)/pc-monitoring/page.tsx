@@ -314,8 +314,11 @@ export default function PCMonitoringPage() {
   }
 
   function openCommandModal(pcId: string) {
+    const targetPc = pcs.find((pc) => pc.id === pcId);
+    const isOffline = targetPc ? getDisplayAgentStatus(targetPc) !== "ONLINE" : false;
+
     setCommandTarget(pcId);
-    setCommandType("");
+    setCommandType(isOffline ? "WAKE_ON_LAN" : "");
     setCommandPayload("");
     setCommandBroadcastAddress(DEFAULT_WOL_BROADCAST);
     setShowCommandModal(true);
@@ -1099,21 +1102,28 @@ export default function PCMonitoringPage() {
               <div>
                 <label className="text-sm font-medium text-[#1a1a1a]">Pilih Command</label>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-2">
-                  {COMMAND_OPTIONS.map((cmd) => (
-                    <button
-                      key={cmd.value}
-                      onClick={() => setCommandType(cmd.value)}
-                      className={`neo-btn min-h-[48px] px-3 py-2 text-xs flex items-center justify-center gap-2 ${
-                        commandType === cmd.value ? "bg-[#4b607f] text-white" : ""
-                      }`}
-                    >
-                      <cmd.icon className={`w-4 h-4 ${commandType === cmd.value ? "text-white" : cmd.color}`} />
-                    {cmd.label}
-                    {cmd.value === "WAKE_ON_LAN" && (
-                      <span className="sr-only">opsi broadcast address tersedia setelah dipilih</span>
-                    )}
-                  </button>
-                  ))}
+                  {COMMAND_OPTIONS.map((cmd) => {
+                    const targetPc = pcs.find((pc) => pc.id === commandTarget);
+                    const isOffline = targetPc ? getDisplayAgentStatus(targetPc) !== "ONLINE" : false;
+                    const disabled = isOffline && cmd.value !== "WAKE_ON_LAN";
+
+                    return (
+                      <button
+                        key={cmd.value}
+                        onClick={() => !disabled && setCommandType(cmd.value)}
+                        disabled={disabled}
+                        className={`neo-btn min-h-[48px] px-3 py-2 text-xs flex items-center justify-center gap-2 ${
+                          commandType === cmd.value ? "bg-[#4b607f] text-white" : ""
+                        } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                      >
+                        <cmd.icon className={`w-4 h-4 ${commandType === cmd.value ? "text-white" : cmd.color}`} />
+                        {cmd.label}
+                        {cmd.value === "WAKE_ON_LAN" && (
+                          <span className="sr-only">opsi broadcast address tersedia setelah dipilih</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {commandType === "MESSAGE" && (
@@ -1152,7 +1162,7 @@ export default function PCMonitoringPage() {
                   disabled={!commandType}
                   className="neo-btn px-4 py-2 min-h-[48px] bg-[#f3701e] text-white font-bold disabled:opacity-50"
                 >
-                  <TbCheck className="w-4 h-4 inline mr-1" /> Konfirmasi
+                  <TbCheck className="w-4 h-4 inline mr-1" /> {commandType ? "Konfirmasi" : "Pilih command dulu"}
                 </button>
               </div>
             </div>
