@@ -53,6 +53,16 @@ type CommandPayload = {
   broadcastAddress?: string;
 };
 
+function errMsg(err: unknown, fallback: string) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null) {
+    const maybe = err as { message?: unknown; error?: unknown };
+    if (typeof maybe.message === "string") return maybe.message;
+    if (typeof maybe.error === "string") return maybe.error;
+  }
+  return fallback;
+}
+
 const DEFAULT_WOL_BROADCAST = "192.168.100.255";
 const AGENT_STALE_AFTER_MS = 90 * 1000;
 
@@ -186,6 +196,7 @@ function StatCard({ icon: Icon, value, label, iconBg }: { icon: React.ComponentT
 
 export default function PCMonitoringPage() {
   const [pcs, setPCs] = useState<PC[]>([]);
+  const [allLabs, setAllLabs] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAgentStatus, setFilterAgentStatus] = useState<string>("");
@@ -205,6 +216,7 @@ export default function PCMonitoringPage() {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -225,6 +237,14 @@ export default function PCMonitoringPage() {
           : { ...pc, agentStatus: displayAgentStatus, isOnline: false };
       });
       setPCs(normalizedPCs);
+      setAllLabs((prev) => {
+        const byId = new Map(prev.map((lab) => [lab.id, lab]));
+        normalizedPCs.forEach((pc) => {
+          if (pc.lab?.id && pc.lab.name) byId.set(pc.lab.id, { id: pc.lab.id, name: pc.lab.name });
+        });
+        return Array.from(byId.values());
+      });
+      setSelectedPCs((prev) => prev.filter((id) => normalizedPCs.some((pc) => pc.id === id)));
     } catch {
       setPCs([]);
     } finally {
@@ -340,14 +360,53 @@ export default function PCMonitoringPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const labs = allLabs.slice().sort((a, b) => {
+    const weight = (name: string) => name.toLowerCase().includes("dasar") ? 0 : name.toLowerCase().includes("multimedia") ? 1 : 2;
+    return weight(a.name) - weight(b.name) || a.name.localeCompare(b.name);
+  });
+  const selectedVisiblePCs = pcs.filter((pc) => selectedPCs.includes(pc.id));
+  const wakeEligibleSelectedPCs = selectedVisiblePCs.filter((pc) => Boolean(pc.macAddress));
+  const wakeIneligibleCount = selectedVisiblePCs.length - wakeEligibleSelectedPCs.length;
+
+  async function sendQuickCommand(pc: PC, action: string) {
+    setBulkFeedback(null);
+    try {
+      const payload = action === "WAKE_ON_LAN" ? { broadcastAddress: DEFAULT_WOL_BROADCAST } : undefined;
+      await api.post(`/pcs/${pc.id}/command`, { command: action, payload });
+      setBulkFeedback(`${action === "WAKE_ON_LAN" ? "Wake-on-LAN" : action} dikirim ke ${pc.pcCode}.`);
+      await fetchPCs();
+      await fetchAnalytics();
+    } catch (err) {
+      setBulkFeedback(errMsg(err, `Gagal mengirim command ke ${pc.pcCode}.`));
+    }
+  }
+
   async function bulkAction(action: string) {
-    if (selectedPCs.length === 0) return;
+    if (selectedVisiblePCs.length === 0) return;
+    setBulkFeedback(null);
     if (action === "status") {
       setShowBulkModal(true);
-    } else {
-      await api.post("/pcs/bulk-command", { pcIds: selectedPCs, command: action });
+    } else if (action === "WAKE_ON_LAN") {
+      if (wakeEligibleSelectedPCs.length === 0) {
+        setBulkFeedback("Tidak ada PC terpilih yang punya MAC address untuk Wake-on-LAN.");
+        return;
+      }
+      await api.post("/pcs/bulk-command", {
+        pcIds: wakeEligibleSelectedPCs.map((pc) => pc.id),
+        command: action,
+        payload: { broadcastAddress: DEFAULT_WOL_BROADCAST },
+      });
+      setBulkFeedback(
+        `Wake-on-LAN dikirim ke ${wakeEligibleSelectedPCs.length} PC${wakeIneligibleCount > 0 ? `; ${wakeIneligibleCount} PC dilewati karena belum ada MAC.` : "."}`
+      );
       setSelectedPCs([]);
-      fetchPCs();
+      await fetchPCs();
+      await fetchAnalytics();
+    } else {
+      await api.post("/pcs/bulk-command", { pcIds: selectedVisiblePCs.map((pc) => pc.id), command: action });
+      setSelectedPCs([]);
+      await fetchPCs();
+      await fetchAnalytics();
     }
   }
 
@@ -372,8 +431,6 @@ export default function PCMonitoringPage() {
       setSelectedPCs(pcs.map((pc) => pc.id));
     }
   }
-
-  const labs = [...new Set(pcs.map((pc) => JSON.stringify(pc.lab)))].map((l) => JSON.parse(l));
   const activeFilterCount = [filterAgentStatus, filterHealthStatus, filterLab].filter(Boolean).length + (search ? 1 : 0);
 
   return (
@@ -440,6 +497,43 @@ export default function PCMonitoringPage() {
         </div>
       )}
 
+      <section className="neo-card p-3 sm:p-4 bg-white">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Area Lab</p>
+            <h2 className="font-heading text-lg font-bold text-[#1a1a1a]">Pisahkan monitoring per lab</h2>
+          </div>
+          <span className="rounded-full bg-[#f5ede6] px-3 py-1 text-xs font-black text-[#4b607f]">{pcs.length} PC tampil</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              setFilterLab("");
+              setSelectedPCs([]);
+              setBulkFeedback(null);
+            }}
+            className={`neo-btn min-h-[48px] px-3 py-2 text-sm ${!filterLab ? "bg-[#4b607f] text-white" : "bg-[#f5ede6] text-[#1a1a1a]"}`}
+          >
+            Semua Lab
+          </button>
+          {labs.map((lab) => (
+            <button
+              key={lab.id}
+              type="button"
+              onClick={() => {
+                setFilterLab(lab.id);
+                setSelectedPCs([]);
+                setBulkFeedback(null);
+              }}
+              className={`neo-btn min-h-[48px] px-3 py-2 text-sm ${filterLab === lab.id ? "bg-[#4b607f] text-white" : "bg-[#f5ede6] text-[#1a1a1a]"}`}
+            >
+              {lab.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <div className="neo-card p-2.5 sm:p-4 sticky top-[64px] z-20 bg-[#f5ede6]/95 backdrop-blur-md md:static md:bg-white md:backdrop-blur-none">
         <div className="mb-2 flex items-center justify-between md:hidden">
           <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#1a1a1a]">
@@ -495,15 +589,26 @@ export default function PCMonitoringPage() {
         </div>
       </div>
 
-      {selectedPCs.length > 0 && (
-        <div className="neo-card p-3 sm:p-4 bg-[#f5ede6] flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-          <span className="text-sm font-black text-[#1a1a1a]">{selectedPCs.length} PC dipilih</span>
+      {bulkFeedback && (
+        <div className="neo-card border-[#f3701e] bg-[#fff7ed] p-3 text-sm font-bold text-[#1a1a1a]">
+          {bulkFeedback}
+        </div>
+      )}
+
+      {selectedVisiblePCs.length > 0 && (
+        <div className="neo-card sticky bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 p-3 sm:p-4 bg-[#f5ede6] flex flex-col gap-3 sm:static sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+          <div>
+            <span className="text-sm font-black text-[#1a1a1a]">{selectedVisiblePCs.length} PC dipilih</span>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#5a5a5a]">
+              {wakeEligibleSelectedPCs.length} siap Wake-on-LAN{wakeIneligibleCount > 0 ? `, ${wakeIneligibleCount} tanpa MAC` : ""}
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <button onClick={() => bulkAction("SHUTDOWN")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-red-100 text-red-700">Shutdown</button>
-            <button onClick={() => bulkAction("RESTART")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-orange-100 text-orange-700">Restart</button>
-            <button onClick={() => bulkAction("LOCK")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-blue-100 text-blue-700">Lock</button>
-            <button onClick={() => bulkAction("status")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-[#4b607f] text-white">Ubah Status</button>
-            <button onClick={() => setSelectedPCs([])} className="neo-btn min-h-[44px] px-3 py-2 text-xs col-span-2 sm:col-span-1">Batal</button>
+            <button onClick={() => bulkAction("SHUTDOWN")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-red-100 text-red-700">Shutdown Selected</button>
+            <button onClick={() => bulkAction("WAKE_ON_LAN")} disabled={wakeEligibleSelectedPCs.length === 0} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-green-600 text-white disabled:opacity-50">Wake Selected</button>
+            <button onClick={() => bulkAction("RESTART")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-orange-100 text-orange-700">Restart Selected</button>
+            <button onClick={() => setSelectedPCs([])} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-white text-[#1a1a1a]">Clear Selection</button>
+            <button onClick={() => bulkAction("status")} className="neo-btn col-span-2 min-h-[44px] px-3 py-2 text-xs bg-[#4b607f] text-white sm:col-span-1">Ubah Status</button>
           </div>
         </div>
       )}
@@ -539,7 +644,12 @@ export default function PCMonitoringPage() {
                 <p className="mt-1 text-sm">Coba ubah kata kunci, status agent, health, atau filter lab.</p>
               </div>
             ) : (
-              pcs.map((pc) => (
+              pcs.map((pc) => {
+                const selected = selectedPCs.includes(pc.id);
+                const displayStatus = getDisplayAgentStatus(pc);
+                const canWake = Boolean(pc.macAddress);
+                const canAgentCommand = displayStatus === "ONLINE";
+                return (
                 <MobileCard
                   key={pc.id}
                   title={
@@ -561,15 +671,16 @@ export default function PCMonitoringPage() {
                     </span>
                   }
                   subtitle={pc.lab?.name || "Belum ada lab"}
-                  badge={(() => {
-                    const displayStatus = getDisplayAgentStatus(pc);
-                    return (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
-                        {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
-                      </span>
-                    );
-                  })()}
+                  badge={(
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
+                      {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
+                    </span>
+                  )}
                   fields={[
+                    {
+                      label: "Lab",
+                      value: pc.lab?.name || "Belum ada lab",
+                    },
                     {
                       label: "Health",
                       value: (
@@ -595,6 +706,10 @@ export default function PCMonitoringPage() {
                       value: <span className="font-mono text-xs">{pc.ipAddress || "-"}</span>,
                     },
                     {
+                      label: "MAC",
+                      value: <span className="font-mono text-xs">{pc.macAddress || "Belum ada"}</span>,
+                    },
+                    {
                       label: "Last Seen",
                       value: formatRelativeTime(pc.lastSeen),
                     },
@@ -607,15 +722,31 @@ export default function PCMonitoringPage() {
                       variant: "secondary",
                     },
                     {
-                      label: "Command",
+                      label: "Wake",
+                      icon: <TbPlayerPlay className="w-4 h-4" />,
+                      onClick: () => sendQuickCommand(pc, "WAKE_ON_LAN"),
+                      variant: "success",
+                      disabled: !canWake,
+                    },
+                    {
+                      label: "Restart",
+                      icon: <TbRefresh className="w-4 h-4" />,
+                      onClick: () => sendQuickCommand(pc, "RESTART"),
+                      variant: "warning",
+                      disabled: !canAgentCommand,
+                    },
+                    {
+                      label: "Shutdown",
                       icon: <TbPower className="w-4 h-4" />,
-                      onClick: () => openCommandModal(pc.id),
-                      variant: "primary",
+                      onClick: () => sendQuickCommand(pc, "SHUTDOWN"),
+                      variant: "danger",
+                      disabled: !canAgentCommand,
                     },
                   ]}
-                  className="p-4 shadow-[3px_3px_0px_rgba(26,26,26,0.18)] active:scale-[0.99]"
+                  className={`p-4 shadow-[3px_3px_0px_rgba(26,26,26,0.18)] active:scale-[0.99] ${selected ? "ring-4 ring-[#f3701e] bg-[#fff7ed]" : ""}`}
                 />
-              ))
+                );
+              })
             )}
           </div>
         }
@@ -642,6 +773,7 @@ export default function PCMonitoringPage() {
                     <th className="p-3 text-left font-bold text-[#1a1a1a]">RAM</th>
                     <th className="p-3 text-left font-bold text-[#1a1a1a]">Storage</th>
                     <th className="p-3 text-left font-bold text-[#1a1a1a]">IP</th>
+                    <th className="p-3 text-left font-bold text-[#1a1a1a]">MAC</th>
                     <th className="p-3 text-left font-bold text-[#1a1a1a]">Last Seen</th>
                     <th className="p-3 text-left font-bold text-[#1a1a1a]">Aksi</th>
                   </tr>
@@ -649,19 +781,24 @@ export default function PCMonitoringPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={12} className="p-8 text-center">
+                      <td colSpan={13} className="p-8 text-center">
                         <TbLoader2 className="w-6 h-6 animate-spin mx-auto text-[#4b607f]" />
                       </td>
                     </tr>
                   ) : pcs.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="p-8 text-center text-[#5a5a5a]">
+                      <td colSpan={13} className="p-8 text-center text-[#5a5a5a]">
                         Tidak ada PC ditemukan
                       </td>
                     </tr>
                   ) : (
-                    pcs.map((pc) => (
-                      <tr key={pc.id} className="border-b border-gray-200 hover:bg-[#f5ede6]/50 transition-colors">
+                    pcs.map((pc) => {
+                      const selected = selectedPCs.includes(pc.id);
+                      const displayStatus = getDisplayAgentStatus(pc);
+                      const canWake = Boolean(pc.macAddress);
+                      const canAgentCommand = displayStatus === "ONLINE";
+                      return (
+                      <tr key={pc.id} className={`border-b border-gray-200 transition-colors ${selected ? "bg-[#fff7ed]" : "hover:bg-[#f5ede6]/50"}`}>
                         <td className="p-3">
                           <input
                             type="checkbox"
@@ -674,14 +811,9 @@ export default function PCMonitoringPage() {
                         <td className="p-3 text-[#1a1a1a]">{pc.name}</td>
                         <td className="p-3 text-[#5a5a5a]">{pc.lab?.name || "-"}</td>
                         <td className="p-3">
-                          {(() => {
-                            const displayStatus = getDisplayAgentStatus(pc);
-                            return (
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
-                                {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
-                              </span>
-                            );
-                          })()}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${AGENT_STATUS_CONFIG[displayStatus]?.bg} ${AGENT_STATUS_CONFIG[displayStatus]?.color}`}>
+                            {AGENT_STATUS_CONFIG[displayStatus]?.label || displayStatus}
+                          </span>
                         </td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.bg} ${HEALTH_STATUS_CONFIG[pc.healthStatus]?.color}`}>
@@ -698,9 +830,10 @@ export default function PCMonitoringPage() {
                           <MiniBar value={pc.storageUsage} />
                         </td>
                         <td className="p-3 font-mono text-xs text-[#5a5a5a]">{pc.ipAddress || "-"}</td>
+                        <td className="p-3 font-mono text-xs text-[#5a5a5a]">{pc.macAddress || "-"}</td>
                         <td className="p-3 text-xs text-[#5a5a5a]">{formatRelativeTime(pc.lastSeen)}</td>
                         <td className="p-3">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => openDetail(pc.id)}
                               className="neo-btn px-2 py-1 text-xs"
@@ -709,16 +842,34 @@ export default function PCMonitoringPage() {
                               <TbChevronRight className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => openCommandModal(pc.id)}
-                              className="neo-btn px-2 py-1 text-xs bg-[#4b607f] text-white"
-                              title="Command"
+                              onClick={() => sendQuickCommand(pc, "WAKE_ON_LAN")}
+                              disabled={!canWake}
+                              className="neo-btn px-2 py-1 text-xs bg-green-600 text-white disabled:opacity-50"
+                              title="Wake"
+                            >
+                              <TbPlayerPlay className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => sendQuickCommand(pc, "RESTART")}
+                              disabled={!canAgentCommand}
+                              className="neo-btn px-2 py-1 text-xs bg-orange-100 text-orange-700 disabled:opacity-50"
+                              title="Restart"
+                            >
+                              <TbRefresh className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => sendQuickCommand(pc, "SHUTDOWN")}
+                              disabled={!canAgentCommand}
+                              className="neo-btn px-2 py-1 text-xs bg-red-100 text-red-700 disabled:opacity-50"
+                              title="Shutdown"
                             >
                               <TbPower className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
