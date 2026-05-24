@@ -833,10 +833,10 @@ export default function PCMonitoringPage() {
                         <td className="p-3 font-mono text-xs text-[#5a5a5a]">{pc.macAddress || "-"}</td>
                         <td className="p-3 text-xs text-[#5a5a5a]">{formatRelativeTime(pc.lastSeen)}</td>
                         <td className="p-3">
-                          <div className="flex items-center gap-1.5">
+                          <div className="grid grid-cols-2 gap-1.5 min-w-[88px]">
                             <button
                               onClick={() => openDetail(pc.id)}
-                              className="neo-btn px-2 py-1 text-xs"
+                              className="neo-btn p-1.5 text-xs flex items-center justify-center"
                               title="Detail"
                             >
                               <TbChevronRight className="w-4 h-4" />
@@ -844,7 +844,7 @@ export default function PCMonitoringPage() {
                             <button
                               onClick={() => sendQuickCommand(pc, "WAKE_ON_LAN")}
                               disabled={!canWake}
-                              className="neo-btn px-2 py-1 text-xs bg-green-600 text-white disabled:opacity-50"
+                              className="neo-btn p-1.5 text-xs bg-green-600 text-white disabled:opacity-50 flex items-center justify-center"
                               title="Wake"
                             >
                               <TbPlayerPlay className="w-4 h-4" />
@@ -852,7 +852,7 @@ export default function PCMonitoringPage() {
                             <button
                               onClick={() => sendQuickCommand(pc, "RESTART")}
                               disabled={!canAgentCommand}
-                              className="neo-btn px-2 py-1 text-xs bg-orange-100 text-orange-700 disabled:opacity-50"
+                              className="neo-btn p-1.5 text-xs bg-orange-100 text-orange-700 disabled:opacity-50 flex items-center justify-center"
                               title="Restart"
                             >
                               <TbRefresh className="w-4 h-4" />
@@ -860,7 +860,7 @@ export default function PCMonitoringPage() {
                             <button
                               onClick={() => sendQuickCommand(pc, "SHUTDOWN")}
                               disabled={!canAgentCommand}
-                              className="neo-btn px-2 py-1 text-xs bg-red-100 text-red-700 disabled:opacity-50"
+                              className="neo-btn p-1.5 text-xs bg-red-100 text-red-700 disabled:opacity-50 flex items-center justify-center"
                               title="Shutdown"
                             >
                               <TbPower className="w-4 h-4" />
