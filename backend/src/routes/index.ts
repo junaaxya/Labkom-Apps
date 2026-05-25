@@ -25,6 +25,7 @@ import fileRoutes from "./file.routes";
 import qrRoutes from "./qr.routes";
 import scheduleChangeRoutes from "./schedule-change.routes";
 import leaveRoutes from "./leave.routes";
+import announcementRoutes from "./announcement.routes";
 
 const router = Router();
 
@@ -62,5 +63,6 @@ router.use("/files", fileRoutes);
 router.use("/qr", qrRoutes);
 router.use("/schedule-changes", scheduleChangeRoutes);
 router.use("/leaves", leaveRoutes);
+router.use("/announcements", announcementRoutes);
 
 export default router;
