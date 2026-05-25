@@ -1161,8 +1161,8 @@ export default function PCMonitoringPage() {
       )}
 
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowBulkModal(false)}>
-          <div className="bg-white neo-card shadow-[0px_-6px_20px_rgba(0,0,0,0.16)] sm:shadow-[6px_6px_0px_#1a1a1a] rounded-t-3xl sm:rounded-xl rounded-b-none sm:rounded-b-xl w-full max-w-md p-4 sm:p-6 max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-end sm:items-center justify-center p-3 sm:p-4" onClick={() => setShowBulkModal(false)}>
+          <div className="bg-white neo-card shadow-[0px_-6px_20px_rgba(0,0,0,0.16)] sm:shadow-[6px_6px_0px_#1a1a1a] rounded-3xl sm:rounded-xl w-full max-w-md p-4 sm:p-6 max-h-[80dvh] sm:max-h-[90vh] overflow-y-auto mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-heading font-bold">Ubah Status {selectedPCs.length} PC</h3>
               <button onClick={() => setShowBulkModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
