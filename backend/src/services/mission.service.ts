@@ -93,8 +93,13 @@ export class MissionService {
     });
   }
 
-  static async submitMission(claimId: string, proof: string) {
+  static async submitMission(claimId: string, aslebId: string, proof: string) {
     if (!proof || !proof.trim()) throw new Error("Bukti wajib diisi");
+
+    const claim = await prisma.missionClaim.findUnique({ where: { id: claimId } });
+    if (!claim) throw new Error("Claim tidak ditemukan");
+    if (claim.aslebId !== aslebId) throw new Error("Anda tidak memiliki claim ini");
+    if (claim.status !== "TAKEN") throw new Error("Claim sudah disubmit atau diverifikasi");
 
     return prisma.missionClaim.update({
       where: { id: claimId },
@@ -108,6 +113,7 @@ export class MissionService {
       include: { mission: true },
     });
     if (!claim) throw new Error("Claim tidak ditemukan");
+    if (claim.status !== "SUBMITTED") throw new Error("Claim belum disubmit atau sudah diverifikasi");
 
     const status = approved ? "APPROVED" : "REJECTED";
 
@@ -122,15 +128,20 @@ export class MissionService {
     });
 
     if (approved) {
-      await prisma.mission.update({ where: { id: claim.missionId }, data: { status: "APPROVED" } });
-      await prisma.point.create({
-        data: {
-          userId: claim.aslebId,
-          amount: claim.mission.points,
-          reason: `Misi selesai: ${claim.mission.title}`,
-          referenceId: claim.missionId,
-        },
+      const existingPoint = await prisma.point.findFirst({
+        where: { referenceId: claim.missionId, userId: claim.aslebId },
       });
+      await prisma.mission.update({ where: { id: claim.missionId }, data: { status: "APPROVED" } });
+      if (!existingPoint) {
+        await prisma.point.create({
+          data: {
+            userId: claim.aslebId,
+            amount: claim.mission.points,
+            reason: `Misi selesai: ${claim.mission.title}`,
+            referenceId: claim.missionId,
+          },
+        });
+      }
     } else {
       await prisma.mission.update({ where: { id: claim.missionId }, data: { status: "OPEN" } });
     }
