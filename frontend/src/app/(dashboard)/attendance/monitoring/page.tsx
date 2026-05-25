@@ -40,9 +40,11 @@ import type {
   AttendanceStatus,
   DailyTaskStatus,
   ShiftScheduleStatus,
+  AttendanceCorrectionRequest,
+  TaskCategoryConfig,
 } from "@/types/index";
 
-type MonitoringTab = "TODAY" | "TASKS" | "SHIFTS" | "LEAVES";
+type MonitoringTab = "TODAY" | "TASKS" | "SHIFTS" | "LEAVES" | "CORRECTIONS" | "CATEGORIES";
 type VerifyAction = "APPROVED" | "REJECTED";
 type ReviewAction = "APPROVED" | "REJECTED" | "NEED_REVISION";
 
@@ -74,6 +76,14 @@ type ShiftCreateBulkPayload = {
 
 type ApiMaybeWrapped<T> = T | { data?: T; items?: T };
 
+type CategoryFormState = {
+  name: string;
+  description: string;
+  defaultPoints: number;
+  isEvidenceRequired: boolean;
+  isActive: boolean;
+};
+
 interface LeaveRequestItem {
   id: string;
   userId?: string;
@@ -89,11 +99,38 @@ interface LeaveRequestItem {
 }
 
 const TABS: Array<{ key: MonitoringTab; label: string; icon: typeof TbCalendarStats }> = [
-  { key: "TODAY", label: "Today Monitoring", icon: TbCalendarStats },
-  { key: "TASKS", label: "Task Verification", icon: TbChecklist },
-  { key: "SHIFTS", label: "Shift Assignment", icon: TbClockCog },
+  { key: "TODAY", label: "Kehadiran", icon: TbCalendarStats },
+  { key: "TASKS", label: "Verifikasi Task", icon: TbChecklist },
+  { key: "SHIFTS", label: "Shift", icon: TbClockCog },
   { key: "LEAVES", label: "Izin / Sakit", icon: TbNotes },
+  { key: "CORRECTIONS", label: "Koreksi", icon: TbUserCheck },
+  { key: "CATEGORIES", label: "Kategori Task", icon: TbClipboardCheck },
 ];
+
+function ToggleSwitch({
+  checked,
+  onToggle,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      onClick={onToggle}
+      className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors border-2 border-[#1a1a1a] ${
+        checked ? "bg-[#4b607f]" : "bg-gray-300"
+      }`}
+      role="switch"
+      aria-checked={checked}
+    >
+      <div
+        className={`h-5 w-5 rounded-full bg-white transition-transform ${
+          checked ? "translate-x-6" : "translate-x-0"
+        }`}
+      />
+    </div>
+  );
+}
 
 const ATTENDANCE_STATUS_CONFIG: Record<
   AttendanceStatus,
@@ -248,6 +285,14 @@ export default function AttendanceMonitoringPage() {
   const [leaveReviewNote, setLeaveReviewNote] = useState("");
   const [leaveReviewSubmitting, setLeaveReviewSubmitting] = useState(false);
 
+  const [corrections, setCorrections] = useState<AttendanceCorrectionRequest[]>([]);
+  const [correctionsLoading, setCorrectionsLoading] = useState(false);
+  const [correctionReviewOpen, setCorrectionReviewOpen] = useState(false);
+  const [reviewingCorrection, setReviewingCorrection] = useState<AttendanceCorrectionRequest | null>(null);
+  const [correctionReviewStatus, setCorrectionReviewStatus] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [correctionReviewNote, setCorrectionReviewNote] = useState("");
+  const [correctionReviewSubmitting, setCorrectionReviewSubmitting] = useState(false);
+
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceEntry | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyAction, setVerifyAction] = useState<VerifyAction>("APPROVED");
@@ -269,6 +314,18 @@ export default function AttendanceMonitoringPage() {
     scheduleDate: "",
     bulkDatesText: "",
     notes: "",
+  });
+
+  const [categories, setCategories] = useState<TaskCategoryConfig[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<TaskCategoryConfig | null>(null);
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>({
+    name: "",
+    description: "",
+    defaultPoints: 0,
+    isEvidenceRequired: false,
+    isActive: true,
   });
 
   const visibleTasks = useMemo(
@@ -383,10 +440,251 @@ export default function AttendanceMonitoringPage() {
     }
   }, []);
 
+  const resetCategoryForm = useCallback(() => {
+    setCategoryForm({
+      name: "",
+      description: "",
+      defaultPoints: 0,
+      isEvidenceRequired: false,
+      isActive: true,
+    });
+    setEditingCategory(null);
+  }, []);
+
+  const openCreateCategoryModal = () => {
+    resetCategoryForm();
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (category: TaskCategoryConfig) => {
+    setEditingCategory(category);
+    setCategoryForm({
+      name: category.name,
+      description: category.description || "",
+      defaultPoints: category.defaultPoints,
+      isEvidenceRequired: category.isEvidenceRequired,
+      isActive: category.isActive,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const response = await api.get<unknown>("/attendance/task-categories");
+      const data = safeArray<TaskCategoryConfig>(response, ["categories", "rows"]);
+      setCategories(data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal memuat kategori task.");
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (activeTab !== "CATEGORIES") return;
+    queueMicrotask(() => void loadCategories());
+  }, [activeTab, loadCategories]);
+
+  const handleSaveCategory = async () => {
+    setCategoriesLoading(true);
+    try {
+      if (editingCategory) {
+        await api.patch(`/attendance/task-categories/${editingCategory.id}`, categoryForm);
+        toast.success("Kategori task berhasil diperbarui");
+      } else {
+        await api.post("/attendance/task-categories", categoryForm);
+        toast.success("Kategori task berhasil ditambahkan");
+      }
+      setIsCategoryModalOpen(false);
+      resetCategoryForm();
+      await loadCategories();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan kategori");
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (category: TaskCategoryConfig) => {
+    const confirmed = window.confirm(`Hapus kategori ${category.name}?`);
+    if (!confirmed) return;
+
+    setCategoriesLoading(true);
+    try {
+      await api.delete(`/attendance/task-categories/${category.id}`);
+      toast.success("Kategori task berhasil dihapus");
+      await loadCategories();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus kategori");
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab !== "LEAVES") return;
     queueMicrotask(() => void loadPendingLeaves());
   }, [activeTab, loadPendingLeaves]);
+
+  const renderCategoriesTab = () => {
+    return (
+      <div className="neo-card p-4 sm:p-6 bg-white space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between border-b-2 border-[#1a1a1a] pb-4">
+          <div>
+            <h2 className="font-heading text-2xl font-bold text-[#1a1a1a]">Kategori Task</h2>
+            <p className="text-[#5a5a5a] font-semibold mt-1 text-sm">
+              Kelola jenis tugas harian yang dilaporkan Aslab saat absensi. Kategori ini muncul di form Daily Task Log.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreateCategoryModal}
+            className="neo-btn min-h-[48px] bg-[#f3701e] text-white hover:bg-[#d95f10] flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
+            <TbPlus size={18} />
+            Tambah Kategori
+          </button>
+        </div>
+
+        {categoriesLoading ? (
+          <div className="neo-card p-10 bg-[#f5ede6] flex items-center justify-center gap-2 text-[#1a1a1a] font-bold">
+            <TbLoader2 className="animate-spin" size={20} />
+            Memuat kategori...
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3 md:hidden">
+              {categories.map((category) => (
+                <MobileCard
+                  key={category.id}
+                  title={category.name}
+                  subtitle={category.description || undefined}
+                  badge={
+                    <span
+                      className={`neo-badge px-3 py-1 text-xs font-bold ${
+                        category.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {category.isActive ? "Active" : "Inactive"}
+                    </span>
+                  }
+                  fields={[
+                    { label: "Default Points", value: String(category.defaultPoints) },
+                    {
+                      label: "Evidence Required",
+                      value: (
+                        <span
+                          className={`neo-badge px-2 py-0.5 text-xs font-bold ${
+                            category.isEvidenceRequired
+                              ? "bg-[#4b607f] text-white"
+                              : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {category.isEvidenceRequired ? "Ya" : "Tidak"}
+                        </span>
+                      ),
+                    },
+                  ]}
+                  actions={[
+                    {
+                      label: "Edit",
+                      icon: <TbEdit size={16} />,
+                      onClick: () => openEditCategoryModal(category),
+                      variant: "secondary",
+                    },
+                    {
+                      label: "Hapus",
+                      icon: <TbTrash size={16} />,
+                      onClick: () => void handleDeleteCategory(category),
+                      variant: "danger",
+                      disabled: categoriesLoading,
+                    },
+                  ]}
+                />
+              ))}
+              {categories.length === 0 && (
+                <div className="neo-card p-8 text-center text-[#5a5a5a] font-semibold bg-[#f5ede6]">
+                  Belum ada kategori task.
+                </div>
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto neo-border">
+              <table className="w-full min-w-[980px]">
+                <thead className="bg-[#e8d8c9]">
+                  <tr className="text-left text-[#1a1a1a]">
+                    <th className="px-4 py-3 font-bold">Nama</th>
+                    <th className="px-4 py-3 font-bold">Deskripsi</th>
+                    <th className="px-4 py-3 font-bold">Default Points</th>
+                    <th className="px-4 py-3 font-bold">Evidence Required</th>
+                    <th className="px-4 py-3 font-bold">Active</th>
+                    <th className="px-4 py-3 font-bold">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((category) => (
+                    <tr key={category.id} className="border-t-2 border-[#1a1a1a] bg-[#f5ede6]">
+                      <td className="px-4 py-3 font-semibold text-[#1a1a1a]">{category.name}</td>
+                      <td className="px-4 py-3 text-[#5a5a5a]">{category.description || "-"}</td>
+                      <td className="px-4 py-3 text-[#5a5a5a]">{category.defaultPoints}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`neo-badge px-3 py-1 text-xs font-bold ${
+                            category.isEvidenceRequired
+                              ? "bg-[#4b607f] text-white"
+                              : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {category.isEvidenceRequired ? "Ya" : "Tidak"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`neo-badge px-3 py-1 text-xs font-bold ${
+                            category.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {category.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="neo-btn bg-white hover:bg-[#e8d8c9]"
+                            onClick={() => openEditCategoryModal(category)}
+                          >
+                            <TbEdit size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="neo-btn bg-white hover:bg-red-100 text-red-600"
+                            onClick={() => void handleDeleteCategory(category)}
+                            disabled={categoriesLoading}
+                          >
+                            <TbTrash size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {categories.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-[#5a5a5a] font-semibold bg-[#f5ede6]">
+                        Belum ada kategori task.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   const openLeaveReview = (leave: LeaveRequestItem) => {
     setSelectedLeave(leave);
@@ -418,6 +716,50 @@ export default function AttendanceMonitoringPage() {
     setVerifyAction("APPROVED");
     setVerifyNote("");
     setVerifyOpen(true);
+  };
+
+  const loadCorrections = useCallback(async () => {
+    setCorrectionsLoading(true);
+    try {
+      const res = await api.get<unknown>("/attendance/corrections/pending");
+      const data = safeArray<AttendanceCorrectionRequest>(res, ["data"]);
+      setCorrections(data);
+    } catch {
+      setCorrections([]);
+    } finally {
+      setCorrectionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "CORRECTIONS") return;
+    queueMicrotask(() => void loadCorrections());
+  }, [activeTab, loadCorrections]);
+
+  const openCorrectionReview = (correction: AttendanceCorrectionRequest, status: "APPROVED" | "REJECTED") => {
+    setReviewingCorrection(correction);
+    setCorrectionReviewStatus(status);
+    setCorrectionReviewNote("");
+    setCorrectionReviewOpen(true);
+  };
+
+  const submitCorrectionReview = async () => {
+    if (!reviewingCorrection) return;
+    setCorrectionReviewSubmitting(true);
+    try {
+      await api.patch(`/attendance/corrections/${reviewingCorrection.id}/review`, {
+        status: correctionReviewStatus,
+        reviewNote: correctionReviewNote || undefined,
+      });
+      toast.success(`Koreksi ${correctionReviewStatus === "APPROVED" ? "disetujui" : "ditolak"}`);
+      setCorrectionReviewOpen(false);
+      setReviewingCorrection(null);
+      void loadCorrections();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal review koreksi");
+    } finally {
+      setCorrectionReviewSubmitting(false);
+    }
   };
 
   const submitVerifyAttendance = async () => {
@@ -534,43 +876,56 @@ export default function AttendanceMonitoringPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f5ede6] to-[#e8d8c9] p-4 md:p-6 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <header className="neo-card p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="font-heading text-2xl sm:text-3xl font-black text-[#1a1a1a] tracking-wide">
+            <h1 className="font-heading text-xl sm:text-2xl md:text-3xl font-black text-[#1a1a1a] tracking-wide">
               Attendance Monitoring Koordinator
             </h1>
-            <p className="mt-2 text-sm md:text-base text-[#5a5a5a] font-medium">
+            <p className="mt-1 text-xs sm:text-sm text-[#5a5a5a] font-medium">
               Pantau kehadiran hari ini, verifikasi task Aslab, dan atur assignment shift dalam satu dashboard.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => void loadTodayMonitoring()} className="neo-btn px-4 py-2 bg-white text-[#1a1a1a]">
-              <span className="flex items-center gap-2 font-bold text-sm">
-                <TbRefresh className="w-4 h-4" /> Refresh Today
-              </span>
-            </button>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => void loadTaskVerifications()}
-              className="neo-btn px-4 py-2 bg-[#4b607f] text-white"
+              onClick={() => {
+                void loadTodayMonitoring();
+                void loadTaskVerifications();
+                void loadShiftSchedules();
+              }}
+              className="md:hidden neo-btn min-h-[44px] min-w-[44px] px-3 py-2 bg-white text-[#1a1a1a]"
+              aria-label="Refresh semua data"
             >
-              <span className="flex items-center gap-2 font-bold text-sm">
-                <TbClipboardCheck className="w-4 h-4" /> Refresh Tasks
-              </span>
+              <TbRefresh className="w-5 h-5" />
             </button>
-            <button onClick={() => void loadShiftSchedules()} className="neo-btn px-4 py-2 bg-[#f3701e] text-white">
-              <span className="flex items-center gap-2 font-bold text-sm">
-                <TbClockCog className="w-4 h-4" /> Refresh Shifts
-              </span>
-            </button>
+            <div className="hidden md:flex flex-wrap gap-2">
+              <button onClick={() => void loadTodayMonitoring()} className="neo-btn px-4 py-2 bg-white text-[#1a1a1a]">
+                <span className="flex items-center gap-2 font-bold text-sm">
+                  <TbRefresh className="w-4 h-4" /> Refresh Today
+                </span>
+              </button>
+              <button
+                onClick={() => void loadTaskVerifications()}
+                className="neo-btn px-4 py-2 bg-[#4b607f] text-white"
+              >
+                <span className="flex items-center gap-2 font-bold text-sm">
+                  <TbClipboardCheck className="w-4 h-4" /> Refresh Tasks
+                </span>
+              </button>
+              <button onClick={() => void loadShiftSchedules()} className="neo-btn px-4 py-2 bg-[#f3701e] text-white">
+                <span className="flex items-center gap-2 font-bold text-sm">
+                  <TbClockCog className="w-4 h-4" /> Refresh Shifts
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="neo-card p-2">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
           {TABS.map((tab) => {
             const TabIcon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -578,12 +933,13 @@ export default function AttendanceMonitoringPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`neo-btn px-4 py-3 text-left transition-all ${
+                className={`neo-btn min-h-[48px] px-3 py-2.5 text-xs sm:text-sm transition-all ${
                   isActive ? "bg-[#1a1a1a] text-[#f5ede6]" : "bg-white text-[#1a1a1a]"
                 }`}
               >
-                <span className="flex items-center gap-2 font-bold text-sm md:text-base">
-                  <TabIcon className="w-5 h-5" /> {tab.label}
+                <span className="flex items-center justify-center gap-1.5 sm:gap-2 font-bold">
+                  <TabIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </span>
               </button>
             );
@@ -602,41 +958,41 @@ export default function AttendanceMonitoringPage() {
         >
           {activeTab === "TODAY" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="neo-card p-4" style={{ backgroundColor: cardPalette.cream }}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                <div className="neo-card p-3 sm:p-4" style={{ backgroundColor: cardPalette.cream }}>
                   <p className="text-xs font-bold text-[#5a5a5a] uppercase">Total Aslab</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <TbUsers className="w-7 h-7 text-[#4b607f]" />
-                    <p className="font-heading text-2xl font-black text-[#1a1a1a]">{todaySummary.totalAslab}</p>
+                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                    <TbUsers className="w-5 h-5 sm:w-7 sm:h-7 text-[#4b607f]" />
+                    <p className="font-heading text-xl sm:text-2xl font-black text-[#1a1a1a]">{todaySummary.totalAslab}</p>
                   </div>
                 </div>
-                <div className="neo-card p-4 bg-green-50">
+                <div className="neo-card p-3 sm:p-4 bg-green-50">
                   <p className="text-xs font-bold text-[#5a5a5a] uppercase">Sudah Hadir</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <TbUserCheck className="w-7 h-7 text-green-700" />
-                    <p className="font-heading text-2xl font-black text-[#1a1a1a]">{todaySummary.checkedIn}</p>
+                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                    <TbUserCheck className="w-5 h-5 sm:w-7 sm:h-7 text-green-700" />
+                    <p className="font-heading text-xl sm:text-2xl font-black text-[#1a1a1a]">{todaySummary.checkedIn}</p>
                   </div>
                 </div>
-                <div className="neo-card p-4 bg-red-50">
+                <div className="neo-card p-3 sm:p-4 bg-red-50">
                   <p className="text-xs font-bold text-[#5a5a5a] uppercase">Belum Hadir</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <TbUserX className="w-7 h-7 text-red-700" />
-                    <p className="font-heading text-2xl font-black text-[#1a1a1a]">{todaySummary.notCheckedIn}</p>
+                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                    <TbUserX className="w-5 h-5 sm:w-7 sm:h-7 text-red-700" />
+                    <p className="font-heading text-xl sm:text-2xl font-black text-[#1a1a1a]">{todaySummary.notCheckedIn}</p>
                   </div>
                 </div>
-                <div className="neo-card p-4 bg-orange-50">
+                <div className="neo-card p-3 sm:p-4 bg-orange-50">
                   <p className="text-xs font-bold text-[#5a5a5a] uppercase">Terlambat</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <TbAlertTriangle className="w-7 h-7 text-orange-700" />
-                    <p className="font-heading text-2xl font-black text-[#1a1a1a]">{todaySummary.late}</p>
+                  <div className="mt-2 flex items-center gap-2 sm:gap-3">
+                    <TbAlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-orange-700" />
+                    <p className="font-heading text-xl sm:text-2xl font-black text-[#1a1a1a]">{todaySummary.late}</p>
                   </div>
                   <p className="mt-2 text-xs text-[#5a5a5a]">Izin/Sakit: {todaySummary.onLeave}</p>
                 </div>
               </div>
 
-              <div className="neo-card p-5">
+              <div className="neo-card p-3 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading text-lg md:text-xl font-black text-[#1a1a1a]">Kehadiran Hari Ini</h2>
+                  <h2 className="font-heading text-base sm:text-lg md:text-xl font-black text-[#1a1a1a]">Kehadiran Hari Ini</h2>
                   {todayLoading && (
                     <span className="inline-flex items-center gap-2 text-sm text-[#5a5a5a]">
                       <TbLoader2 className="w-4 h-4 animate-spin" /> Loading...
@@ -721,8 +1077,8 @@ export default function AttendanceMonitoringPage() {
                 )}
               </div>
 
-              <div className="neo-card p-5">
-                <h3 className="font-heading text-lg font-black text-[#1a1a1a] mb-4">Belum Check-in</h3>
+              <div className="neo-card p-3 sm:p-5">
+                <h3 className="font-heading text-base sm:text-lg font-black text-[#1a1a1a] mb-4">Belum Check-in</h3>
                 {todayLoading ? (
                   <p className="text-sm text-[#5a5a5a]">Memuat daftar...</p>
                 ) : notCheckedInUsers.length === 0 ? (
@@ -753,26 +1109,26 @@ export default function AttendanceMonitoringPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setTaskFilter("PENDING")}
-                    className={`neo-btn px-4 py-2 text-sm font-bold ${
+                    className={`neo-btn min-h-[44px] px-4 py-2 text-sm font-bold ${
                       taskFilter === "PENDING" ? "bg-[#1a1a1a] text-white" : "bg-white text-[#1a1a1a]"
                     }`}
                   >
-                    Pending Endpoint
+                    Menunggu Review
                   </button>
                   <button
                     onClick={() => setTaskFilter("SUBMITTED")}
-                    className={`neo-btn px-4 py-2 text-sm font-bold ${
+                    className={`neo-btn min-h-[44px] px-4 py-2 text-sm font-bold ${
                       taskFilter === "SUBMITTED" ? "bg-[#4b607f] text-white" : "bg-white text-[#1a1a1a]"
                     }`}
                   >
-                    Status=SUBMITTED Endpoint
+                    Sudah Disubmit
                   </button>
                 </div>
               </div>
 
-              <div className="neo-card p-5">
+              <div className="neo-card p-3 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading text-lg md:text-xl font-black text-[#1a1a1a]">Daftar Verifikasi Tugas</h2>
+                  <h2 className="font-heading text-base sm:text-lg md:text-xl font-black text-[#1a1a1a]">Daftar Verifikasi Tugas</h2>
                   {tasksLoading ? (
                     <span className="inline-flex items-center gap-2 text-sm text-[#5a5a5a]">
                       <TbLoader2 className="w-4 h-4 animate-spin" /> Loading...
@@ -873,30 +1229,30 @@ export default function AttendanceMonitoringPage() {
 
           {activeTab === "SHIFTS" && (
             <div className="space-y-4">
-              <div className="neo-card p-4 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-                <div className="space-y-2">
-                  <label htmlFor="month-filter" className="text-xs font-bold text-[#5a5a5a] uppercase">
-                    Filter Month
+              <div className="neo-card p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-1.5">
+                  <label htmlFor="month-filter" className="text-[10px] font-black text-[#5a5a5a] uppercase tracking-wider">
+                    Bulan Shift
                   </label>
                   <input
                     id="month-filter"
                     type="month"
                     value={scheduleMonth}
                     onChange={(event) => setScheduleMonth(event.target.value)}
-                    className="neo-input neo-border px-3 py-2 rounded-lg bg-white text-[#1a1a1a]"
+                    className="neo-input neo-border min-h-[48px] px-4 py-3 rounded-xl bg-white text-[#1a1a1a] text-sm font-bold w-full sm:w-auto cursor-pointer"
                   />
                 </div>
 
-                <button onClick={openShiftModal} className="neo-btn px-4 py-2.5 bg-[#4b607f] text-white font-bold text-sm">
-                  <span className="inline-flex items-center gap-2">
+                <button onClick={openShiftModal} className="neo-btn min-h-[48px] px-4 py-2.5 bg-[#4b607f] text-white font-bold text-sm w-full sm:w-auto">
+                  <span className="inline-flex items-center justify-center gap-2">
                     <TbPlus className="w-4 h-4" /> Tambah Jadwal
                   </span>
                 </button>
               </div>
 
-              <div className="neo-card p-5">
+              <div className="neo-card p-3 sm:p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading text-lg md:text-xl font-black text-[#1a1a1a]">Shift Assignment ({scheduleMonth})</h2>
+                  <h2 className="font-heading text-base sm:text-lg md:text-xl font-black text-[#1a1a1a]">Shift Assignment ({scheduleMonth})</h2>
                   {shiftLoading && (
                     <span className="inline-flex items-center gap-2 text-sm text-[#5a5a5a]">
                       <TbLoader2 className="w-4 h-4 animate-spin" /> Loading...
@@ -989,18 +1345,20 @@ export default function AttendanceMonitoringPage() {
               </div>
             </div>
           )}
+
+          {activeTab === "CATEGORIES" && renderCategoriesTab()}
         </motion.section>
       </AnimatePresence>
 
       {activeTab === "LEAVES" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
+            <h2 className="font-heading text-base sm:text-xl font-bold text-[#1a1a1a]">
               Pengajuan Izin / Sakit Pending
             </h2>
             <button
               onClick={() => void loadPendingLeaves()}
-              className="p-2 neo-border rounded-lg hover:bg-gray-50"
+              className="min-h-[44px] min-w-[44px] p-2 neo-border rounded-lg hover:bg-gray-50 flex items-center justify-center"
             >
               <TbRefresh className={`w-5 h-5 ${leavesLoading ? "animate-spin" : ""}`} />
             </button>
@@ -1018,7 +1376,7 @@ export default function AttendanceMonitoringPage() {
           ) : (
             <div className="space-y-3">
               {pendingLeaves.map((leave) => (
-                <div key={leave.id} className="neo-card p-5">
+                <div key={leave.id} className="neo-card p-3 sm:p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -1042,16 +1400,82 @@ export default function AttendanceMonitoringPage() {
                         Diajukan: {formatDateTime(leave.createdAt)}
                       </p>
                     </div>
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex gap-2 ml-3 sm:ml-4">
                       <button
                         onClick={() => { setLeaveReviewAction("APPROVED"); openLeaveReview(leave); }}
-                        className="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700"
+                        className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
                       >
                         <TbCheck className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => { setLeaveReviewAction("REJECTED"); openLeaveReview(leave); }}
-                        className="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700"
+                        className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
+                      >
+                        <TbX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "CORRECTIONS" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading text-base sm:text-xl font-bold text-[#1a1a1a]">
+              Koreksi Absensi Pending
+            </h2>
+            <button
+              onClick={() => void loadCorrections()}
+              className="min-h-[44px] min-w-[44px] p-2 neo-border rounded-lg hover:bg-gray-50 flex items-center justify-center"
+            >
+              <TbRefresh className={`w-5 h-5 ${correctionsLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+
+          {correctionsLoading ? (
+            <div className="flex justify-center py-12">
+              <TbLoader2 className="w-8 h-8 animate-spin text-[#4b607f]" />
+            </div>
+          ) : corrections.length === 0 ? (
+            <div className="neo-card p-8 text-center">
+              <TbUserCheck className="w-12 h-12 text-[#4b607f]/30 mx-auto mb-3" />
+              <p className="font-bold text-[#1a1a1a]">Tidak ada permintaan koreksi yang menunggu review</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {corrections.map((correction) => (
+                <div key={correction.id} className="neo-card p-3 sm:p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="font-bold text-[#1a1a1a] truncate">{correction.user?.name || "—"}</span>
+                        <span className="text-xs font-bold px-2 py-1 rounded-md bg-blue-100 text-blue-700 shrink-0">
+                          {correction.requestType}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <p className="text-[#5a5a5a]"><span className="font-bold text-[#1a1a1a]">Nilai Lama:</span> {correction.oldValue || "-"}</p>
+                        <p className="text-[#5a5a5a]"><span className="font-bold text-[#1a1a1a]">Nilai Baru:</span> {correction.newValue || "-"}</p>
+                      </div>
+                      <p className="text-sm text-[#1a1a1a] mt-2">{correction.reason}</p>
+                      <p className="text-xs text-[#5a5a5a] mt-1">
+                        Diajukan: {formatDateTime(correction.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 ml-3 sm:ml-4">
+                      <button
+                        onClick={() => openCorrectionReview(correction, "APPROVED")}
+                        className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
+                      >
+                        <TbCheck className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openCorrectionReview(correction, "REJECTED")}
+                        className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
                       >
                         <TbX className="w-4 h-4" />
                       </button>
@@ -1065,20 +1489,86 @@ export default function AttendanceMonitoringPage() {
       )}
 
       <AnimatePresence>
+        {correctionReviewOpen && reviewingCorrection && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
+            onClick={() => setCorrectionReviewOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 40 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-md max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-lg text-[#1a1a1a] truncate">
+                  {correctionReviewStatus === "APPROVED" ? "Setujui" : "Tolak"} Koreksi
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setCorrectionReviewOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3 mb-4">
+                <p className="text-sm"><span className="font-bold">Nama:</span> {reviewingCorrection.user?.name}</p>
+                <p className="text-sm"><span className="font-bold">Tipe:</span> {reviewingCorrection.requestType}</p>
+                <p className="text-sm"><span className="font-bold">Nilai Lama:</span> {reviewingCorrection.oldValue || "-"}</p>
+                <p className="text-sm"><span className="font-bold">Nilai Baru:</span> {reviewingCorrection.newValue || "-"}</p>
+                <p className="text-sm"><span className="font-bold">Alasan:</span> {reviewingCorrection.reason}</p>
+              </div>
+              <div className="mb-4">
+                <label className="text-sm font-bold text-[#1a1a1a] block mb-2">Catatan (opsional)</label>
+                <textarea
+                  value={correctionReviewNote}
+                  onChange={(e) => setCorrectionReviewNote(e.target.value)}
+                  placeholder="Catatan review..."
+                  className="w-full px-4 py-3 neo-input text-sm bg-white resize-none h-20"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={submitCorrectionReview}
+                  disabled={correctionReviewSubmitting}
+                  className={`flex-1 min-h-[44px] py-3 text-white text-sm font-bold rounded-lg neo-border disabled:opacity-50 ${
+                    correctionReviewStatus === "APPROVED" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  {correctionReviewSubmitting ? "Memproses..." : correctionReviewStatus === "APPROVED" ? "Setujui" : "Tolak"}
+                </button>
+                <button
+                  onClick={() => setCorrectionReviewOpen(false)}
+                  className="flex-1 min-h-[44px] py-3 bg-white text-[#1a1a1a] text-sm font-bold rounded-lg neo-border"
+                >
+                  Batal
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {leaveReviewOpen && selectedLeave && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
             onClick={() => setLeaveReviewOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 40 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+              className="bg-[#f5ede6] neo-card p-4 sm:p-6 w-full max-w-md max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-heading font-bold text-lg text-[#1a1a1a] truncate">
@@ -1111,7 +1601,7 @@ export default function AttendanceMonitoringPage() {
                 <button
                   onClick={submitLeaveReview}
                   disabled={leaveReviewSubmitting}
-                  className={`flex-1 py-3 text-white text-sm font-bold rounded-lg neo-border disabled:opacity-50 ${
+                  className={`flex-1 min-h-[44px] py-3 text-white text-sm font-bold rounded-lg neo-border disabled:opacity-50 ${
                     leaveReviewAction === "APPROVED" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
                   }`}
                 >
@@ -1119,7 +1609,7 @@ export default function AttendanceMonitoringPage() {
                 </button>
                 <button
                   onClick={() => setLeaveReviewOpen(false)}
-                  className="flex-1 py-3 bg-white text-[#1a1a1a] text-sm font-bold rounded-lg neo-border"
+                  className="flex-1 min-h-[44px] py-3 bg-white text-[#1a1a1a] text-sm font-bold rounded-lg neo-border"
                 >
                   Batal
                 </button>
@@ -1135,15 +1625,15 @@ export default function AttendanceMonitoringPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
             onClick={() => setVerifyOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.98, y: 10, opacity: 0 }}
+              initial={{ scale: 0.98, y: 40, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.98, y: 10, opacity: 0 }}
+              exit={{ scale: 0.98, y: 40, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-lg bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
+              className="neo-card w-full max-w-lg bg-[#f5ede6] p-4 sm:p-5 max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between">
@@ -1163,7 +1653,7 @@ export default function AttendanceMonitoringPage() {
               <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
                 <button
                   onClick={() => setVerifyAction("APPROVED")}
-                  className={`neo-btn px-4 py-2 text-sm font-bold ${
+                  className={`neo-btn min-h-[44px] px-4 py-2 text-sm font-bold ${
                     verifyAction === "APPROVED" ? "bg-green-600 text-white" : "bg-white text-[#1a1a1a]"
                   }`}
                 >
@@ -1171,7 +1661,7 @@ export default function AttendanceMonitoringPage() {
                 </button>
                 <button
                   onClick={() => setVerifyAction("REJECTED")}
-                  className={`neo-btn px-4 py-2 text-sm font-bold ${
+                  className={`neo-btn min-h-[44px] px-4 py-2 text-sm font-bold ${
                     verifyAction === "REJECTED" ? "bg-red-600 text-white" : "bg-white text-[#1a1a1a]"
                   }`}
                 >
@@ -1189,13 +1679,13 @@ export default function AttendanceMonitoringPage() {
               />
 
               <div className="mt-5 flex justify-end gap-2">
-                <button onClick={() => setVerifyOpen(false)} className="neo-btn px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold">
+                <button onClick={() => setVerifyOpen(false)} className="neo-btn min-h-[44px] px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold">
                   Batal
                 </button>
                 <button
                   onClick={() => void submitVerifyAttendance()}
                   disabled={verifySubmitting}
-                  className="neo-btn px-4 py-2 bg-[#4b607f] text-white text-sm font-bold disabled:opacity-60"
+                  className="neo-btn min-h-[44px] px-4 py-2 bg-[#4b607f] text-white text-sm font-bold disabled:opacity-60"
                 >
                   {verifySubmitting ? (
                     <span className="inline-flex items-center gap-2">
@@ -1217,15 +1707,15 @@ export default function AttendanceMonitoringPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
             onClick={() => setReviewOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.98, y: 10, opacity: 0 }}
+              initial={{ scale: 0.98, y: 40, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.98, y: 10, opacity: 0 }}
+              exit={{ scale: 0.98, y: 40, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-xl bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
+              className="neo-card w-full max-w-xl bg-[#f5ede6] p-4 sm:p-5 max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between">
@@ -1244,10 +1734,10 @@ export default function AttendanceMonitoringPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-4">
+              <div className="grid grid-cols-3 gap-2 mt-4">
                 <button
                   onClick={() => setReviewAction("APPROVED")}
-                  className={`neo-btn px-3 py-2 text-sm font-bold ${
+                  className={`neo-btn min-h-[44px] px-3 py-2 text-sm font-bold ${
                     reviewAction === "APPROVED" ? "bg-green-600 text-white" : "bg-white text-[#1a1a1a]"
                   }`}
                 >
@@ -1255,7 +1745,7 @@ export default function AttendanceMonitoringPage() {
                 </button>
                 <button
                   onClick={() => setReviewAction("REJECTED")}
-                  className={`neo-btn px-3 py-2 text-sm font-bold ${
+                  className={`neo-btn min-h-[44px] px-3 py-2 text-sm font-bold ${
                     reviewAction === "REJECTED" ? "bg-red-600 text-white" : "bg-white text-[#1a1a1a]"
                   }`}
                 >
@@ -1263,7 +1753,7 @@ export default function AttendanceMonitoringPage() {
                 </button>
                 <button
                   onClick={() => setReviewAction("NEED_REVISION")}
-                  className={`neo-btn px-3 py-2 text-sm font-bold ${
+                  className={`neo-btn min-h-[44px] px-3 py-2 text-xs font-bold ${
                     reviewAction === "NEED_REVISION" ? "bg-orange-600 text-white" : "bg-white text-[#1a1a1a]"
                   }`}
                 >
@@ -1281,13 +1771,13 @@ export default function AttendanceMonitoringPage() {
               />
 
               <div className="mt-5 flex justify-end gap-2">
-                <button onClick={() => setReviewOpen(false)} className="neo-btn px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold">
+                <button onClick={() => setReviewOpen(false)} className="neo-btn min-h-[44px] px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold">
                   Batal
                 </button>
                 <button
                   onClick={() => void submitTaskReview()}
                   disabled={reviewSubmitting}
-                  className="neo-btn px-4 py-2 bg-[#f3701e] text-white text-sm font-bold disabled:opacity-60"
+                  className="neo-btn min-h-[44px] px-4 py-2 bg-[#f3701e] text-white text-sm font-bold disabled:opacity-60"
                 >
                   {reviewSubmitting ? (
                     <span className="inline-flex items-center gap-2">
@@ -1309,15 +1799,15 @@ export default function AttendanceMonitoringPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center"
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
             onClick={() => setShiftModalOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.98, y: 10, opacity: 0 }}
+              initial={{ scale: 0.98, y: 40, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.98, y: 10, opacity: 0 }}
+              exit={{ scale: 0.98, y: 40, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="neo-card w-full max-w-2xl bg-[#f5ede6] p-4 sm:p-5 max-h-[90vh] overflow-y-auto"
+              className="neo-card w-full max-w-2xl bg-[#f5ede6] p-4 sm:p-5 max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between">
@@ -1428,14 +1918,14 @@ export default function AttendanceMonitoringPage() {
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   onClick={() => setShiftModalOpen(false)}
-                  className="neo-btn px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold"
+                  className="neo-btn min-h-[44px] px-4 py-2 bg-white text-[#1a1a1a] text-sm font-bold"
                 >
                   Batal
                 </button>
                 <button
                   onClick={() => void submitShiftSchedule()}
                   disabled={shiftSubmitting}
-                  className="neo-btn px-4 py-2 bg-[#4b607f] text-white text-sm font-bold disabled:opacity-60"
+                  className="neo-btn min-h-[44px] px-4 py-2 bg-[#4b607f] text-white text-sm font-bold disabled:opacity-60"
                 >
                   {shiftSubmitting ? (
                     <span className="inline-flex items-center gap-2">
@@ -1445,6 +1935,133 @@ export default function AttendanceMonitoringPage() {
                     "Simpan Jadwal"
                   )}
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isCategoryModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4"
+            onClick={() => {
+              setIsCategoryModalOpen(false);
+              resetCategoryForm();
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.98, y: 40, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.98, y: 40, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="neo-card w-full max-w-xl bg-[#f5ede6] p-4 sm:p-6 max-h-[80dvh] sm:max-h-[80vh] overflow-y-auto rounded-3xl sm:rounded-xl mb-[calc(80px+env(safe-area-inset-bottom))] sm:mb-0"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-heading text-xl font-black text-[#1a1a1a]">
+                    {editingCategory ? "Edit Kategori Task" : "Tambah Kategori Task"}
+                  </h3>
+                  <p className="text-sm text-[#5a5a5a] mt-1">Konfigurasi kategori untuk Daily Task Log.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCategoryModalOpen(false);
+                    resetCategoryForm();
+                  }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+                >
+                  <TbX className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase text-[#5a5a5a] block">Nama Kategori</label>
+                  <input
+                    type="text"
+                    className="neo-input bg-white min-h-[44px] w-full mt-1"
+                    value={categoryForm.name}
+                    onChange={(event) => setCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Contoh: Piket Bersih, Maintenance PC"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase text-[#5a5a5a] block">Deskripsi</label>
+                  <p className="text-[10px] text-[#5a5a5a] mt-0.5 mb-1">Penjelasan singkat tugas ini untuk Aslab.</p>
+                  <textarea
+                    className="neo-input bg-white min-h-[80px] w-full resize-none"
+                    value={categoryForm.description}
+                    onChange={(event) => setCategoryForm((prev) => ({ ...prev, description: event.target.value }))}
+                    placeholder="Contoh: Membersihkan ruangan lab sebelum dan sesudah praktikum"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase text-[#5a5a5a] block">Poin Reward</label>
+                  <p className="text-[10px] text-[#5a5a5a] mt-0.5 mb-1">Poin yang didapat Aslab saat tugas ini di-approve.</p>
+                  <input
+                    type="number"
+                    min={0}
+                    className="neo-input bg-white min-h-[44px] w-full"
+                    value={categoryForm.defaultPoints}
+                    onChange={(event) =>
+                      setCategoryForm((prev) => ({
+                        ...prev,
+                        defaultPoints: Number(event.target.value),
+                      }))
+                    }
+                    placeholder="5"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-[#1a1a1a]/10 bg-[#f5ede6] p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <p className="font-bold text-sm text-[#1a1a1a]">Wajib Upload Foto</p>
+                      <p className="text-[10px] text-[#5a5a5a] mt-0.5">Aslab harus lampirkan foto bukti saat melaporkan tugas ini.</p>
+                    </div>
+                    <ToggleSwitch
+                      checked={categoryForm.isEvidenceRequired}
+                      onToggle={() =>
+                        setCategoryForm((prev) => ({
+                          ...prev,
+                          isEvidenceRequired: !prev.isEvidenceRequired,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCategoryModalOpen(false);
+                      resetCategoryForm();
+                    }}
+                    className="neo-btn min-h-[48px] flex-1 bg-white text-[#1a1a1a] font-bold"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveCategory()}
+                    disabled={categoriesLoading || !categoryForm.name.trim()}
+                    className="neo-btn min-h-[48px] flex-1 bg-[#4b607f] text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {categoriesLoading ? (
+                      <TbLoader2 className="animate-spin w-5 h-5" />
+                    ) : null}
+                    {editingCategory ? "Update" : "Simpan"}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

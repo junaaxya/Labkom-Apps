@@ -2,6 +2,7 @@ import cron from "node-cron";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 import { PCService } from "./pc.service";
+import { MissionService } from "./mission.service";
 
 const DAYS_MAP: Record<string, number> = {
   MINGGU: 0,
@@ -194,6 +195,11 @@ export function startCronJobs() {
   // Daily at 02:00: cleanup old notifications
   cron.schedule("0 2 * * *", () => {
     cleanupOldNotifications().catch(console.error);
+  });
+
+  // Daily at 01:00: expire overdue missions
+  cron.schedule("0 1 * * *", () => {
+    MissionService.expireOverdueMissions().catch(console.error);
   });
 
   console.log("[CRON] Scheduled jobs started");

@@ -251,6 +251,8 @@ model User {
   correctionRequests      AttendanceCorrectionRequest[] @relation("CorrectionRequester")
   correctionReviews       AttendanceCorrectionRequest[] @relation("CorrectionReviewer")
   auditLogs               AuditLog[]
+  announcements           Announcement[]                @relation("AnnouncementCreator")
+  announcementReads       AnnouncementRead[]
 
   @@map("users")
 }
@@ -1004,6 +1006,7 @@ enum NotificationType {
   MISSION_VERIFIED     // Misi sudah diverifikasi
   LOGBOOK_VERIFIED     // Logbook sudah diverifikasi
   CERTIFICATE_ISSUED   // Sertifikat diterbitkan
+  ANNOUNCEMENT_NEW     // Pengumuman baru dari koordinator
   SYSTEM               // Notifikasi sistem umum
 }
 
@@ -1024,4 +1027,52 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ============================================
+// ANNOUNCEMENTS (PENGUMUMAN LAB)
+// ============================================
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  content     String               @db.Text
+  status      AnnouncementStatus   @default(DRAFT)
+  priority    AnnouncementPriority @default(NORMAL)
+  isPinned    Boolean              @default(false)
+  startDate   DateTime             @default(now())
+  endDate     DateTime?
+  createdById String
+  createdBy   User                 @relation("AnnouncementCreator", fields: [createdById], references: [id])
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  reads       AnnouncementRead[]
+
+  @@index([status, startDate, endDate])
+  @@index([isPinned, status])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime     @default(now())
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
 }

@@ -552,3 +552,23 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+
+export type AnnouncementStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type AnnouncementPriority = "NORMAL" | "IMPORTANT" | "URGENT";
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  status: AnnouncementStatus;
+  priority: AnnouncementPriority;
+  isPinned: boolean;
+  startDate: string;
+  endDate?: string | null;
+  createdById: string;
+  createdBy?: { id: string; name: string };
+  createdAt: string;
+  updatedAt: string;
+  _count?: { reads: number };
+  isRead?: boolean;
+}

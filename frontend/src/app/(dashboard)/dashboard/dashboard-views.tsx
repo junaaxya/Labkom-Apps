@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { motion } from "framer-motion";
 import {
@@ -20,10 +21,13 @@ import {
   TbAlertTriangle,
   TbWifi,
   TbWifiOff,
+  TbSpeakerphone,
+  TbPin,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import type { ReactNode } from "react";
 import { MobileCard } from "@/components/ui/mobile-card";
+import api from "@/services/api";
 
 export interface LocalUser {
   userId?: string;
@@ -146,6 +150,115 @@ export function statusBadge(status?: string) {
     default:
       return "bg-[#e8d8c9] text-[#1a1a1a]";
   }
+}
+
+interface PinnedAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  priority: "NORMAL" | "IMPORTANT" | "URGENT";
+  isPinned: boolean;
+  startDate: string;
+}
+
+const PINNED_PRIORITY_COLOR: Record<PinnedAnnouncement["priority"], string> = {
+  NORMAL: "#4b607f",
+  IMPORTANT: "#f3701e",
+  URGENT: "#dc2626",
+};
+
+const PINNED_PRIORITY_LABEL: Record<PinnedAnnouncement["priority"], string> = {
+  NORMAL: "Info",
+  IMPORTANT: "Penting",
+  URGENT: "Urgent",
+};
+
+export function PinnedAnnouncementsBanner() {
+  const [items, setItems] = useState<PinnedAnnouncement[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ data: PinnedAnnouncement[] }>("/announcements?limit=20")
+      .then((res) => {
+        if (cancelled) return;
+        const pinned = (res.data || [])
+          .filter((a) => a.isPinned)
+          .slice(0, 2);
+        setItems(pinned);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!loaded || items.length === 0) return null;
+
+  return (
+    <div className="space-y-2 sm:space-y-3">
+      {items.map((a, idx) => {
+        const color = PINNED_PRIORITY_COLOR[a.priority];
+        return (
+          <motion.div
+            key={a.id}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: idx * 0.05 }}
+          >
+            <Link
+              href="/announcements"
+              prefetch={true}
+              aria-label={`Pengumuman: ${a.title}`}
+              className="group flex items-stretch gap-3 neo-card bg-white overflow-hidden border-l-[6px] active:scale-[0.99] transition-transform"
+              style={{ borderLeftColor: color }}
+            >
+              <div
+                className="hidden sm:flex w-12 items-center justify-center shrink-0"
+                style={{ backgroundColor: color }}
+              >
+                <TbSpeakerphone className="w-5 h-5 text-white" strokeWidth={2.4} />
+              </div>
+              <div className="flex-1 min-w-0 p-3 sm:p-4 flex items-center gap-3">
+                <div
+                  className="sm:hidden w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: color }}
+                >
+                  <TbSpeakerphone className="w-4 h-4 text-white" strokeWidth={2.4} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {PINNED_PRIORITY_LABEL[a.priority]}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#1a1a1a] text-white inline-flex items-center gap-1">
+                      <TbPin className="w-2.5 h-2.5" /> Pinned
+                    </span>
+                  </div>
+                  <h3 className="font-heading font-bold text-sm sm:text-base text-[#1a1a1a] leading-tight truncate">
+                    {a.title}
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-[#5a5a5a] font-medium line-clamp-1 mt-0.5">
+                    {a.content}
+                  </p>
+                </div>
+                <TbArrowRight className="w-4 h-4 text-[#5a5a5a] group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </div>
+            </Link>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
 }
 
 function StatCard({ item, index = 0 }: { item: StatCardItem; index?: number }) {
@@ -338,6 +451,7 @@ export function KoordinatorDashboard({
 
   return (
     <div className="space-y-2 sm:space-y-6">
+      <PinnedAnnouncementsBanner />
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       <QuickActions items={[{ label: "Buat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Buat Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Laporan", href: "/reports", icon: TbClipboardList }]} />
@@ -673,6 +787,7 @@ export function AsistenDashboard({
 
   return (
     <div className="space-y-2 sm:space-y-6">
+      <PinnedAnnouncementsBanner />
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       <QuickActions items={[{ label: "Absen Masuk", href: "/attendance", icon: TbCircleCheck }, { label: "Ambil Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Ticket", href: "/tickets", icon: TbTicket }]} />
@@ -801,6 +916,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
   ];
   return (
     <div className="space-y-2 sm:space-y-6">
+      <PinnedAnnouncementsBanner />
       <div className="grid grid-cols-3 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       <QuickActions items={[{ label: "Lihat Jadwal", href: "/schedules", icon: TbCalendarEvent }, { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbTicket }]} />

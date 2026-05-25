@@ -49,8 +49,9 @@ export class MissionController {
 
   static async submitMission(req: Request, res: Response): Promise<void> {
     try {
+      if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
       const { proof } = req.body;
-      const claim = await MissionService.submitMission(getParam(req.params.claimId), proof);
+      const claim = await MissionService.submitMission(getParam(req.params.claimId), req.user.userId, proof);
       res.json({ success: true, message: "Bukti berhasil disubmit", data: claim });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });

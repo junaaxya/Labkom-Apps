@@ -36,6 +36,7 @@ import {
   TbCalendarStats,
   TbCalendarClock,
   TbArrowsExchange,
+  TbSpeakerphone,
   TbX,
 } from "react-icons/tb";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -51,6 +52,7 @@ interface MenuItem {
 const menuByRole: Record<Role, MenuItem[]> = {
   KOORDINATOR_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
+    { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Manajemen Lab", href: "/labs", icon: TbBuildingWarehouse, group: "Management" },
     { label: "Manajemen Jadwal", href: "/schedules", icon: TbCalendarEvent, group: "Management" },
     { label: "Manajemen User", href: "/users", icon: TbUsers, group: "Management" },
@@ -61,6 +63,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Peminjaman Kunci", href: "/keys", icon: TbKey, group: "Operations" },
     { label: "Ticketing", href: "/tickets", icon: TbTicket, group: "Operations" },
     { label: "Approval Peminjaman", href: "/lab-booking", icon: TbCalendarClock, group: "Operations" },
+    { label: "Manajemen Pengumuman", href: "/announcements/manage", icon: TbSpeakerphone, group: "Operations" },
     { label: "Misi & Verifikasi", href: "/missions", icon: TbTargetArrow, group: "Gamification" },
     { label: "Leaderboard", href: "/leaderboard", icon: TbTrophy, group: "Gamification" },
     { label: "Sertifikat", href: "/certificates", icon: TbCertificate, group: "Gamification" },
@@ -77,6 +80,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
   ],
   ASISTEN_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
+    { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Absensi Saya", href: "/attendance", icon: TbChecklist, group: "My Work" },
     { label: "Jadwal Tugas", href: "/schedules", icon: TbCalendarEvent, group: "My Work" },
     { label: "Misi Saya", href: "/missions", icon: TbTargetArrow, group: "My Work" },
@@ -94,6 +98,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
   ],
   MAHASISWA: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
+    { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Support" },
     { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbAlertTriangle, group: "Support" },
