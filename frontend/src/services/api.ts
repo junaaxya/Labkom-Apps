@@ -8,6 +8,20 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+function clearAuthSession() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (currentPath.startsWith("/login")) return;
+  clearAuthSession();
+  window.location.replace("/login");
+}
+
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const token = localStorage.getItem("token");
@@ -34,6 +48,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: "Request failed" }));
+
+    if (response.status === 401) {
+      redirectToLogin();
+      return new Promise<T>(() => {});
+    }
+
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
