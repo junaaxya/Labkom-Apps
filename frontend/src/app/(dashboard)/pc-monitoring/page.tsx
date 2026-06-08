@@ -364,9 +364,29 @@ export default function PCMonitoringPage() {
     const weight = (name: string) => name.toLowerCase().includes("dasar") ? 0 : name.toLowerCase().includes("multimedia") ? 1 : 2;
     return weight(a.name) - weight(b.name) || a.name.localeCompare(b.name);
   });
+  const visibleOnlinePCs = pcs.filter((pc) => getDisplayAgentStatus(pc) === "ONLINE");
+  const visibleOfflinePCs = pcs.filter((pc) => getDisplayAgentStatus(pc) === "OFFLINE");
+  const visibleWakeEligiblePCs = pcs.filter((pc) => Boolean(pc.macAddress));
+  const visibleWakeIneligibleCount = pcs.length - visibleWakeEligiblePCs.length;
+  const visibleByHealthStatus = {
+    NORMAL: pcs.filter((pc) => pc.healthStatus === "NORMAL"),
+    BROKEN: pcs.filter((pc) => pc.healthStatus === "BROKEN"),
+    MAINTENANCE: pcs.filter((pc) => pc.healthStatus === "MAINTENANCE"),
+    NEEDS_CHECK: pcs.filter((pc) => pc.healthStatus === "NEEDS_CHECK"),
+  };
   const selectedVisiblePCs = pcs.filter((pc) => selectedPCs.includes(pc.id));
   const wakeEligibleSelectedPCs = selectedVisiblePCs.filter((pc) => Boolean(pc.macAddress));
   const wakeIneligibleCount = selectedVisiblePCs.length - wakeEligibleSelectedPCs.length;
+  const allVisibleSelected = pcs.length > 0 && selectedVisiblePCs.length === pcs.length;
+  const allVisibleOnlineSelected = visibleOnlinePCs.length > 0 && visibleOnlinePCs.every((pc) => selectedPCs.includes(pc.id));
+  const allVisibleOfflineSelected = visibleOfflinePCs.length > 0 && visibleOfflinePCs.every((pc) => selectedPCs.includes(pc.id));
+  const allVisibleWakeEligibleSelected = visibleWakeEligiblePCs.length > 0 && visibleWakeEligiblePCs.every((pc) => selectedPCs.includes(pc.id));
+  const allVisibleHealthSelected = {
+    NORMAL: visibleByHealthStatus.NORMAL.length > 0 && visibleByHealthStatus.NORMAL.every((pc) => selectedPCs.includes(pc.id)),
+    BROKEN: visibleByHealthStatus.BROKEN.length > 0 && visibleByHealthStatus.BROKEN.every((pc) => selectedPCs.includes(pc.id)),
+    MAINTENANCE: visibleByHealthStatus.MAINTENANCE.length > 0 && visibleByHealthStatus.MAINTENANCE.every((pc) => selectedPCs.includes(pc.id)),
+    NEEDS_CHECK: visibleByHealthStatus.NEEDS_CHECK.length > 0 && visibleByHealthStatus.NEEDS_CHECK.every((pc) => selectedPCs.includes(pc.id)),
+  };
 
   async function sendQuickCommand(pc: PC, action: string) {
     setBulkFeedback(null);
@@ -425,11 +445,52 @@ export default function PCMonitoringPage() {
   }
 
   function selectAll() {
-    if (selectedPCs.length === pcs.length) {
+    if (allVisibleSelected) {
       setSelectedPCs([]);
     } else {
       setSelectedPCs(pcs.map((pc) => pc.id));
     }
+  }
+
+  function selectOnlineVisible() {
+    if (visibleOnlinePCs.length === 0) return;
+    if (allVisibleOnlineSelected) {
+      setSelectedPCs((prev) => prev.filter((id) => !visibleOnlinePCs.some((pc) => pc.id === id)));
+      return;
+    }
+
+    setSelectedPCs((prev) => [...new Set([...prev, ...visibleOnlinePCs.map((pc) => pc.id)])]);
+  }
+
+  function selectOfflineVisible() {
+    if (visibleOfflinePCs.length === 0) return;
+    if (allVisibleOfflineSelected) {
+      setSelectedPCs((prev) => prev.filter((id) => !visibleOfflinePCs.some((pc) => pc.id === id)));
+      return;
+    }
+
+    setSelectedPCs((prev) => [...new Set([...prev, ...visibleOfflinePCs.map((pc) => pc.id)])]);
+  }
+
+  function selectWakeEligibleVisible() {
+    if (visibleWakeEligiblePCs.length === 0) return;
+    if (allVisibleWakeEligibleSelected) {
+      setSelectedPCs((prev) => prev.filter((id) => !visibleWakeEligiblePCs.some((pc) => pc.id === id)));
+      return;
+    }
+
+    setSelectedPCs((prev) => [...new Set([...prev, ...visibleWakeEligiblePCs.map((pc) => pc.id)])]);
+  }
+
+  function selectHealthVisible(healthStatus: keyof typeof visibleByHealthStatus) {
+    const targetPCs = visibleByHealthStatus[healthStatus];
+    if (targetPCs.length === 0) return;
+    if (allVisibleHealthSelected[healthStatus]) {
+      setSelectedPCs((prev) => prev.filter((id) => !targetPCs.some((pc) => pc.id === id)));
+      return;
+    }
+
+    setSelectedPCs((prev) => [...new Set([...prev, ...targetPCs.map((pc) => pc.id)])]);
   }
   const activeFilterCount = [filterAgentStatus, filterHealthStatus, filterLab].filter(Boolean).length + (search ? 1 : 0);
 
@@ -497,14 +558,33 @@ export default function PCMonitoringPage() {
         </div>
       )}
 
-      <section className="neo-card p-3 sm:p-4 bg-white">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Area Lab</p>
-            <h2 className="font-heading text-lg font-bold text-[#1a1a1a]">Pisahkan monitoring per lab</h2>
+      <section className="neo-card overflow-hidden bg-white">
+        <div className="border-b-2 border-[#1a1a1a] bg-[#f5ede6] p-3 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Area Lab</p>
+              <h2 className="font-heading text-lg font-bold text-[#1a1a1a]">Pisahkan monitoring per lab</h2>
+              <p className="mt-1 text-xs font-semibold text-[#5a5a5a]">
+                Semua kontrol seleksi di bawah hanya berlaku untuk PC yang sedang tampil di lab/filter aktif.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:w-auto">
+              <div className="rounded-2xl border-2 border-[#1a1a1a] bg-white px-3 py-2 text-center shadow-[3px_3px_0px_rgba(26,26,26,0.12)]">
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Tampil</p>
+                <p className="mt-1 font-heading text-xl font-bold text-[#1a1a1a] leading-none">{pcs.length}</p>
+              </div>
+              <div className="rounded-2xl border-2 border-[#1a1a1a] bg-white px-3 py-2 text-center shadow-[3px_3px_0px_rgba(26,26,26,0.12)]">
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Online</p>
+                <p className="mt-1 font-heading text-xl font-bold text-green-700 leading-none">{visibleOnlinePCs.length}</p>
+              </div>
+              <div className="rounded-2xl border-2 border-[#1a1a1a] bg-white px-3 py-2 text-center shadow-[3px_3px_0px_rgba(26,26,26,0.12)]">
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Offline</p>
+                <p className="mt-1 font-heading text-xl font-bold text-red-600 leading-none">{visibleOfflinePCs.length}</p>
+              </div>
+            </div>
           </div>
-          <span className="rounded-full bg-[#f5ede6] px-3 py-1 text-xs font-black text-[#4b607f]">{pcs.length} PC tampil</span>
         </div>
+        <div className="p-3 sm:p-4">
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <button
             type="button"
@@ -531,6 +611,117 @@ export default function PCMonitoringPage() {
               {lab.name}
             </button>
           ))}
+        </div>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-3xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-3 shadow-[4px_4px_0px_rgba(26,26,26,0.12)]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Seleksi cepat</p>
+                <p className="text-xs font-semibold text-[#1a1a1a]">
+                Berlaku untuk PC yang sedang tampil{filterLab ? " di lab ini" : " di semua lab terfilter"}.
+                </p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-[#4b607f] shadow-[2px_2px_0px_rgba(26,26,26,0.08)]">
+                {selectedVisiblePCs.length} dipilih
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <button
+                type="button"
+                onClick={selectAll}
+                disabled={pcs.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleSelected ? "bg-[#4b607f] text-white" : "bg-white text-[#1a1a1a]"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleSelected ? "Batalkan Semua" : "Pilih Semua"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleSelected ? "text-white/80" : "text-[#5a5a5a]"}`}>{pcs.length} PC terlihat</span>
+              </button>
+              <button
+                type="button"
+                onClick={selectOnlineVisible}
+                disabled={visibleOnlinePCs.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleOnlineSelected ? "bg-green-600 text-white" : "bg-white text-[#1a1a1a]"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleOnlineSelected ? "Batal Pilih Online" : "Pilih Semua Online"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleOnlineSelected ? "text-white/80" : "text-[#5a5a5a]"}`}>{visibleOnlinePCs.length} PC aktif</span>
+              </button>
+              <button
+                type="button"
+                onClick={selectOfflineVisible}
+                disabled={visibleOfflinePCs.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleOfflineSelected ? "bg-red-500 text-white" : "bg-white text-[#1a1a1a]"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleOfflineSelected ? "Batal Pilih Offline" : "Pilih Semua Offline"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleOfflineSelected ? "text-white/80" : "text-[#5a5a5a]"}`}>{visibleOfflinePCs.length} PC mati</span>
+              </button>
+              <button
+                type="button"
+                onClick={selectWakeEligibleVisible}
+                disabled={visibleWakeEligiblePCs.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleWakeEligibleSelected ? "bg-emerald-600 text-white" : "bg-white text-[#1a1a1a]"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleWakeEligibleSelected ? "Batal Pilih Siap WoL" : "Pilih Semua Siap WoL"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleWakeEligibleSelected ? "text-white/80" : "text-[#5a5a5a]"}`}>{visibleWakeEligiblePCs.length} punya MAC</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPCs([])}
+                disabled={selectedPCs.length === 0}
+                className="neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm bg-white text-[#1a1a1a] disabled:opacity-50"
+              >
+                <span className="block font-black">Reset Seleksi</span>
+                <span className="mt-1 block text-[10px] text-[#5a5a5a]">Kosongkan pilihan aktif</span>
+              </button>
+            </div>
+          </div>
+          <div className="rounded-3xl border-2 border-dashed border-[#1a1a1a] bg-[#fffdf8] p-3 shadow-[4px_4px_0px_rgba(26,26,26,0.08)]">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Seleksi per health status</p>
+                <p className="text-xs font-semibold text-[#1a1a1a]">
+                  {visibleWakeEligiblePCs.length} PC siap Wake-on-LAN{visibleWakeIneligibleCount > 0 ? ` • ${visibleWakeIneligibleCount} tanpa MAC` : ""}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => selectHealthVisible("NORMAL")}
+                disabled={visibleByHealthStatus.NORMAL.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleHealthSelected.NORMAL ? "bg-green-600 text-white" : "bg-[#ecfdf5] text-green-800"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleHealthSelected.NORMAL ? "Batal Pilih Normal" : "Pilih Normal"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleHealthSelected.NORMAL ? "text-white/80" : "text-green-700/80"}`}>{visibleByHealthStatus.NORMAL.length} PC status normal</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectHealthVisible("BROKEN")}
+                disabled={visibleByHealthStatus.BROKEN.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleHealthSelected.BROKEN ? "bg-red-600 text-white" : "bg-[#fef2f2] text-red-800"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleHealthSelected.BROKEN ? "Batal Pilih Rusak" : "Pilih Rusak"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleHealthSelected.BROKEN ? "text-white/80" : "text-red-700/80"}`}>{visibleByHealthStatus.BROKEN.length} PC butuh perbaikan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectHealthVisible("MAINTENANCE")}
+                disabled={visibleByHealthStatus.MAINTENANCE.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleHealthSelected.MAINTENANCE ? "bg-yellow-500 text-white" : "bg-[#fefce8] text-yellow-800"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleHealthSelected.MAINTENANCE ? "Batal Pilih Maintenance" : "Pilih Maintenance"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleHealthSelected.MAINTENANCE ? "text-white/80" : "text-yellow-800/80"}`}>{visibleByHealthStatus.MAINTENANCE.length} PC sedang maintenance</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectHealthVisible("NEEDS_CHECK")}
+                disabled={visibleByHealthStatus.NEEDS_CHECK.length === 0}
+                className={`neo-btn min-h-[48px] px-3 py-2 text-left text-xs sm:text-sm ${allVisibleHealthSelected.NEEDS_CHECK ? "bg-orange-500 text-white" : "bg-[#fff7ed] text-orange-800"} disabled:opacity-50`}
+              >
+                <span className="block font-black">{allVisibleHealthSelected.NEEDS_CHECK ? "Batal Pilih Perlu Cek" : "Pilih Perlu Cek"}</span>
+                <span className={`mt-1 block text-[10px] ${allVisibleHealthSelected.NEEDS_CHECK ? "text-white/80" : "text-orange-700/80"}`}>{visibleByHealthStatus.NEEDS_CHECK.length} PC perlu inspeksi</span>
+              </button>
+            </div>
+          </div>
+        </div>
         </div>
       </section>
 
