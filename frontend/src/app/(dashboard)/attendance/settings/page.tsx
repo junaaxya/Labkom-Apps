@@ -92,6 +92,7 @@ export default function AttendanceSettingsPage() {
     radiusMeter: 50,
     isActive: true,
   });
+  const [locationFormSyncKey, setLocationFormSyncKey] = useState<string>("initial");
 
   const tabItems = useMemo(
     () => [
@@ -161,6 +162,55 @@ export default function AttendanceSettingsPage() {
       setIsLoading((prev) => ({ ...prev, savingSettings: false }));
     }
   };
+
+  const campusLocation = locations[0] || null;
+  const hasCampusLocation = campusLocation !== null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasCampusLocation) {
+      if (locationFormSyncKey !== "default") {
+        queueMicrotask(() => {
+          if (cancelled) return;
+          setLocationForm({
+            name: "Kampus",
+            latitude: 0,
+            longitude: 0,
+            radiusMeter: 50,
+            isActive: true,
+          });
+          setLocationFormSyncKey("default");
+        });
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const syncKey = `${campusLocation.id}:${campusLocation.updatedAt}`;
+    if (locationFormSyncKey === syncKey) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLocationForm({
+        name: campusLocation.name,
+        latitude: campusLocation.latitude,
+        longitude: campusLocation.longitude,
+        radiusMeter: campusLocation.radiusMeter,
+        isActive: campusLocation.isActive,
+      });
+      setLocationFormSyncKey(syncKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [campusLocation, hasCampusLocation, locationFormSyncKey]);
 
   const renderGeneralTab = () => {
     if (!settingsForm) return null;
@@ -301,8 +351,7 @@ export default function AttendanceSettingsPage() {
   };
 
   const renderLocationsTab = () => {
-    const campusLocation = locations[0] || null;
-    const hasLocation = campusLocation !== null;
+    const hasLocation = hasCampusLocation;
 
     const handleSaveCampusLocation = async () => {
       setIsLoading((prev) => ({ ...prev, savingLocation: true }));
@@ -321,22 +370,6 @@ export default function AttendanceSettingsPage() {
         setIsLoading((prev) => ({ ...prev, savingLocation: false }));
       }
     };
-
-    if (!hasLocation && locationForm.latitude === 0 && locationForm.longitude === 0) {
-      setLocationForm((prev) => ({
-        ...prev,
-        name: "Kampus",
-        isActive: true,
-      }));
-    } else if (hasLocation && locationForm.name === "" && locationForm.latitude === 0) {
-      setLocationForm({
-        name: campusLocation.name,
-        latitude: campusLocation.latitude,
-        longitude: campusLocation.longitude,
-        radiusMeter: campusLocation.radiusMeter,
-        isActive: campusLocation.isActive,
-      });
-    }
 
     return (
       <div className="neo-card p-3 sm:p-5 bg-white space-y-4">
