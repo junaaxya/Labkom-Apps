@@ -32,6 +32,9 @@ export const config = {
   wolRelayUrl: process.env.WOL_RELAY_URL || "",
   wolRelayToken: process.env.WOL_RELAY_TOKEN || "",
   wolDefaultBroadcast: process.env.WOL_DEFAULT_BROADCAST || "",
+  midtransServerKey: process.env.MIDTRANS_SERVER_KEY || "",
+  midtransIsProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+  hostingBrandName: process.env.HOSTING_BRAND_NAME || "LabKom Hosting",
 };
 
 export function validateConfig(): void {
@@ -40,6 +43,7 @@ export function validateConfig(): void {
   if (!process.env.OPENAI_API_KEY) warnings.push("OPENAI_API_KEY not set — AI features disabled");
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push("GOOGLE_CLIENT_ID not set — Calendar sync disabled");
   if (!process.env.REDIS_URL) warnings.push("REDIS_URL not set — using default localhost");
+  if (!process.env.MIDTRANS_SERVER_KEY) warnings.push("MIDTRANS_SERVER_KEY not set — hosting checkout disabled");
 
   if (config.nodeEnv === "production") {
     if (!process.env.CORS_ORIGIN) throw new Error("[FATAL] CORS_ORIGIN must be set in production");
