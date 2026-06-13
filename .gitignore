@@ -73,6 +73,7 @@ labkom-agent/config.json
 labkom-agent/venv/
 labkom-agent/__pycache__/
 backend/uploads/
+docker-compose.override.yml
 *.pyc
 
 # Prisma
