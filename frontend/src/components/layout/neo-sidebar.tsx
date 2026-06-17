@@ -92,6 +92,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Approval Peminjaman", href: "/lab-booking", icon: TbCalendarClock, group: "Operations" },
     { label: "Peta Lab", href: "/lab-map", icon: TbMap2, group: "Monitoring" },
     { label: "PC Monitoring", href: "/pc-monitoring", icon: TbDeviceDesktop, group: "Monitoring" },
+    { label: "Inventory", href: "/inventory", icon: TbServer, group: "Monitoring" },
     { label: "Leaderboard", href: "/leaderboard", icon: TbTrophy, group: "Gamification" },
     { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Tools" },
     { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Tools" },
@@ -150,8 +151,10 @@ export function NeoSidebar({ role, isKetuaKelas = false, userName }: NeoSidebarP
   const { isOpen: isMobileOpen, closeSidebar } = useSidebar();
 
   let menuItems = menuByRole[role] || menuByRole.MAHASISWA;
-  if (role === "MAHASISWA" && isKetuaKelas) {
-    menuItems = [...menuItems.slice(0, 2), ...ketuaKelasExtraMenu, ...menuItems.slice(2)];
+  if (isKetuaKelas) {
+    const existingHrefs = new Set(menuItems.map((item) => item.href));
+    const additiveKetuaMenu = ketuaKelasExtraMenu.filter((item) => !existingHrefs.has(item.href));
+    menuItems = [...menuItems.slice(0, 2), ...additiveKetuaMenu, ...menuItems.slice(2)];
   }
 
   const groupedMenu = menuItems.reduce((acc, item) => {

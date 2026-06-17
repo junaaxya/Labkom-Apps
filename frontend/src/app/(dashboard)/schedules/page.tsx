@@ -222,7 +222,7 @@ export default function SchedulesPage() {
   });
 
   const canReviewRequests = user.role === "KOORDINATOR_LAB" || user.role === "ASISTEN_LAB";
-  const isKetuaKelas = user.role === "MAHASISWA" && Boolean(user.isKetuaKelas);
+  const isKetuaKelas = Boolean(user.isKetuaKelas);
   const canManageSchedules = user.role === "KOORDINATOR_LAB";
 
   const resetRequestForm = () => {
