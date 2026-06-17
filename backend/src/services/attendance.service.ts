@@ -257,9 +257,13 @@ export class AttendanceService {
 
     const settings = await AttendanceSettingsService.get();
 
+    if (latitude === undefined || longitude === undefined) {
+      throw new Error("GPS wajib aktif untuk check-in");
+    }
+
     // GPS validation
     let checkinLocationId: string | undefined;
-    if (settings.isGeofencingEnabled && latitude !== undefined && longitude !== undefined) {
+    if (settings.isGeofencingEnabled) {
       const result = await AttendanceLocationService.findNearestValid(latitude, longitude);
       if (!result) {
         throw new Error("Lokasi Anda di luar jangkauan area lab yang terdaftar");
@@ -324,19 +328,13 @@ export class AttendanceService {
 
     const settings = await AttendanceSettingsService.get();
 
-    // Check if task is required before checkout
-    if (settings.isTaskRequired) {
-      const taskCount = await prisma.dailyTaskLog.count({
-        where: { attendanceId: attendance.id },
-      });
-      if (taskCount === 0) {
-        throw new Error("Wajib mengisi minimal 1 daily task sebelum checkout");
-      }
+    if (latitude === undefined || longitude === undefined) {
+      throw new Error("GPS wajib aktif untuk check-out");
     }
 
     // GPS validation for checkout
     let checkoutLocationId: string | undefined;
-    if (settings.isGeofencingEnabled && latitude !== undefined && longitude !== undefined) {
+    if (settings.isGeofencingEnabled) {
       const result = await AttendanceLocationService.findNearestValid(latitude, longitude);
       if (!result) {
         throw new Error("Lokasi checkout di luar jangkauan area lab");

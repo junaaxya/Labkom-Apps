@@ -13,10 +13,7 @@ import {
   TbClipboardList,
   TbMapPin,
   TbHourglass,
-  TbEdit,
   TbSend,
-  TbArrowBack,
-  TbChevronDown,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -90,6 +87,33 @@ function errorMessage(err: unknown, fallback: string): string {
     if (typeof msg === "string" && msg.length > 0) return msg;
   }
   return fallback;
+}
+
+async function getRequiredCoordinates(actionLabel: "check-in" | "check-out"): Promise<{
+  latitude: number;
+  longitude: number;
+}> {
+  if (!("geolocation" in navigator)) {
+    throw new Error(`Perangkat Anda tidak mendukung GPS untuk ${actionLabel}`);
+  }
+
+  const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      timeout: 10000,
+      enableHighAccuracy: true,
+    })
+  ).catch(() => null);
+
+  if (!position) {
+    throw new Error(`GPS wajib aktif untuk ${actionLabel}`);
+  }
+
+  const { latitude, longitude } = position.coords;
+  if (latitude === undefined || longitude === undefined) {
+    throw new Error(`Koordinat GPS tidak tersedia untuk ${actionLabel}`);
+  }
+
+  return { latitude, longitude };
 }
 
 export default function AttendancePage() {
@@ -201,20 +225,7 @@ export default function AttendancePage() {
   const handleCheckin = async () => {
     setSubmitting(true);
     try {
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      if (navigator.geolocation) {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000,
-            enableHighAccuracy: true,
-          })
-        ).catch(() => null);
-        if (pos) {
-          latitude = pos.coords.latitude;
-          longitude = pos.coords.longitude;
-        }
-      }
+      const { latitude, longitude } = await getRequiredCoordinates("check-in");
       await api.post("/attendance/checkin", { latitude, longitude });
       fetchData();
     } catch (err) {
@@ -227,24 +238,11 @@ export default function AttendancePage() {
   const handleCheckout = async () => {
     setSubmitting(true);
     try {
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      if (navigator.geolocation) {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000,
-            enableHighAccuracy: true,
-          })
-        ).catch(() => null);
-        if (pos) {
-          latitude = pos.coords.latitude;
-          longitude = pos.coords.longitude;
-        }
-      }
+      const { latitude, longitude } = await getRequiredCoordinates("check-out");
       await api.post("/attendance/checkout", { latitude, longitude });
       fetchData();
     } catch (err) {
-      toast.error(errorMessage(err, "Gagal check-out"));
+      toast.error(errorMessage(err, "Gagal check-out. Pastikan GPS aktif dan Anda berada di lokasi yang valid."));
     } finally {
       setSubmitting(false);
     }
