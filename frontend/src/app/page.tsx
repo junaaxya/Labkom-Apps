@@ -85,6 +85,9 @@ export default function Home() {
             <span className="font-heading font-bold text-2xl tracking-tight hidden sm:block">Labkom</span>
           </div>
           <div className="flex gap-4">
+            <Link href="/layanan-hosting" className="hidden px-5 py-2 font-bold hover:bg-[#d4c4b5] transition-colors rounded-lg md:block">
+              Layanan Hosting
+            </Link>
             <Link href="/login" className="px-5 py-2 font-bold hover:bg-[#d4c4b5] transition-colors rounded-lg">
               Masuk
             </Link>
@@ -140,6 +143,9 @@ export default function Home() {
             </Link>
             <Link href="/login" className="w-full sm:w-auto text-center px-8 py-4 bg-white text-[#1a1a1a] neo-btn text-lg">
               Eksplorasi Fitur
+            </Link>
+            <Link href="/layanan-hosting" className="w-full sm:w-auto text-center px-8 py-4 bg-[#4b607f] text-white neo-btn text-lg">
+              Paket Hosting
             </Link>
           </motion.div>
         </section>
