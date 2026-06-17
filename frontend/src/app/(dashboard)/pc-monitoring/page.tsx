@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   TbDeviceDesktop,
   TbWifi,
@@ -195,10 +196,11 @@ function StatCard({ icon: Icon, value, label, iconBg }: { icon: React.ComponentT
 }
 
 export default function PCMonitoringPage() {
+  const searchParams = useSearchParams();
   const [pcs, setPCs] = useState<PC[]>([]);
   const [allLabs, setAllLabs] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [filterAgentStatus, setFilterAgentStatus] = useState<string>("");
   const [filterHealthStatus, setFilterHealthStatus] = useState<string>("");
   const [filterLab, setFilterLab] = useState<string>("");

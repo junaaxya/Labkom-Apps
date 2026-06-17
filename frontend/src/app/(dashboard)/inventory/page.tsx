@@ -1,565 +1,417 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  TbCpu,
+  TbArchive,
+  TbBox,
   TbDeviceDesktop,
   TbEdit,
+  TbLink,
   TbLoader2,
-  TbQrcode,
+  TbPlus,
   TbRefresh,
   TbSearch,
-  TbServer,
+  TbTool,
+  TbTrash,
   TbX,
-  TbCheck,
-  TbDownload,
-  TbWifi,
-  TbWifiOff,
 } from "react-icons/tb";
-import api from "@/services/api";
 import { MobileCard } from "@/components/ui/mobile-card";
+import api from "@/services/api";
+import type { User } from "@/types";
 
-interface InventoryPC {
+type AssetCategory = "PC" | "MONITOR" | "KEYBOARD" | "MOUSE" | "PROJECTOR" | "NETWORKING" | "FURNITURE" | "AC" | "ELECTRICAL" | "TOOL" | "CONSUMABLE" | "OTHER";
+type AssetCondition = "GOOD" | "NEEDS_REPAIR" | "BROKEN" | "LOST" | "RETIRED";
+type AssetStatus = "ACTIVE" | "IN_MAINTENANCE" | "BORROWED" | "STORED" | "DISPOSED";
+
+interface Asset {
   id: string;
-  pcCode: string;
+  assetCode: string;
   name: string;
-  specs: string | null;
-  status: string;
-  labId: string;
-  parsedSpecs: {
-    cpu?: string;
-    ram?: string;
-    storage?: string;
-    os?: string;
-    gpu?: string;
-    monitor?: string;
-    peripherals?: string[];
-  };
-  agentStatus?: "ONLINE" | "OFFLINE" | "UNKNOWN";
-  isAgentInstalled?: boolean;
-  cpuUsage?: number | null;
-  ramUsage?: number | null;
-  ramTotalGb?: number | null;
-  storageUsage?: number | null;
-  storageTotalGb?: number | null;
-  hostname?: string | null;
-  os?: string | null;
-  lastSeen?: string | null;
+  category: AssetCategory;
+  type?: string | null;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  condition: AssetCondition;
+  status: AssetStatus;
+  location?: string | null;
+  labId?: string | null;
+  lab?: { id: string; name: string; location?: string | null } | null;
+  pcId?: string | null;
+  pc?: { id: string; pcCode: string; name: string; agentStatus?: string; healthStatus?: string; qrCode?: string | null } | null;
+  acquisitionDate?: string | null;
+  warrantyUntil?: string | null;
+  purchaseSource?: string | null;
+  purchasePrice?: number | string | null;
+  fundingSource?: string | null;
+  notes?: string | null;
 }
 
-interface InventoryData {
-  totalPCs: number;
-  inventory: InventoryPC[];
-  aggregation: {
-    ramCounts: Record<string, number>;
-    cpuCounts: Record<string, number>;
-    osCounts: Record<string, number>;
+interface AssetSummary {
+  total: number;
+  byCategory: Record<string, number>;
+  byCondition: Record<string, number>;
+  byStatus: Record<string, number>;
+  warrantyExpiringSoon: number;
+  pcLinked: number;
+}
+
+type AssetForm = {
+  id?: string;
+  assetCode: string;
+  name: string;
+  category: AssetCategory;
+  type: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  condition: AssetCondition;
+  status: AssetStatus;
+  location: string;
+  notes: string;
+  acquisitionDate: string;
+  warrantyUntil: string;
+  purchaseSource: string;
+  purchasePrice: string;
+  fundingSource: string;
+};
+
+const categories: AssetCategory[] = ["PC", "MONITOR", "KEYBOARD", "MOUSE", "PROJECTOR", "NETWORKING", "FURNITURE", "AC", "ELECTRICAL", "TOOL", "CONSUMABLE", "OTHER"];
+const conditions: AssetCondition[] = ["GOOD", "NEEDS_REPAIR", "BROKEN", "LOST", "RETIRED"];
+const statuses: AssetStatus[] = ["ACTIVE", "IN_MAINTENANCE", "BORROWED", "STORED", "DISPOSED"];
+
+const emptyForm: AssetForm = {
+  assetCode: "",
+  name: "",
+  category: "OTHER",
+  type: "",
+  brand: "",
+  model: "",
+  serialNumber: "",
+  condition: "GOOD",
+  status: "ACTIVE",
+  location: "",
+  notes: "",
+  acquisitionDate: "",
+  warrantyUntil: "",
+  purchaseSource: "",
+  purchasePrice: "",
+  fundingSource: "",
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function toDateInput(value?: string | null) {
+  return value ? value.slice(0, 10) : "";
+}
+
+function toForm(asset: Asset): AssetForm {
+  return {
+    id: asset.id,
+    assetCode: asset.assetCode,
+    name: asset.name,
+    category: asset.category,
+    type: asset.type || "",
+    brand: asset.brand || "",
+    model: asset.model || "",
+    serialNumber: asset.serialNumber || "",
+    condition: asset.condition,
+    status: asset.status,
+    location: asset.location || "",
+    notes: asset.notes || "",
+    acquisitionDate: toDateInput(asset.acquisitionDate),
+    warrantyUntil: toDateInput(asset.warrantyUntil),
+    purchaseSource: asset.purchaseSource || "",
+    purchasePrice: asset.purchasePrice === null || asset.purchasePrice === undefined ? "" : String(asset.purchasePrice),
+    fundingSource: asset.fundingSource || "",
   };
+}
+
+function toPayload(form: AssetForm, canManageProcurement: boolean) {
+  const payload: Record<string, unknown> = {
+    assetCode: form.assetCode,
+    name: form.name,
+    category: form.category,
+    type: form.type || null,
+    brand: form.brand || null,
+    model: form.model || null,
+    serialNumber: form.serialNumber || null,
+    condition: form.condition,
+    status: form.status,
+    location: form.location || null,
+    notes: form.notes || null,
+  };
+  if (canManageProcurement) {
+    payload.acquisitionDate = form.acquisitionDate ? new Date(form.acquisitionDate).toISOString() : null;
+    payload.warrantyUntil = form.warrantyUntil ? new Date(form.warrantyUntil).toISOString() : null;
+    payload.purchaseSource = form.purchaseSource || null;
+    payload.purchasePrice = form.purchasePrice ? Number(form.purchasePrice) : null;
+    payload.fundingSource = form.fundingSource || null;
+  }
+  return payload;
 }
 
 export default function InventoryPage() {
-  const [data, setData] = useState<InventoryData | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [summary, setSummary] = useState<AssetSummary | null>(null);
+  const [user] = useState<User | null>(() => {
+    if (typeof window === "undefined") return null;
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? (JSON.parse(storedUser) as User) : null;
+  });
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [editingPC, setEditingPC] = useState<InventoryPC | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [generatingQR, setGeneratingQR] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | AssetCategory>("ALL");
+  const [conditionFilter, setConditionFilter] = useState<"ALL" | AssetCondition>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | AssetStatus>("ALL");
+  const [form, setForm] = useState<AssetForm | null>(null);
+  const [maintenanceAsset, setMaintenanceAsset] = useState<Asset | null>(null);
+  const [maintenanceTitle, setMaintenanceTitle] = useState("");
+
+  const canManageAssets = user?.role === "KOORDINATOR_LAB" || user?.role === "ASISTEN_LAB";
+  const canManageProcurement = user?.role === "KOORDINATOR_LAB";
 
   useEffect(() => {
-    fetchInventory();
+    void fetchData();
   }, []);
 
-  async function fetchInventory() {
+  async function fetchData() {
     try {
       setLoading(true);
-      const [inventoryRes, pcsRes] = await Promise.all([
-        api.get<{ data: InventoryData }>("/pcs/inventory"),
-        api.get<{ data: InventoryPC[] }>("/pcs").catch(() => ({ data: [] })),
+      setError(null);
+      const [assetRes, summaryRes] = await Promise.all([
+        api.get<{ data: { assets: Asset[] } }>("/assets?limit=100"),
+        api.get<{ data: AssetSummary }>("/assets/summary"),
       ]);
-
-      const agentMap = new Map<string, InventoryPC>();
-      const pcsData = Array.isArray(pcsRes.data) ? pcsRes.data : [];
-      for (const pc of pcsData) {
-        agentMap.set(pc.id, pc);
-      }
-
-      if (inventoryRes.data) {
-        const merged: InventoryData = {
-          ...inventoryRes.data,
-          inventory: inventoryRes.data.inventory.map((pc) => {
-            const live = agentMap.get(pc.id);
-            if (!live) return pc;
-            return {
-              ...pc,
-              agentStatus: live.agentStatus,
-              isAgentInstalled: live.isAgentInstalled,
-              cpuUsage: live.cpuUsage,
-              ramUsage: live.ramUsage,
-              ramTotalGb: live.ramTotalGb,
-              storageUsage: live.storageUsage,
-              storageTotalGb: live.storageTotalGb,
-              hostname: live.hostname,
-              os: live.os,
-              lastSeen: live.lastSeen,
-            };
-          }),
-        };
-        setData(merged);
-      } else {
-        setData(null);
-      }
-    } catch {
-      setData(null);
+      setAssets(assetRes.data.assets || []);
+      setSummary(summaryRes.data);
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal memuat data aset"));
     } finally {
       setLoading(false);
     }
   }
 
-  async function saveSpecs(pcId: string, specs: Record<string, string>) {
-    try {
-      await api.post(`/pcs/${pcId}/specs`, { specs });
-      setShowEditModal(false);
-      void fetchInventory();
-    } catch {}
-  }
+  const filteredAssets = useMemo(() => {
+    const query = search.toLowerCase();
+    return assets.filter((asset) => {
+      const searchable = [asset.assetCode, asset.name, asset.serialNumber, asset.brand, asset.model, asset.type, asset.lab?.name, asset.pc?.pcCode]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return (
+        searchable.includes(query) &&
+        (categoryFilter === "ALL" || asset.category === categoryFilter) &&
+        (conditionFilter === "ALL" || asset.condition === conditionFilter) &&
+        (statusFilter === "ALL" || asset.status === statusFilter)
+      );
+    });
+  }, [assets, categoryFilter, conditionFilter, search, statusFilter]);
 
-  async function generateAllQR() {
-    if (!data) return;
-    setGeneratingQR(true);
+  async function handleSave(event: FormEvent) {
+    event.preventDefault();
+    if (!form) return;
     try {
-      const labIds = [...new Set(data.inventory.map((pc) => pc.labId))];
-      for (const labId of labIds) {
-        await api.post("/pcs/bulk-qr", { labId });
-      }
-      void fetchInventory();
-    } catch {} finally {
-      setGeneratingQR(false);
+      setSubmitting(true);
+      setError(null);
+      const payload = toPayload(form, canManageProcurement);
+      if (form.id) await api.patch(`/assets/${form.id}`, payload);
+      else await api.post("/assets", payload);
+      setForm(null);
+      await fetchData();
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal menyimpan aset"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  const filtered = data?.inventory.filter((pc) =>
-    pc.pcCode.toLowerCase().includes(search.toLowerCase()) ||
-    pc.name.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  async function handleDelete(id: string) {
+    if (!confirm("Arsipkan aset ini? Data PC terkait tidak akan dihapus.")) return;
+    try {
+      setSubmitting(true);
+      setError(null);
+      await api.delete(`/assets/${id}`);
+      setForm(null);
+      await fetchData();
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal mengarsipkan aset"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <TbLoader2 className="w-8 h-8 animate-spin text-[#4b607f]" />
-      </div>
-    );
+  async function handleMaintenance(event: FormEvent) {
+    event.preventDefault();
+    if (!maintenanceAsset) return;
+    try {
+      setSubmitting(true);
+      setError(null);
+      await api.post(`/assets/${maintenanceAsset.id}/maintenance`, {
+        title: maintenanceTitle,
+        status: "IN_MAINTENANCE",
+      });
+      setMaintenanceAsset(null);
+      setMaintenanceTitle("");
+      await fetchData();
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal menambah catatan maintenance"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading && assets.length === 0) {
+    return <div className="flex justify-center py-20"><TbLoader2 className="w-8 h-8 animate-spin text-[#4b607f]" /></div>;
+  }
+
+  if (user && !canManageAssets) {
+    return <div className="neo-card p-6 bg-white text-[#1a1a1a] font-bold">Inventory aset hanya untuk Koordinator Lab dan Asisten Lab.</div>;
   }
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
-            Hardware Inventory
-          </h1>
-          <p className="text-[#5a5a5a] mt-1 font-medium">Kelola spesifikasi dan QR code semua PC lab</p>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Inventory Aset Lab</h1>
+          <p className="text-[#5a5a5a] mt-1 font-medium">Data aset profesional terpisah dari PC Monitoring dan QR PC.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={generateAllQR}
-            disabled={generatingQR}
-            className="neo-btn px-5 py-3 bg-white text-[#1a1a1a] flex items-center justify-center gap-2 font-bold"
-          >
-            {generatingQR ? <TbLoader2 className="w-5 h-5 animate-spin" /> : <TbQrcode className="w-5 h-5 text-[#4b607f]" />}
-            Generate Semua QR
-          </button>
-          <button onClick={fetchInventory} className="neo-btn w-12 h-12 bg-white text-[#1a1a1a] flex items-center justify-center font-bold">
-            <TbRefresh className="w-5 h-5" />
-          </button>
+          {canManageProcurement && <button onClick={() => setForm(emptyForm)} className="neo-btn px-5 py-3 bg-[#f3701e] text-white flex items-center justify-center gap-2 font-bold"><TbPlus className="w-5 h-5" />Tambah Aset</button>}
+          <button onClick={fetchData} className="neo-btn w-12 h-12 bg-white text-[#1a1a1a] flex items-center justify-center font-bold" aria-label="Refresh"><TbRefresh className="w-5 h-5" /></button>
         </div>
       </div>
 
-      {/* Aggregation Summary */}
-      {data && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="neo-card p-5 bg-[#f5ede6]">
-            <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2 text-[#1a1a1a]">
-              <div className="w-8 h-8 rounded-full bg-[#4b607f] flex items-center justify-center neo-border-sm">
-                <TbCpu className="w-5 h-5 text-white" />
-              </div>
-              Distribusi RAM
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(data.aggregation.ramCounts).length > 0 ? (
-                Object.entries(data.aggregation.ramCounts)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([ram, count]) => (
-                    <div key={ram} className="flex justify-between items-center bg-white p-2 rounded neo-border-sm">
-                      <span className="font-medium text-sm text-[#1a1a1a]">{ram}</span>
-                      <span className="font-bold text-sm bg-[#e8d8c9] px-2 py-0.5 rounded text-[#1a1a1a]">{count} PC</span>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm font-medium text-[#5a5a5a] text-center py-4">Belum ada data RAM</p>
-              )}
-            </div>
-          </div>
-          <div className="neo-card p-5 bg-[#f5ede6]">
-            <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2 text-[#1a1a1a]">
-              <div className="w-8 h-8 rounded-full bg-[#f3701e] flex items-center justify-center neo-border-sm">
-                <TbServer className="w-5 h-5 text-white" />
-              </div>
-              Distribusi Processor
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(data.aggregation.cpuCounts).length > 0 ? (
-                Object.entries(data.aggregation.cpuCounts)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([cpu, count]) => (
-                    <div key={cpu} className="flex justify-between items-center bg-white p-2 rounded neo-border-sm">
-                      <span className="font-medium text-sm text-[#1a1a1a] truncate mr-2">{cpu}</span>
-                      <span className="font-bold text-sm bg-[#e8d8c9] px-2 py-0.5 rounded text-[#1a1a1a] flex-shrink-0">{count} PC</span>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm font-medium text-[#5a5a5a] text-center py-4">Belum ada data CPU</p>
-              )}
-            </div>
-          </div>
-          <div className="neo-card p-5 bg-[#f5ede6]">
-            <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2 text-[#1a1a1a]">
-              <div className="w-8 h-8 rounded-full bg-[#22c55e] flex items-center justify-center neo-border-sm">
-                <TbDeviceDesktop className="w-5 h-5 text-white" />
-              </div>
-              Distribusi OS
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(data.aggregation.osCounts).length > 0 ? (
-                Object.entries(data.aggregation.osCounts)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([os, count]) => (
-                    <div key={os} className="flex justify-between items-center bg-white p-2 rounded neo-border-sm">
-                      <span className="font-medium text-sm text-[#1a1a1a]">{os}</span>
-                      <span className="font-bold text-sm bg-[#e8d8c9] px-2 py-0.5 rounded text-[#1a1a1a]">{count} PC</span>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm font-medium text-[#5a5a5a] text-center py-4">Belum ada data OS</p>
-              )}
-            </div>
-          </div>
+      {error && <div className="neo-card p-4 bg-red-50 text-red-700 font-bold border-red-500">{error}</div>}
+
+      {summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard icon={<TbBox className="w-5 h-5 text-white" />} label="Total Aset" value={summary.total} tone="bg-[#4b607f]" />
+          <SummaryCard icon={<TbTool className="w-5 h-5 text-white" />} label="Perlu Perbaikan" value={(summary.byCondition.NEEDS_REPAIR || 0) + (summary.byCondition.BROKEN || 0)} tone="bg-[#f3701e]" />
+          <SummaryCard icon={<TbDeviceDesktop className="w-5 h-5 text-white" />} label="Terhubung PC" value={summary.pcLinked} tone="bg-[#1a1a1a]" />
+          <SummaryCard icon={<TbArchive className="w-5 h-5 text-white" />} label="Garansi < 30 Hari" value={summary.warrantyExpiringSoon} tone="bg-[#5a5a5a]" />
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <TbSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5a5a5a] w-5 h-5" />
-        <input
-          type="text"
-          placeholder="Cari hardware PC..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="neo-input pl-11 py-4 w-full text-sm font-medium focus:outline-none"
-        />
+      <div className="neo-card p-4 bg-white grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="relative md:col-span-1">
+          <TbSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5a5a5a] w-5 h-5" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} className="neo-input w-full pl-10 py-3 text-sm" placeholder="Cari kode, nama, serial, lab..." />
+        </div>
+        <SelectFilter value={categoryFilter} onChange={(value) => setCategoryFilter(value as "ALL" | AssetCategory)} options={categories} label="Semua Kategori" />
+        <SelectFilter value={conditionFilter} onChange={(value) => setConditionFilter(value as "ALL" | AssetCondition)} options={conditions} label="Semua Kondisi" />
+        <SelectFilter value={statusFilter} onChange={(value) => setStatusFilter(value as "ALL" | AssetStatus)} options={statuses} label="Semua Status" />
       </div>
 
-      <div className="md:hidden space-y-3">
-        {filtered.length === 0 ? (
-          <div className="neo-card p-10 text-center bg-white">
-            <TbDeviceDesktop className="w-10 h-10 text-[#4b607f] mx-auto mb-3 opacity-50" />
-            <p className="font-heading font-bold text-lg text-[#1a1a1a]">Tidak ada hardware PC</p>
-            <p className="text-[#5a5a5a] text-sm mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
-          </div>
-        ) : (
-          filtered.map((pc) => (
-            <MobileCard
-              key={pc.id}
-              title={<span className="font-mono">{pc.pcCode}</span>}
-              subtitle={pc.name}
-              badge={
-                pc.isAgentInstalled ? (
-                  <span className={`inline-flex items-center gap-1.5 neo-badge px-2.5 py-1 text-[10px] font-bold ${
-                    pc.agentStatus === "ONLINE" ? "bg-emerald-100 text-emerald-700" :
-                    pc.agentStatus === "OFFLINE" ? "bg-gray-100 text-gray-600" :
-                    "bg-gray-50 text-gray-400"
-                  }`}>
-                    {pc.agentStatus === "ONLINE" ? <TbWifi className="w-3 h-3" /> : <TbWifiOff className="w-3 h-3" />}
-                    {pc.agentStatus || "UNKNOWN"}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-[#5a5a5a] italic">No Agent</span>
-                )
-              }
-              fields={[
-                {
-                  label: "CPU",
-                  value: (
-                    <div>
-                      <div className="text-xs">{pc.parsedSpecs?.cpu || pc.hostname || <span className="italic text-[#5a5a5a]">Belum diisi</span>}</div>
-                      {pc.cpuUsage != null && (
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${pc.cpuUsage > 80 ? "bg-red-500" : pc.cpuUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.cpuUsage, 100)}%` }} />
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.cpuUsage.toFixed(0)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  ),
-                },
-                {
-                  label: "RAM",
-                  value: (
-                    <div>
-                      <div className="text-xs">{pc.parsedSpecs?.ram || (pc.ramTotalGb ? `${pc.ramTotalGb} GB` : <span className="italic text-[#5a5a5a]">Belum diisi</span>)}</div>
-                      {pc.ramUsage != null && (
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${pc.ramUsage > 80 ? "bg-red-500" : pc.ramUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.ramUsage, 100)}%` }} />
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.ramUsage.toFixed(0)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  ),
-                },
-                {
-                  label: "Storage",
-                  value: (
-                    <div>
-                      <div className="text-xs">{pc.parsedSpecs?.storage || (pc.storageTotalGb ? `${pc.storageTotalGb} GB` : <span className="italic text-[#5a5a5a]">Belum diisi</span>)}</div>
-                      {pc.storageUsage != null && (
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${pc.storageUsage > 80 ? "bg-red-500" : pc.storageUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.storageUsage, 100)}%` }} />
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.storageUsage.toFixed(0)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  ),
-                },
-                {
-                  label: "OS",
-                  value: <span className="text-xs">{pc.parsedSpecs?.os || pc.os || <span className="italic text-[#5a5a5a]">Belum diisi</span>}</span>,
-                },
-                {
-                  label: "Status",
-                  value: (
-                    <span className={`neo-badge px-2.5 py-1 ${
-                      pc.status === "AVAILABLE" ? "status-available" :
-                      pc.status === "BROKEN" ? "status-broken" :
-                      pc.status === "MAINTENANCE" ? "status-maintenance" :
-                      "status-inactive"
-                    }`}>
-                      {pc.status === "AVAILABLE" ? "Tersedia" : pc.status === "BROKEN" ? "Rusak" : pc.status === "MAINTENANCE" ? "Maint" : "Inactive"}
-                    </span>
-                  ),
-                },
-              ]}
-              actions={[
-                {
-                  label: "Edit Spesifikasi",
-                  icon: <TbEdit className="w-4 h-4" />,
-                  onClick: () => { setEditingPC(pc); setShowEditModal(true); },
-                  variant: "secondary",
-                },
-              ]}
-            />
-          ))
-        )}
+      <div className="md:hidden space-y-4">
+        {filteredAssets.map((asset) => <AssetCard key={asset.id} asset={asset} onEdit={() => setForm(toForm(asset))} onMaintenance={() => { setMaintenanceAsset(asset); setMaintenanceTitle(`Maintenance ${asset.assetCode}`); }} />)}
+        {filteredAssets.length === 0 && <EmptyState />}
       </div>
 
-      <div className="hidden md:block neo-card overflow-hidden bg-white neo-border-sm">
+      <div className="hidden md:block neo-card overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#e8d8c9] border-b-[3px] border-[#1a1a1a]">
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">Kode PC</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">Nama</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">Agent</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">CPU</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">RAM</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">Storage</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">OS</th>
-                <th className="text-left p-4 font-heading font-bold text-[#1a1a1a]">Status</th>
-                <th className="text-center p-4 font-heading font-bold text-[#1a1a1a]">Aksi</th>
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="bg-[#f5ede6] border-b-[3px] border-[#e8d8c9] text-[#1a1a1a]">
+              <tr>
+                <th className="p-4 font-bold">Kode</th>
+                <th className="p-4 font-bold">Aset</th>
+                <th className="p-4 font-bold">Lab/Lokasi</th>
+                <th className="p-4 font-bold">Status</th>
+                <th className="p-4 font-bold">Kondisi</th>
+                <th className="p-4 font-bold">PC</th>
+                <th className="p-4 font-bold text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((pc) => (
-                <tr key={pc.id} className="border-b-[2px] border-[#e8d8c9] hover:bg-[#f5ede6] transition-colors">
-                  <td className="p-4 font-mono font-bold text-[#4b607f]">{pc.pcCode}</td>
-                  <td className="p-4 font-medium text-[#1a1a1a]">{pc.name}</td>
-                  <td className="p-4">
-                    {pc.isAgentInstalled ? (
-                      <span className={`inline-flex items-center gap-1.5 neo-badge px-2.5 py-1 text-[10px] font-bold ${
-                        pc.agentStatus === "ONLINE" ? "bg-emerald-100 text-emerald-700" :
-                        pc.agentStatus === "OFFLINE" ? "bg-gray-100 text-gray-600" :
-                        "bg-gray-50 text-gray-400"
-                      }`}>
-                        {pc.agentStatus === "ONLINE" ? <TbWifi className="w-3 h-3" /> : <TbWifiOff className="w-3 h-3" />}
-                        {pc.agentStatus || "UNKNOWN"}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-[#5a5a5a] italic">No Agent</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-xs font-medium">
-                    <div>{pc.parsedSpecs?.cpu || pc.hostname || <span className="text-[#5a5a5a] italic">Belum diisi</span>}</div>
-                    {(pc.cpuUsage !== null && pc.cpuUsage !== undefined) && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${pc.cpuUsage > 80 ? "bg-red-500" : pc.cpuUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.cpuUsage, 100)}%` }} />
-                        </div>
-                        <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.cpuUsage.toFixed(0)}%</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4 text-xs font-medium">
-                    <div>{pc.parsedSpecs?.ram || (pc.ramTotalGb ? `${pc.ramTotalGb} GB` : <span className="text-[#5a5a5a] italic">Belum diisi</span>)}</div>
-                    {(pc.ramUsage !== null && pc.ramUsage !== undefined) && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${pc.ramUsage > 80 ? "bg-red-500" : pc.ramUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.ramUsage, 100)}%` }} />
-                        </div>
-                        <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.ramUsage.toFixed(0)}%</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4 text-xs font-medium">
-                    <div>{pc.parsedSpecs?.storage || (pc.storageTotalGb ? `${pc.storageTotalGb} GB` : <span className="text-[#5a5a5a] italic">Belum diisi</span>)}</div>
-                    {(pc.storageUsage !== null && pc.storageUsage !== undefined) && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <div className="w-16 h-1.5 bg-[#e8d8c9] rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${pc.storageUsage > 80 ? "bg-red-500" : pc.storageUsage > 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pc.storageUsage, 100)}%` }} />
-                        </div>
-                        <span className="text-[10px] font-bold text-[#5a5a5a]">{pc.storageUsage.toFixed(0)}%</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4 text-xs font-medium">{pc.parsedSpecs?.os || pc.os || <span className="text-[#5a5a5a] italic">Belum diisi</span>}</td>
-                  <td className="p-4">
-                    <span className={`neo-badge px-2.5 py-1 ${
-                      pc.status === "AVAILABLE" ? "status-available" :
-                      pc.status === "BROKEN" ? "status-broken" :
-                      pc.status === "MAINTENANCE" ? "status-maintenance" :
-                      "status-inactive"
-                    }`}>
-                      {pc.status === "AVAILABLE" ? "Tersedia" : pc.status === "BROKEN" ? "Rusak" : pc.status === "MAINTENANCE" ? "Maint" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center">
-                    <button
-                      onClick={() => { setEditingPC(pc); setShowEditModal(true); }}
-                      className="w-8 h-8 mx-auto bg-white neo-btn flex items-center justify-center hover:bg-[#f3701e] hover:text-white transition-colors"
-                      title="Edit Spesifikasi"
-                    >
-                      <TbEdit className="w-4 h-4" />
-                    </button>
-                  </td>
+            <tbody className="divide-y-2 divide-[#e8d8c9]">
+              {filteredAssets.map((asset) => (
+                <tr key={asset.id} className="hover:bg-[#f5ede6]/40">
+                  <td className="p-4 font-mono font-bold text-[#1a1a1a]">{asset.assetCode}</td>
+                  <td className="p-4"><div className="font-bold text-[#1a1a1a]">{asset.name}</div><div className="text-xs text-[#5a5a5a]">{asset.category} {asset.brand || asset.model ? `- ${[asset.brand, asset.model].filter(Boolean).join(" ")}` : ""}</div></td>
+                  <td className="p-4 text-[#1a1a1a]">{asset.lab?.name || asset.location || "-"}</td>
+                  <td className="p-4"><Badge value={asset.status} /></td>
+                  <td className="p-4"><Badge value={asset.condition} /></td>
+                  <td className="p-4">{asset.pcId ? <Link href={`/pc-monitoring?search=${asset.pc?.pcCode || ""}`} className="inline-flex items-center gap-1 font-bold text-[#4b607f] underline"><TbLink />{asset.pc?.pcCode || "PC"}</Link> : "-"}</td>
+                  <td className="p-4"><div className="flex items-center justify-center gap-2"><IconButton label="Edit" onClick={() => setForm(toForm(asset))} icon={<TbEdit />} /><IconButton label="Maintenance" onClick={() => { setMaintenanceAsset(asset); setMaintenanceTitle(`Maintenance ${asset.assetCode}`); }} icon={<TbTool />} /></div></td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="p-12 text-center">
-                    <TbDeviceDesktop className="w-12 h-12 text-[#4b607f] mx-auto mb-3 opacity-50" />
-                    <p className="font-heading font-bold text-lg text-[#1a1a1a]">Tidak ada hardware PC</p>
-                    <p className="text-[#5a5a5a] text-sm mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
-                  </td>
-                </tr>
-              )}
+              {filteredAssets.length === 0 && <tr><td colSpan={7}><EmptyState /></td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Edit Specs Modal */}
-      {showEditModal && editingPC && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white neo-card shadow-[6px_6px_0px_#1a1a1a] rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6 pb-4 border-b-[3px] border-[#e8d8c9]">
-              <div>
-                <h3 className="text-xl font-heading font-bold text-[#1a1a1a]">Edit Spesifikasi</h3>
-                <p className="text-sm font-medium text-[#4b607f] mt-1">{editingPC.pcCode} - {editingPC.name}</p>
-              </div>
-              <button onClick={() => setShowEditModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-white neo-btn hover:bg-[#ef4444] hover:text-white transition-colors flex-shrink-0">
-                <TbX className="w-5 h-5" />
-              </button>
-            </div>
-            <SpecsForm
-              initialSpecs={editingPC.parsedSpecs}
-              onSave={(specs) => saveSpecs(editingPC.id, specs)}
-              onCancel={() => setShowEditModal(false)}
-            />
-          </div>
-        </div>
-      )}
+      {form && <AssetModal form={form} setForm={setForm} onSubmit={handleSave} onClose={() => setForm(null)} onDelete={handleDelete} submitting={submitting} canManageProcurement={canManageProcurement} />}
+      {maintenanceAsset && <MaintenanceModal asset={maintenanceAsset} title={maintenanceTitle} setTitle={setMaintenanceTitle} onSubmit={handleMaintenance} onClose={() => setMaintenanceAsset(null)} submitting={submitting} />}
     </div>
   );
 }
 
-function SpecsForm({
-  initialSpecs,
-  onSave,
-  onCancel,
-}: {
-  initialSpecs: Record<string, unknown> | null;
-  onSave: (specs: Record<string, string>) => void;
-  onCancel: () => void;
-}) {
-  const getSpec = (key: string): string => {
-    const v = initialSpecs?.[key];
-    return typeof v === "string" ? v : "";
-  };
+function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: string }) {
+  return <div className="neo-card p-5 bg-white"><div className="flex items-center gap-3 mb-2"><div className={`w-9 h-9 rounded-full ${tone} flex items-center justify-center neo-border-sm`}>{icon}</div><h3 className="font-heading font-bold text-[#1a1a1a]">{label}</h3></div><p className="text-3xl font-bold text-[#1a1a1a]">{value}</p></div>;
+}
 
-  const [cpu, setCpu] = useState(getSpec("cpu"));
-  const [ram, setRam] = useState(getSpec("ram"));
-  const [storage, setStorage] = useState(getSpec("storage"));
-  const [os, setOs] = useState(getSpec("os"));
-  const [gpu, setGpu] = useState(getSpec("gpu"));
-  const [monitor, setMonitor] = useState(getSpec("monitor"));
+function SelectFilter({ value, onChange, options, label }: { value: string; onChange: (value: string) => void; options: string[]; label: string }) {
+  return <select value={value} onChange={(event) => onChange(event.target.value)} className="neo-input py-3 px-4 text-sm bg-white"><option value="ALL">{label}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+}
 
-  function handleSave() {
-    const specs: Record<string, string> = {};
-    if (cpu) specs.cpu = cpu;
-    if (ram) specs.ram = ram;
-    if (storage) specs.storage = storage;
-    if (os) specs.os = os;
-    if (gpu) specs.gpu = gpu;
-    if (monitor) specs.monitor = monitor;
-    onSave(specs);
-  }
+function Badge({ value }: { value: string }) {
+  const tone = value === "ACTIVE" || value === "GOOD" ? "bg-green-100 text-green-800" : value.includes("REPAIR") || value.includes("BROKEN") || value.includes("MAINTENANCE") ? "bg-orange-100 text-orange-800" : "bg-[#e8d8c9] text-[#1a1a1a]";
+  return <span className={`inline-flex px-2.5 py-1 rounded neo-border-sm text-xs font-bold ${tone}`}>{value}</span>;
+}
 
+function IconButton({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
+  return <button onClick={onClick} className="w-9 h-9 flex items-center justify-center bg-white neo-border-sm hover:bg-[#f5ede6] text-[#1a1a1a]" title={label} aria-label={label}>{icon}</button>;
+}
+
+function AssetCard({ asset, onEdit, onMaintenance }: { asset: Asset; onEdit: () => void; onMaintenance: () => void }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">Processor (CPU)</label>
-        <input value={cpu} onChange={(e) => setCpu(e.target.value)} placeholder="e.g. Intel Core i5-10400" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">RAM</label>
-        <input value={ram} onChange={(e) => setRam(e.target.value)} placeholder="e.g. 8GB DDR4" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">Storage</label>
-        <input value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="e.g. 256GB NVMe SSD" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">Sistem Operasi</label>
-        <input value={os} onChange={(e) => setOs(e.target.value)} placeholder="e.g. Windows 11 Pro 64-bit" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">GPU <span className="text-[#5a5a5a] font-normal">(opsional)</span></label>
-        <input value={gpu} onChange={(e) => setGpu(e.target.value)} placeholder="e.g. NVIDIA GTX 1650 4GB" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div>
-        <label className="text-sm font-bold text-[#1a1a1a] mb-1.5 block">Monitor <span className="text-[#5a5a5a] font-normal">(opsional)</span></label>
-        <input value={monitor} onChange={(e) => setMonitor(e.target.value)} placeholder="e.g. LG 24inch FHD 75Hz" className="neo-input w-full py-3 px-4 text-sm" />
-      </div>
-      <div className="flex gap-3 pt-4 border-t-[3px] border-[#e8d8c9] mt-2">
-        <button onClick={handleSave} className="flex-1 py-3 bg-[#4b607f] text-white neo-btn flex items-center justify-center font-bold">
-          <TbCheck className="w-5 h-5 mr-2" /> Simpan
-        </button>
-        <button onClick={onCancel} className="flex-1 py-3 bg-white text-[#1a1a1a] neo-btn font-bold">
-          Batal
-        </button>
-      </div>
-    </div>
+    <MobileCard
+      title={asset.name}
+      subtitle={asset.assetCode}
+      badge={<Badge value={asset.status} />}
+      fields={[
+        { label: "Kategori", value: asset.category },
+        { label: "Lab/Lokasi", value: asset.lab?.name || asset.location || "-" },
+        { label: "Kondisi", value: asset.condition },
+        {
+          label: "PC Terhubung",
+          value: asset.pcId ? (
+            <Link href={`/pc-monitoring?search=${asset.pc?.pcCode || ""}`} className="inline-flex items-center gap-1 font-bold text-[#4b607f] underline">
+              <TbLink />
+              {asset.pc?.pcCode || "PC"}
+            </Link>
+          ) : "-",
+        },
+      ]}
+      actions={[
+        { label: "Edit", icon: <TbEdit />, onClick: onEdit, variant: "secondary" },
+        { label: "Maintenance", icon: <TbTool />, onClick: onMaintenance, variant: "warning" },
+      ]}
+    />
   );
+}
+
+function EmptyState() {
+  return <div className="text-center py-10 bg-white neo-card text-[#5a5a5a] font-bold">Tidak ada aset yang ditemukan</div>;
+}
+
+function AssetModal({ form, setForm, onSubmit, onClose, onDelete, submitting, canManageProcurement }: { form: AssetForm; setForm: (form: AssetForm) => void; onSubmit: (event: FormEvent) => void; onClose: () => void; onDelete: (id: string) => void; submitting: boolean; canManageProcurement: boolean }) {
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"><div className="neo-card w-full max-w-full sm:max-w-3xl bg-white max-h-[92vh] flex flex-col"><div className="flex justify-between items-center p-4 sm:p-5 border-b-[3px] border-[#1a1a1a]"><h2 className="font-heading text-xl font-bold text-[#1a1a1a]">{form.id ? "Edit Aset" : "Tambah Aset"}</h2><button onClick={onClose} className="w-10 h-10 flex items-center justify-center"><TbX className="w-6 h-6" /></button></div><form id="asset-form" onSubmit={onSubmit} className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-5"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><TextInput label="Kode Aset" value={form.assetCode} onChange={(value) => setForm({ ...form, assetCode: value })} required /><TextInput label="Nama Aset" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required /><SelectInput label="Kategori" value={form.category} options={categories} onChange={(value) => setForm({ ...form, category: value as AssetCategory })} /><TextInput label="Tipe" value={form.type} onChange={(value) => setForm({ ...form, type: value })} /><TextInput label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} /><TextInput label="Model" value={form.model} onChange={(value) => setForm({ ...form, model: value })} /><TextInput label="Serial Number" value={form.serialNumber} onChange={(value) => setForm({ ...form, serialNumber: value })} /><TextInput label="Lokasi Detail" value={form.location} onChange={(value) => setForm({ ...form, location: value })} /><SelectInput label="Status" value={form.status} options={statuses} onChange={(value) => setForm({ ...form, status: value as AssetStatus })} /><SelectInput label="Kondisi" value={form.condition} options={conditions} onChange={(value) => setForm({ ...form, condition: value as AssetCondition })} /></div><label className="block"><span className="text-sm font-bold text-[#1a1a1a] mb-1 block">Catatan</span><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="neo-input w-full p-3 text-sm min-h-24" /></label>{canManageProcurement && <div className="pt-4 border-t-[3px] border-[#e8d8c9]"><h3 className="font-heading font-bold text-lg mb-3 text-[#1a1a1a]">Informasi Pengadaan</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><TextInput type="date" label="Tanggal Pembelian" value={form.acquisitionDate} onChange={(value) => setForm({ ...form, acquisitionDate: value })} /><TextInput type="date" label="Garansi Sampai" value={form.warrantyUntil} onChange={(value) => setForm({ ...form, warrantyUntil: value })} /><TextInput label="Sumber Pembelian" value={form.purchaseSource} onChange={(value) => setForm({ ...form, purchaseSource: value })} /><TextInput label="Sumber Dana" value={form.fundingSource} onChange={(value) => setForm({ ...form, fundingSource: value })} /><TextInput type="number" label="Harga Pembelian" value={form.purchasePrice} onChange={(value) => setForm({ ...form, purchasePrice: value })} /></div></div>}</form><div className="p-4 sm:p-5 border-t-[3px] border-[#1a1a1a] grid grid-cols-2 sm:flex gap-2 bg-[#f5ede6] pb-[calc(1rem+env(safe-area-inset-bottom))]"><button type="button" onClick={onClose} className="neo-btn px-3 py-2.5 min-h-[44px] bg-white text-[#1a1a1a] text-sm font-bold">Batal</button>{canManageProcurement && form.id && <button type="button" onClick={() => onDelete(form.id!)} className="neo-btn px-3 py-2.5 min-h-[44px] bg-red-600 text-white text-sm font-bold"><TbTrash className="inline mr-1" />Arsip</button>}<button form="asset-form" type="submit" disabled={submitting} className="neo-btn px-3 py-2.5 min-h-[44px] bg-[#4b607f] text-white text-sm font-bold sm:ml-auto">{submitting ? "Menyimpan..." : "Simpan"}</button></div></div></div>;
+}
+
+function MaintenanceModal({ asset, title, setTitle, onSubmit, onClose, submitting }: { asset: Asset; title: string; setTitle: (title: string) => void; onSubmit: (event: FormEvent) => void; onClose: () => void; submitting: boolean }) {
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="neo-card w-full max-w-md bg-white"><div className="p-5 border-b-[3px] border-[#1a1a1a]"><h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Catatan Maintenance</h2><p className="text-sm font-medium text-[#5a5a5a]">{asset.assetCode} - {asset.name}</p></div><form onSubmit={onSubmit} className="p-5 space-y-4"><TextInput label="Judul" value={title} onChange={setTitle} required /><div className="flex gap-2"><button type="button" onClick={onClose} className="neo-btn flex-1 py-2.5 bg-white text-[#1a1a1a] font-bold">Batal</button><button disabled={submitting} className="neo-btn flex-1 py-2.5 bg-[#4b607f] text-white font-bold">Simpan</button></div></form></div></div>;
+}
+
+function TextInput({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) {
+  return <label className="block"><span className="text-sm font-bold text-[#1a1a1a] mb-1 block">{label}</span><input required={required} type={type} value={value} onChange={(event) => onChange(event.target.value)} className="neo-input w-full p-3 text-sm" /></label>;
+}
+
+function SelectInput({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <label className="block"><span className="text-sm font-bold text-[#1a1a1a] mb-1 block">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="neo-input w-full p-3 text-sm bg-white">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
 }

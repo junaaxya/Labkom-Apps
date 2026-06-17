@@ -155,7 +155,7 @@ export default function ScanKeyActionPage({
 
   const canPrivilegedTake = useMemo(() => {
     const role = (user.role || "").toUpperCase();
-    return role.includes("KOORDINATOR") || Boolean(user.isKetuaKelas);
+    return role.includes("KOORDINATOR") || role.includes("ASISTEN") || Boolean(user.isKetuaKelas);
   }, [user.isKetuaKelas, user.role]);
 
   const canTake = keyData?.status === "AVAILABLE" && canPrivilegedTake;

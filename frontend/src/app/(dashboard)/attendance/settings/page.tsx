@@ -37,6 +37,14 @@ type LocationPayload = {
   isActive: boolean;
 };
 
+const DEFAULT_LOCATION_FORM: LocationPayload = {
+  name: "Kampus",
+  latitude: 0,
+  longitude: 0,
+  radiusMeter: 50,
+  isActive: true,
+};
+
 function isWrappedResponse<T>(value: unknown): value is ApiWrapped<T> {
   return typeof value === "object" && value !== null && "data" in value;
 }
@@ -85,13 +93,9 @@ export default function AttendanceSettingsPage() {
 
 
 
-  const [locationForm, setLocationForm] = useState<LocationPayload>({
-    name: "",
-    latitude: 0,
-    longitude: 0,
-    radiusMeter: 50,
-    isActive: true,
-  });
+  const [locationForm, setLocationForm] = useState<LocationPayload>(DEFAULT_LOCATION_FORM);
+  const [locationFormSyncKey, setLocationFormSyncKey] = useState<string>("initial");
+  const [isLocationFormDirty, setIsLocationFormDirty] = useState(false);
 
   const tabItems = useMemo(
     () => [
@@ -121,6 +125,7 @@ export default function AttendanceSettingsPage() {
     setIsLoading((prev) => ({ ...prev, initial: true }));
     try {
       await Promise.all([loadSettings(), loadLocations()]);
+      setIsLocationFormDirty(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gagal memuat data pengaturan";
       globalToast.error(message);
@@ -161,6 +166,51 @@ export default function AttendanceSettingsPage() {
       setIsLoading((prev) => ({ ...prev, savingSettings: false }));
     }
   };
+
+  const campusLocation = locations[0] || null;
+  const hasCampusLocation = campusLocation !== null;
+
+  useEffect(() => {
+    if (isLocationFormDirty) return;
+
+    let cancelled = false;
+
+    if (!hasCampusLocation) {
+      if (locationFormSyncKey !== "default") {
+        queueMicrotask(() => {
+          if (cancelled) return;
+          setLocationForm(DEFAULT_LOCATION_FORM);
+          setLocationFormSyncKey("default");
+        });
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const syncKey = `${campusLocation.id}:${campusLocation.updatedAt}`;
+    if (locationFormSyncKey === syncKey) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLocationForm({
+        name: campusLocation.name,
+        latitude: campusLocation.latitude,
+        longitude: campusLocation.longitude,
+        radiusMeter: campusLocation.radiusMeter,
+        isActive: campusLocation.isActive,
+      });
+      setLocationFormSyncKey(syncKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [campusLocation, hasCampusLocation, isLocationFormDirty, locationFormSyncKey]);
 
   const renderGeneralTab = () => {
     if (!settingsForm) return null;
@@ -301,8 +351,7 @@ export default function AttendanceSettingsPage() {
   };
 
   const renderLocationsTab = () => {
-    const campusLocation = locations[0] || null;
-    const hasLocation = campusLocation !== null;
+    const hasLocation = hasCampusLocation;
 
     const handleSaveCampusLocation = async () => {
       setIsLoading((prev) => ({ ...prev, savingLocation: true }));
@@ -315,28 +364,13 @@ export default function AttendanceSettingsPage() {
           globalToast.success("Lokasi kampus berhasil disimpan");
         }
         await loadLocations();
+        setIsLocationFormDirty(false);
       } catch (error) {
         globalToast.error(error instanceof Error ? error.message : "Gagal menyimpan lokasi");
       } finally {
         setIsLoading((prev) => ({ ...prev, savingLocation: false }));
       }
     };
-
-    if (!hasLocation && locationForm.latitude === 0 && locationForm.longitude === 0) {
-      setLocationForm((prev) => ({
-        ...prev,
-        name: "Kampus",
-        isActive: true,
-      }));
-    } else if (hasLocation && locationForm.name === "" && locationForm.latitude === 0) {
-      setLocationForm({
-        name: campusLocation.name,
-        latitude: campusLocation.latitude,
-        longitude: campusLocation.longitude,
-        radiusMeter: campusLocation.radiusMeter,
-        isActive: campusLocation.isActive,
-      });
-    }
 
     return (
       <div className="neo-card p-3 sm:p-5 bg-white space-y-4">
@@ -369,7 +403,10 @@ export default function AttendanceSettingsPage() {
               type="text"
               className="neo-input bg-white min-h-[44px] w-full mt-1"
               value={locationForm.name}
-              onChange={(e) => setLocationForm((prev) => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => {
+                setIsLocationFormDirty(true);
+                setLocationForm((prev) => ({ ...prev, name: e.target.value }));
+              }}
               placeholder="Contoh: Kampus FMIPA"
             />
           </div>
@@ -378,9 +415,10 @@ export default function AttendanceSettingsPage() {
             latitude={locationForm.latitude}
             longitude={locationForm.longitude}
             radiusMeter={locationForm.radiusMeter}
-            onLocationChange={(lat, lng) =>
-              setLocationForm((prev) => ({ ...prev, latitude: lat, longitude: lng }))
-            }
+            onLocationChange={(lat, lng) => {
+              setIsLocationFormDirty(true);
+              setLocationForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+            }}
           />
 
           <div className="grid grid-cols-2 gap-3">
@@ -391,7 +429,10 @@ export default function AttendanceSettingsPage() {
                 step="any"
                 className="neo-input bg-white min-h-[44px] w-full text-sm font-mono mt-1"
                 value={locationForm.latitude}
-                onChange={(e) => setLocationForm((prev) => ({ ...prev, latitude: Number(e.target.value) }))}
+                onChange={(e) => {
+                  setIsLocationFormDirty(true);
+                  setLocationForm((prev) => ({ ...prev, latitude: Number(e.target.value) }));
+                }}
               />
             </div>
             <div>
@@ -401,7 +442,10 @@ export default function AttendanceSettingsPage() {
                 step="any"
                 className="neo-input bg-white min-h-[44px] w-full text-sm font-mono mt-1"
                 value={locationForm.longitude}
-                onChange={(e) => setLocationForm((prev) => ({ ...prev, longitude: Number(e.target.value) }))}
+                onChange={(e) => {
+                  setIsLocationFormDirty(true);
+                  setLocationForm((prev) => ({ ...prev, longitude: Number(e.target.value) }));
+                }}
               />
             </div>
           </div>
@@ -414,7 +458,10 @@ export default function AttendanceSettingsPage() {
               min={10}
               className="neo-input bg-white min-h-[44px] w-full mt-1"
               value={locationForm.radiusMeter}
-              onChange={(e) => setLocationForm((prev) => ({ ...prev, radiusMeter: Number(e.target.value) }))}
+              onChange={(e) => {
+                setIsLocationFormDirty(true);
+                setLocationForm((prev) => ({ ...prev, radiusMeter: Number(e.target.value) }));
+              }}
               placeholder="50"
             />
           </div>

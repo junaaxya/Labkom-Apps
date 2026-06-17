@@ -18,6 +18,14 @@ const userSelect = {
   updatedAt: true,
 };
 
+function normalizeKetuaKelasCapability<T extends { role?: string; isKetuaKelas?: boolean }>(data: T): T {
+  if (data.role === "KOORDINATOR_LAB") {
+    return { ...data, isKetuaKelas: false };
+  }
+
+  return data;
+}
+
 export class UserService {
   static async getAllUsers(params: {
     page?: number;
@@ -79,30 +87,32 @@ export class UserService {
   }
 
   static async createUser(data: CreateUserInput) {
+    const normalizedData = normalizeKetuaKelasCapability(data);
+
     const existingEmail = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: normalizedData.email },
     });
     if (existingEmail) throw new Error("Email sudah terdaftar");
 
-    if (data.nim) {
+    if (normalizedData.nim) {
       const existingNim = await prisma.user.findUnique({
-        where: { nim: data.nim },
+        where: { nim: normalizedData.nim },
       });
       if (existingNim) throw new Error("NIM sudah terdaftar");
     }
 
-    if (data.nip) {
+    if (normalizedData.nip) {
       const existingNip = await prisma.user.findUnique({
-        where: { nip: data.nip },
+        where: { nip: normalizedData.nip },
       });
       if (existingNip) throw new Error("NIP sudah terdaftar");
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 12);
+    const hashedPassword = await bcrypt.hash(normalizedData.password, 12);
 
     const user = await prisma.user.create({
       data: {
-        ...data,
+        ...normalizedData,
         password: hashedPassword,
       },
       select: userSelect,
@@ -112,33 +122,35 @@ export class UserService {
   }
 
   static async updateUser(id: string, data: UpdateUserInput) {
+    const normalizedData = normalizeKetuaKelasCapability(data);
+
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) throw new Error("User tidak ditemukan");
 
-    if (data.email && data.email !== existing.email) {
+    if (normalizedData.email && normalizedData.email !== existing.email) {
       const existingEmail = await prisma.user.findUnique({
-        where: { email: data.email },
+        where: { email: normalizedData.email },
       });
       if (existingEmail) throw new Error("Email sudah digunakan user lain");
     }
 
-    if (data.nim && data.nim !== existing.nim) {
+    if (normalizedData.nim && normalizedData.nim !== existing.nim) {
       const existingNim = await prisma.user.findUnique({
-        where: { nim: data.nim },
+        where: { nim: normalizedData.nim },
       });
       if (existingNim) throw new Error("NIM sudah digunakan user lain");
     }
 
-    if (data.nip && data.nip !== existing.nip) {
+    if (normalizedData.nip && normalizedData.nip !== existing.nip) {
       const existingNip = await prisma.user.findUnique({
-        where: { nip: data.nip },
+        where: { nip: normalizedData.nip },
       });
       if (existingNip) throw new Error("NIP sudah digunakan user lain");
     }
 
     const user = await prisma.user.update({
       where: { id },
-      data,
+      data: normalizedData,
       select: userSelect,
     });
 

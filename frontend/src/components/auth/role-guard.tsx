@@ -32,7 +32,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/lab-map": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/reports": ["KOORDINATOR_LAB"],
   "/pc-monitoring": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
-  "/inventory": ["KOORDINATOR_LAB"],
+  "/inventory": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/energy": ["KOORDINATOR_LAB"],
 
   "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
@@ -44,15 +44,9 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
 };
 
-function getRouteBase(pathname: string): string {
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return "/dashboard";
-  return `/${segments[0]}`;
-}
-
 function hasAccess(pathname: string, role: Role): boolean {
   const segments = pathname.split("/").filter(Boolean);
-  
+
   for (let i = segments.length; i >= 1; i--) {
     const path = `/${segments.slice(0, i).join("/")}`;
     const allowedRoles = ROUTE_PERMISSIONS[path];

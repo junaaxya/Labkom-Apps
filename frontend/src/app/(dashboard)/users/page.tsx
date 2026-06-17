@@ -426,7 +426,7 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
         password: form.password,
         name: form.name,
         role: form.role,
-        isKetuaKelas: form.isKetuaKelas,
+        isKetuaKelas: form.role === "KOORDINATOR_LAB" ? false : form.isKetuaKelas,
       };
       if (form.nim) payload.nim = form.nim;
       if (form.nip) payload.nip = form.nip;
@@ -474,7 +474,7 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             </div>
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Role *</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white cursor-pointer focus:shadow-[4px_4px_0px_#4b607f]">
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value, isKetuaKelas: e.target.value === "KOORDINATOR_LAB" ? false : form.isKetuaKelas })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white cursor-pointer focus:shadow-[4px_4px_0px_#4b607f]">
                 {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
             </div>
@@ -499,10 +499,13 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
               <label className="block text-sm font-bold text-[#1a1a1a] mb-2">Kelas</label>
               <input type="text" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="neo-input w-full px-4 py-3 min-h-[44px] bg-white focus:shadow-[4px_4px_0px_#4b607f]" placeholder="Contoh: TI-2A" />
             </div>
-            <div className="col-span-1 sm:col-span-2 bg-[#f8f9fa] p-4 rounded-xl neo-border mt-2">
-              <label className="flex items-center gap-3 cursor-pointer w-fit">
-                <input type="checkbox" checked={form.isKetuaKelas} onChange={(e) => setForm({ ...form, isKetuaKelas: e.target.checked })} className="w-5 h-5 accent-[#f3701e] border-2 border-[#1a1a1a] rounded cursor-pointer" />
-                <span className="text-sm font-bold text-[#1a1a1a]">Tandai sebagai Ketua Kelas</span>
+            <div className={`col-span-1 sm:col-span-2 p-4 rounded-xl neo-border mt-2 ${form.role === "KOORDINATOR_LAB" ? "bg-gray-100 opacity-60" : "bg-[#f8f9fa]"}`}>
+              <label className={`flex items-center gap-3 w-fit ${form.role === "KOORDINATOR_LAB" ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                <input type="checkbox" disabled={form.role === "KOORDINATOR_LAB"} checked={form.isKetuaKelas} onChange={(e) => setForm({ ...form, isKetuaKelas: e.target.checked })} className={`w-5 h-5 border-2 border-[#1a1a1a] rounded ${form.role === "KOORDINATOR_LAB" ? "cursor-not-allowed bg-gray-300" : "accent-[#f3701e] cursor-pointer"}`} />
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-[#1a1a1a]">Tandai sebagai Ketua Kelas</span>
+                  {form.role === "KOORDINATOR_LAB" && <span className="text-xs text-gray-500 font-medium">Koordinator Lab tidak dapat menjadi Ketua Kelas.</span>}
+                </div>
               </label>
             </div>
           </div>
@@ -541,7 +544,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
         name: form.name,
         email: form.email,
         role: form.role,
-        isKetuaKelas: form.isKetuaKelas,
+        isKetuaKelas: form.role === "KOORDINATOR_LAB" ? false : form.isKetuaKelas,
       };
       if (form.nim) payload.nim = form.nim;
       else payload.nim = null;
@@ -586,7 +589,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-[#1a1a1a]">Nama Lengkap</label>
@@ -605,7 +608,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setForm({ ...form, role: r })}
+                    onClick={() => setForm({ ...form, role: r, isKetuaKelas: r === "KOORDINATOR_LAB" ? false : form.isKetuaKelas })}
                     className={`flex-1 py-2.5 rounded-xl border-2 border-[#1a1a1a] text-xs font-bold transition-all duration-150 ${
                       form.role === r
                         ? `${roleBadge[r]} shadow-[3px_3px_0px_#1a1a1a]`
@@ -641,23 +644,27 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, isKetuaKelas: !form.isKetuaKelas })}
-              className="flex items-center gap-3 cursor-pointer w-fit mt-4 p-3 rounded-xl bg-[#f5ede6] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-0.5 transition-transform"
-            >
-              <div className={`w-5 h-5 rounded-md border-2 border-[#1a1a1a] flex items-center justify-center transition-colors ${form.isKetuaKelas ? "bg-[#f3701e]" : "bg-white"}`}>
-                {form.isKetuaKelas && <span className="text-white text-xs font-bold">✓</span>}
-              </div>
-              <span className="text-sm font-bold text-[#1a1a1a]">Ketua Kelas</span>
-            </button>
+            <div className="flex flex-col gap-2 mt-4">
+              <button
+                type="button"
+                disabled={form.role === "KOORDINATOR_LAB"}
+                onClick={() => setForm({ ...form, isKetuaKelas: !form.isKetuaKelas })}
+                className={`flex items-center gap-3 w-fit p-3 rounded-xl border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] transition-transform ${form.role === "KOORDINATOR_LAB" ? "bg-gray-100 cursor-not-allowed opacity-60" : "bg-[#f5ede6] cursor-pointer hover:-translate-y-0.5"}`}
+              >
+                <div className={`w-5 h-5 rounded-md border-2 border-[#1a1a1a] flex items-center justify-center transition-colors ${form.isKetuaKelas ? "bg-[#f3701e]" : "bg-white"}`}>
+                  {form.isKetuaKelas && <span className="text-white text-xs font-bold">✓</span>}
+                </div>
+                <span className="text-sm font-bold text-[#1a1a1a]">Ketua Kelas</span>
+              </button>
+              {form.role === "KOORDINATOR_LAB" && <span className="text-xs text-gray-500 font-medium">Koordinator Lab tidak dapat menjadi Ketua Kelas.</span>}
+            </div>
           </div>
 
-          <div className="flex gap-3 mt-6 pt-5 border-t-2 border-dashed border-[#d5c4b5]">
-            <button type="button" onClick={onClose} className="neo-btn py-3 flex-1 bg-white text-[#1a1a1a] font-bold hover:bg-[#f5ede6] transition-colors">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-5 pt-4 border-t-2 border-dashed border-[#d5c4b5]">
+            <button type="button" onClick={onClose} className="neo-btn px-3 py-2.5 min-h-[44px] bg-white text-[#1a1a1a] text-sm font-bold hover:bg-[#f5ede6] transition-colors">
               Batal
             </button>
-            <button type="submit" disabled={submitting} className="neo-btn py-3 flex-1 bg-[#4b607f] hover:bg-[#3a4f6a] text-white font-bold disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={submitting} className="neo-btn px-3 py-2.5 min-h-[44px] bg-[#4b607f] hover:bg-[#3a4f6a] text-white text-sm font-bold disabled:opacity-50 transition-colors leading-tight">
               {submitting ? "Memperbarui..." : "Simpan Perubahan"}
             </button>
           </div>

@@ -70,7 +70,7 @@ export default function LabBookingPage() {
   });
 
   const canApprove = isApprovalRole(user?.role);
-  const canRequest = user?.role === "MAHASISWA";
+  const canRequest = user?.role === "MAHASISWA" || Boolean(user?.isKetuaKelas);
 
   const fetchLabs = async () => {
     const res = await api.get<{ data: Lab[] }>("/labs");

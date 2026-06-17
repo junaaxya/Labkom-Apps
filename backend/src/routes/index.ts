@@ -28,6 +28,7 @@ import leaveRoutes from "./leave.routes";
 import announcementRoutes from "./announcement.routes";
 import hostingRoutes from "./hosting.routes";
 
+
 const router = Router();
 
 router.get("/health", (_req, res) => {
