@@ -195,6 +195,37 @@ enum ShiftScheduleStatus {
   CANCELLED
 }
 
+enum AssetCategory {
+  PC
+  MONITOR
+  KEYBOARD
+  MOUSE
+  PROJECTOR
+  NETWORKING
+  FURNITURE
+  AC
+  ELECTRICAL
+  TOOL
+  CONSUMABLE
+  OTHER
+}
+
+enum AssetCondition {
+  GOOD
+  NEEDS_REPAIR
+  BROKEN
+  LOST
+  RETIRED
+}
+
+enum AssetStatus {
+  ACTIVE
+  IN_MAINTENANCE
+  BORROWED
+  STORED
+  DISPOSED
+}
+
 // ============================================
 // USER & AUTHENTICATION
 // ============================================
@@ -253,6 +284,7 @@ model User {
   auditLogs               AuditLog[]
   announcements           Announcement[]                @relation("AnnouncementCreator")
   announcementReads       AnnouncementRead[]
+  assetAuditLogs          AssetAuditLog[]
 
   @@map("users")
 }
@@ -281,8 +313,85 @@ model Lab {
   bookings           LabBooking[]
   logbookConditions  LogbookCondition[]
   shiftSchedules     AsLabShiftSchedule[]
+  assets             Asset[]
 
   @@map("labs")
+}
+
+// ============================================
+// LAB ASSET INVENTORY
+// ============================================
+
+model Asset {
+  id              String         @id @default(cuid())
+  assetCode       String         @unique
+  name            String
+  category        AssetCategory
+  type            String?
+  brand           String?
+  model           String?
+  serialNumber    String?        @unique
+  condition       AssetCondition @default(GOOD)
+  status          AssetStatus    @default(ACTIVE)
+  location        String?
+  labId           String?
+  pcId            String?        @unique
+  acquisitionDate DateTime?
+  warrantyUntil   DateTime?
+  purchaseSource  String?
+  purchasePrice   Decimal?       @db.Decimal(14, 2)
+  fundingSource   String?
+  notes           String?
+  metadata        Json?
+  deletedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  lab             Lab?                  @relation(fields: [labId], references: [id])
+  pc              PC?                   @relation(fields: [pcId], references: [id])
+  maintenanceLogs AssetMaintenanceLog[]
+  auditLogs       AssetAuditLog[]
+
+  @@index([labId])
+  @@index([category])
+  @@index([condition])
+  @@index([status])
+  @@index([pcId])
+  @@map("assets")
+}
+
+model AssetMaintenanceLog {
+  id          String   @id @default(cuid())
+  assetId     String
+  title       String
+  description String?
+  status      String
+  cost        Decimal? @db.Decimal(14, 2)
+  performedBy String?
+  performedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  asset       Asset    @relation(fields: [assetId], references: [id])
+
+  @@index([assetId, createdAt])
+  @@map("asset_maintenance_logs")
+}
+
+model AssetAuditLog {
+  id        String   @id @default(cuid())
+  assetId   String
+  userId    String?
+  action    String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([assetId, createdAt])
+  @@index([userId, createdAt])
+  @@map("asset_audit_logs")
 }
 
 // ============================================
@@ -334,6 +443,7 @@ model PC {
   commands   PCCommand[]
   agentLogs  PcAgentLog[]
   warnings   PcWarning[]
+  asset      Asset?
 
   @@map("pcs")
 }
