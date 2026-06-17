@@ -81,6 +81,15 @@ export class BookingService {
   }
 
   static async createBooking(data: CreateBookingInput, userId: string) {
+    const requester = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isKetuaKelas: true },
+    });
+
+    if (!requester || (requester.role !== "MAHASISWA" && !requester.isKetuaKelas)) {
+      throw new Error("Hanya mahasiswa atau ketua kelas yang dapat mengajukan peminjaman lab");
+    }
+
     const lab = await prisma.lab.findUnique({ where: { id: data.labId } });
     if (!lab) throw new Error("Lab tidak ditemukan");
 
