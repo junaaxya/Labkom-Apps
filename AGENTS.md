@@ -2,6 +2,14 @@
 
 > **IMPORTANT FOR AI AGENTS**: This document is the single source of truth for the project. Do NOT make changes that contradict the workflows, roles, or feature designs described here. When in doubt, follow this document.
 
+## Multi Brain (MANDATORY)
+
+- Read `.multibrain/session.md` before starting work.
+- Use `.multibrain/session.md` as the master index only.
+- Open only the `.multibrain/indexes/*.md` bucket files that match the current task.
+- Open `.multibrain/context/*.md` only when the selected bucket points to deeper context that matters.
+- After meaningful work, update the relevant named bucket and refresh the master index if needed.
+
 ## Overview
 
 **LabKom: Sistem Manajemen Laboratorium Terpusat Berbasis Web dengan QR Tracking, Digital Logbook, dan Ticketing Kerusakan**
