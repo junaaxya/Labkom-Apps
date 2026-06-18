@@ -73,8 +73,23 @@ check_hosting_route() {
   return 1
 }
 
+check_hosting_plans() {
+  local name="$1"
+  local url="$2"
+  local retries="${3:-1}"
+  local sleep_seconds="${4:-0}"
+
+  check "$name" "$url" 200 "$retries" "$sleep_seconds"
+  if ! grep -q '"success":true' "$TMP_OUT"; then
+    echo "[FAIL] $name -> $url returned 200 but missing success payload"
+    [[ -f "$TMP_OUT" ]] && tail -c 300 "$TMP_OUT" || true
+    return 1
+  fi
+}
+
 if [[ -n "$INTERNAL_BACKEND_URL" ]]; then
   check "internal backend health" "$INTERNAL_BACKEND_URL/api/v1/health"
+  check_hosting_plans "internal hosting plans route" "$INTERNAL_BACKEND_URL/api/v1/hosting/plans"
   check_hosting_route "internal hosting transactions route" "$INTERNAL_BACKEND_URL/api/v1/hosting/transactions"
 fi
 
@@ -88,6 +103,7 @@ check "public frontend root" "$BASE_URL/" 200 "${PUBLIC_VERIFY_RETRIES:-3}" "${P
 check "public dashboard" "$BASE_URL/dashboard" 200 "${PUBLIC_VERIFY_RETRIES:-3}" "${PUBLIC_VERIFY_SLEEP:-5}"
 check "public sw.js" "$BASE_URL/sw.js" 200 "${PUBLIC_VERIFY_RETRIES:-3}" "${PUBLIC_VERIFY_SLEEP:-5}"
 check "public manifest" "$BASE_URL/manifest.json" 200 "${PUBLIC_VERIFY_RETRIES:-3}" "${PUBLIC_VERIFY_SLEEP:-5}"
+check_hosting_plans "public hosting plans route" "$BACKEND_URL/hosting/plans" "${PUBLIC_VERIFY_RETRIES:-3}" "${PUBLIC_VERIFY_SLEEP:-5}"
 check_hosting_route "public hosting transactions route" "$BACKEND_URL/hosting/transactions" "${PUBLIC_VERIFY_RETRIES:-3}" "${PUBLIC_VERIFY_SLEEP:-5}"
 
 echo "All Labkom verification checks passed."

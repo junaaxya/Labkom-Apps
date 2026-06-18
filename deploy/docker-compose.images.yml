@@ -1,6 +1,8 @@
 services:
   backend:
     image: ${IMAGE_NAMESPACE}/backend:${IMAGE_TAG}
+    pull_policy: always
 
   frontend:
     image: ${IMAGE_NAMESPACE}/frontend:${IMAGE_TAG}
+    pull_policy: always
