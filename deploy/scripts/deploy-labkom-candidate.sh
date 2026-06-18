@@ -51,11 +51,46 @@ wait_for_image() {
 wait_for_image backend
 wait_for_image frontend
 
+verify_running_service_image() {
+  local service="$1"
+  local expected_ref="$IMAGE_NAMESPACE/${service%%-candidate}:$IMAGE_TAG"
+  local container_id
+  local configured_ref
+  local running_image_id
+  local expected_image_id
+
+  container_id="$(docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" ps -q "$service")"
+  if [[ -z "$container_id" ]]; then
+    echo "[FAIL] No running container found for service: $service"
+    return 1
+  fi
+
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
+  running_image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+  expected_image_id="$(docker image inspect --format '{{.Id}}' "$expected_ref")"
+
+  if [[ "$configured_ref" != "$expected_ref" ]]; then
+    echo "[FAIL] $service container configured image mismatch: expected $expected_ref, got $configured_ref"
+    return 1
+  fi
+
+  if [[ "$running_image_id" != "$expected_image_id" ]]; then
+    echo "[FAIL] $service running image ID mismatch for $expected_ref"
+    echo "[FAIL] running=$running_image_id expected=$expected_image_id"
+    return 1
+  fi
+
+  echo "[OK] $service running expected image: $expected_ref"
+}
+
 echo "[INFO] Pulling candidate images"
 docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" pull backend-candidate frontend-candidate
 
 echo "[INFO] Starting candidate services"
 docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend-candidate frontend-candidate
+
+verify_running_service_image backend-candidate
+verify_running_service_image frontend-candidate
 
 cleanup() {
   echo "[INFO] Cleaning up candidate services"
@@ -72,6 +107,9 @@ echo "[OK] Candidate verification passed"
 if [[ "$PROMOTE_ON_SUCCESS" == "true" ]]; then
   echo "[INFO] Promoting candidate image to live services"
   docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend
+  promoted_backend_id="$(docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" ps -q backend)"
+  promoted_frontend_id="$(docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" ps -q frontend)"
+  [[ -n "$promoted_backend_id" && -n "$promoted_frontend_id" ]] || { echo "[FAIL] Live promotion containers not running"; exit 1; }
   sleep 5
   "$VERIFY_LIVE_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "http://127.0.0.1:3002" "http://127.0.0.1:8004"
   echo "[OK] Live verification passed after promotion"

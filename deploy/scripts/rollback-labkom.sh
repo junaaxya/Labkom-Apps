@@ -28,6 +28,38 @@ if [[ -z "${IMAGE_NAMESPACE:-}" || -z "${IMAGE_TAG:-}" ]]; then
   exit 1
 fi
 
+verify_running_service_image() {
+  local service="$1"
+  local expected_ref="$IMAGE_NAMESPACE/$service:$IMAGE_TAG"
+  local container_id
+  local configured_ref
+  local running_image_id
+  local expected_image_id
+
+  container_id="$(docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" ps -q "$service")"
+  if [[ -z "$container_id" ]]; then
+    echo "[FAIL] No running container found for service: $service"
+    return 1
+  fi
+
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
+  running_image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+  expected_image_id="$(docker image inspect --format '{{.Id}}' "$expected_ref")"
+
+  if [[ "$configured_ref" != "$expected_ref" ]]; then
+    echo "[FAIL] $service container configured image mismatch: expected $expected_ref, got $configured_ref"
+    return 1
+  fi
+
+  if [[ "$running_image_id" != "$expected_image_id" ]]; then
+    echo "[FAIL] $service running image ID mismatch for $expected_ref"
+    echo "[FAIL] running=$running_image_id expected=$expected_image_id"
+    return 1
+  fi
+
+  echo "[OK] $service running expected image: $expected_ref"
+}
+
 cat > "$ENV_IMAGE_FILE" <<EOF
 IMAGE_NAMESPACE=$IMAGE_NAMESPACE
 IMAGE_TAG=$IMAGE_TAG
@@ -49,6 +81,8 @@ pull_previous_images_if_needed() {
 echo "[INFO] Rolling back to $IMAGE_NAMESPACE:$IMAGE_TAG"
 pull_previous_images_if_needed
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend
+verify_running_service_image backend
+verify_running_service_image frontend
 sleep 5
 "$VERIFY_SCRIPT" "$PUBLIC_BASE_URL" "$PUBLIC_BACKEND_URL" "$INTERNAL_FRONTEND_URL" "$INTERNAL_BACKEND_URL"
 

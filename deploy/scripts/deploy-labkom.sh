@@ -84,6 +84,38 @@ pull_images_with_retry() {
   return 1
 }
 
+verify_running_service_image() {
+  local service="$1"
+  local expected_ref="$IMAGE_NAMESPACE/$service:$IMAGE_TAG"
+  local container_id
+  local configured_ref
+  local running_image_id
+  local expected_image_id
+
+  container_id="$(docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" ps -q "$service")"
+  if [[ -z "$container_id" ]]; then
+    echo "[FAIL] No running container found for service: $service" | tee -a "$history_file"
+    return 1
+  fi
+
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
+  running_image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+  expected_image_id="$(docker image inspect --format '{{.Id}}' "$expected_ref")"
+
+  if [[ "$configured_ref" != "$expected_ref" ]]; then
+    echo "[FAIL] $service container configured image mismatch: expected $expected_ref, got $configured_ref" | tee -a "$history_file"
+    return 1
+  fi
+
+  if [[ "$running_image_id" != "$expected_image_id" ]]; then
+    echo "[FAIL] $service running image ID mismatch for $expected_ref" | tee -a "$history_file"
+    echo "[FAIL] running=$running_image_id expected=$expected_image_id" | tee -a "$history_file"
+    return 1
+  fi
+
+  echo "[OK] $service running expected image: $expected_ref" | tee -a "$history_file"
+}
+
 wait_for_image backend
 wait_for_image frontend
 
@@ -95,6 +127,9 @@ docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" run --rm backe
 
 echo "[INFO] Updating backend/frontend services" | tee -a "$history_file"
 docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend | tee -a "$history_file"
+
+verify_running_service_image backend
+verify_running_service_image frontend
 
 restart_proxy_if_needed() {
   local attempts="${PROXY_RESTART_ATTEMPTS:-1}"
