@@ -195,6 +195,12 @@ enum ShiftScheduleStatus {
   CANCELLED
 }
 
+enum AsLabPicketDestination {
+  RUANGAN_ASLAB
+  LAB_MULTIMEDIA
+  LAB_DASAR
+}
+
 enum AssetCategory {
   PC
   MONITOR
@@ -231,54 +237,55 @@ enum AssetStatus {
 // ============================================
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  password     String
-  name         String
-  nim          String?  @unique // Nomor Induk Mahasiswa
-  nip          String?  @unique // Nomor Induk Pegawai
-  phone        String?  // Nomor WhatsApp (format: 628xxx)
-  role         Role     @default(MAHASISWA)
-  semester     String? // Semester aktif (untuk mahasiswa)
-  className    String? // Nama kelas (untuk mahasiswa)
-  isKetuaKelas Boolean  @default(false) // Flag ketua kelas
-  avatar       String?
-  isActive     Boolean  @default(true)
-  waNotify     Boolean  @default(true) // Opt-in WhatsApp notifications
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  password            String
+  name                String
+  nim                 String?  @unique // Nomor Induk Mahasiswa
+  nip                 String?  @unique // Nomor Induk Pegawai
+  phone               String? // Nomor WhatsApp (format: 628xxx)
+  role                Role     @default(MAHASISWA)
+  semester            String? // Semester aktif (untuk mahasiswa)
+  className           String? // Nama kelas (untuk mahasiswa)
+  isKetuaKelas        Boolean  @default(false) // Flag ketua kelas
+  avatar              String?
+  isActive            Boolean  @default(true)
+  waNotify            Boolean  @default(true) // Opt-in WhatsApp notifications
   googleCalendarToken String? // Google Calendar OAuth refresh token
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Relations
-  schedulesAsAssistant  Schedule[]     @relation("ScheduleAssistant")
-  logbooksCheckinBy        Logbook[]           @relation("LogbookCheckinBy")
-  logbooksCheckoutBy       Logbook[]           @relation("LogbookCheckoutBy")
-  conditionsSubmitted      LogbookCondition[]  @relation("ConditionSubmitter")
-  conditionsVerified       LogbookCondition[]  @relation("ConditionVerifier")
-  keysCurrentHolder     Key[]          @relation("KeyCurrentHolder")
-  keyLogs               KeyLog[]
-  ticketsReported       Ticket[]       @relation("TicketReporter")
-  ticketsAssigned       Ticket[]       @relation("TicketAssignee")
-  missionsCreated       Mission[]      @relation("MissionCreator")
-  missionClaims         MissionClaim[] @relation("MissionClaimant")
-  missionClaimsVerified MissionClaim[] @relation("MissionVerifier")
-  attendances           Attendance[]
-  dailyTaskLogs         DailyTaskLog[]
-  reviewedTasks         DailyTaskLog[] @relation("TaskVerifier")
-  points                Point[]
-  certificatesOwned     Certificate[]  @relation("CertificateOwner")
-  certificatesIssued    Certificate[]  @relation("CertificateIssuer")
-  notifications         Notification[]
-  shifts                Shift[]        @relation("ShiftAsleb")
-  bookingsRequested     LabBooking[]   @relation("BookingRequester")
-  bookingsApproved      LabBooking[]   @relation("BookingApprover")
-  scheduleChangeRequests  ScheduleChangeRequest[] @relation("ScheduleChangeRequester")
-  scheduleChangeApprovals ScheduleChangeRequest[] @relation("ScheduleChangeApprover")
-  leaveRequests           LeaveRequest[]          @relation("LeaveRequester")
-  leaveReviews            LeaveRequest[]          @relation("LeaveReviewer")
-  shiftSchedules          AsLabShiftSchedule[]    @relation("ShiftScheduleUser")
-  shiftSchedulesAssigned  AsLabShiftSchedule[]    @relation("ShiftScheduleAssigner")
-  attendancesVerified     Attendance[]            @relation("AttendanceVerifier")
+  schedulesAsAssistant    Schedule[]                    @relation("ScheduleAssistant")
+  logbooksCheckinBy       Logbook[]                     @relation("LogbookCheckinBy")
+  logbooksCheckoutBy      Logbook[]                     @relation("LogbookCheckoutBy")
+  conditionsSubmitted     LogbookCondition[]            @relation("ConditionSubmitter")
+  conditionsVerified      LogbookCondition[]            @relation("ConditionVerifier")
+  keysCurrentHolder       Key[]                         @relation("KeyCurrentHolder")
+  keyLogs                 KeyLog[]
+  ticketsReported         Ticket[]                      @relation("TicketReporter")
+  ticketsAssigned         Ticket[]                      @relation("TicketAssignee")
+  missionsCreated         Mission[]                     @relation("MissionCreator")
+  missionClaims           MissionClaim[]                @relation("MissionClaimant")
+  missionClaimsVerified   MissionClaim[]                @relation("MissionVerifier")
+  attendances             Attendance[]
+  dailyTaskLogs           DailyTaskLog[]
+  reviewedTasks           DailyTaskLog[]                @relation("TaskVerifier")
+  points                  Point[]
+  certificatesOwned       Certificate[]                 @relation("CertificateOwner")
+  certificatesIssued      Certificate[]                 @relation("CertificateIssuer")
+  notifications           Notification[]
+  pushSubscriptions       PushSubscription[]
+  shifts                  Shift[]                       @relation("ShiftAsleb")
+  bookingsRequested       LabBooking[]                  @relation("BookingRequester")
+  bookingsApproved        LabBooking[]                  @relation("BookingApprover")
+  scheduleChangeRequests  ScheduleChangeRequest[]       @relation("ScheduleChangeRequester")
+  scheduleChangeApprovals ScheduleChangeRequest[]       @relation("ScheduleChangeApprover")
+  leaveRequests           LeaveRequest[]                @relation("LeaveRequester")
+  leaveReviews            LeaveRequest[]                @relation("LeaveReviewer")
+  shiftSchedules          AsLabShiftSchedule[]          @relation("ShiftScheduleUser")
+  shiftSchedulesAssigned  AsLabShiftSchedule[]          @relation("ShiftScheduleAssigner")
+  attendancesVerified     Attendance[]                  @relation("AttendanceVerifier")
   correctionRequests      AttendanceCorrectionRequest[] @relation("CorrectionRequester")
   correctionReviews       AttendanceCorrectionRequest[] @relation("CorrectionReviewer")
   auditLogs               AuditLog[]
@@ -304,16 +311,15 @@ model Lab {
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  pcs                PC[]
-  schedules          Schedule[]
-  keys               Key[]
-  tickets            Ticket[]
-  dailyTaskLogs      DailyTaskLog[]
-  shifts             Shift[]
-  bookings           LabBooking[]
-  logbookConditions  LogbookCondition[]
-  shiftSchedules     AsLabShiftSchedule[]
-  assets             Asset[]
+  pcs               PC[]
+  schedules         Schedule[]
+  keys              Key[]
+  tickets           Ticket[]
+  dailyTaskLogs     DailyTaskLog[]
+  shifts            Shift[]
+  bookings          LabBooking[]
+  logbookConditions LogbookCondition[]
+  assets            Asset[]
 
   @@map("labs")
 }
@@ -361,17 +367,17 @@ model Asset {
 }
 
 model AssetMaintenanceLog {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   assetId     String
   title       String
   description String?
   status      String
-  cost        Decimal? @db.Decimal(14, 2)
+  cost        Decimal?  @db.Decimal(14, 2)
   performedBy String?
   performedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
-  asset       Asset    @relation(fields: [assetId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
 
   @@index([assetId, createdAt])
   @@map("asset_maintenance_logs")
@@ -386,8 +392,8 @@ model AssetAuditLog {
   after     Json?
   createdAt DateTime @default(now())
 
-  asset     Asset    @relation(fields: [assetId], references: [id])
-  user      User?    @relation(fields: [userId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+  user  User? @relation(fields: [userId], references: [id])
 
   @@index([assetId, createdAt])
   @@index([userId, createdAt])
@@ -399,42 +405,42 @@ model AssetAuditLog {
 // ============================================
 
 model PC {
-  id         String   @id @default(cuid())
-  labId      String
-  pcCode     String   @unique // e.g. LABD-PC-01, LABM-PC-01
-  assetCode  String?  @unique // e.g. ASSET-LABD-PC-001 — kode aset untuk QR
-  name       String
-  positionX  Int      @default(0) // Posisi X di denah lab
-  positionY  Int      @default(0) // Posisi Y di denah lab
-  status     PCStatus @default(AVAILABLE)
-  qrCode     String? // URL QR code: ${APP_URL}/scan/pc/ASSET-LABD-PC-001
-  ipAddress  String?
-  macAddress String?
-  specs      String? // JSON: RAM, CPU, Storage, OS
-  lastSeen   DateTime? // Last heartbeat from PC agent
-  isOnline   Boolean  @default(false) // Real-time online status
-  uptimeMinutes Int   @default(0) // Total uptime hari ini (menit)
-  powerWatt  Int      @default(150) // Estimasi konsumsi daya (watt)
+  id            String    @id @default(cuid())
+  labId         String
+  pcCode        String    @unique // e.g. LABD-PC-01, LABM-PC-01
+  assetCode     String?   @unique // e.g. ASSET-LABD-PC-001 — kode aset untuk QR
+  name          String
+  positionX     Int       @default(0) // Posisi X di denah lab
+  positionY     Int       @default(0) // Posisi Y di denah lab
+  status        PCStatus  @default(AVAILABLE)
+  qrCode        String? // URL QR code: ${APP_URL}/scan/pc/ASSET-LABD-PC-001
+  ipAddress     String?
+  macAddress    String?
+  specs         String? // JSON: RAM, CPU, Storage, OS
+  lastSeen      DateTime? // Last heartbeat from PC agent
+  isOnline      Boolean   @default(false) // Real-time online status
+  uptimeMinutes Int       @default(0) // Total uptime hari ini (menit)
+  powerWatt     Int       @default(150) // Estimasi konsumsi daya (watt)
 
   // Agent fields
-  agentTokenHash   String?       // SHA-256 hash of agent token
-  agentStatus      AgentStatus   @default(UNKNOWN)
-  healthStatus     HealthStatus  @default(NORMAL)
+  agentTokenHash   String? // SHA-256 hash of agent token
+  agentStatus      AgentStatus  @default(UNKNOWN)
+  healthStatus     HealthStatus @default(NORMAL)
   hostname         String?
   os               String?
-  architecture     String?       // e.g. x86_64, arm64
+  architecture     String? // e.g. x86_64, arm64
   cpuModel         String?
-  cpuUsage         Float?        // Persentase (0-100)
-  ramUsage         Float?        // Persentase (0-100)
+  cpuUsage         Float? // Persentase (0-100)
+  ramUsage         Float? // Persentase (0-100)
   ramTotalGb       Float?
-  storageUsage     Float?        // Persentase (0-100)
+  storageUsage     Float? // Persentase (0-100)
   storageTotalGb   Float?
-  uptimeSeconds    Int           @default(0) // OS uptime in seconds
+  uptimeSeconds    Int          @default(0) // OS uptime in seconds
   agentVersion     String?
-  isAgentInstalled Boolean       @default(false)
+  isAgentInstalled Boolean      @default(false)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   lab        Lab           @relation(fields: [labId], references: [id])
@@ -450,13 +456,13 @@ model PC {
 
 // Log setiap perubahan status PC
 model PCStatusLog {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   pcId       String
   fromStatus PCStatus?
   toStatus   PCStatus
-  reason     String?  // Alasan perubahan (manual, ticket, agent)
-  changedBy  String?  // User ID yang mengubah (null jika otomatis)
-  createdAt  DateTime @default(now())
+  reason     String? // Alasan perubahan (manual, ticket, agent)
+  changedBy  String? // User ID yang mengubah (null jika otomatis)
+  createdAt  DateTime  @default(now())
 
   pc PC @relation(fields: [pcId], references: [id])
 
@@ -466,16 +472,16 @@ model PCStatusLog {
 
 // Queue command untuk PC agent (shutdown, restart, WoL)
 model PCCommand {
-  id          String        @id @default(cuid())
-  pcId        String
-  command     PCCommandType
-  status      CommandStatus @default(PENDING)
-  payload     Json?         // Extra data (e.g. delay, message)
-  result      String?       // Response dari agent
-  issuedBy    String        // User ID yang mengirim command
-  executedAt  DateTime?     // Waktu command dieksekusi
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id         String        @id @default(cuid())
+  pcId       String
+  command    PCCommandType
+  status     CommandStatus @default(PENDING)
+  payload    Json? // Extra data (e.g. delay, message)
+  result     String? // Response dari agent
+  issuedBy   String // User ID yang mengirim command
+  executedAt DateTime? // Waktu command dieksekusi
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   pc PC @relation(fields: [pcId], references: [id])
 
@@ -494,18 +500,18 @@ enum PCCommandType {
 }
 
 enum CommandStatus {
-  PENDING    // Belum diambil agent
-  SENT       // Sudah dikirim ke agent
-  EXECUTED   // Berhasil dieksekusi
-  FAILED     // Gagal
-  CANCELLED  // Dibatalkan
+  PENDING // Belum diambil agent
+  SENT // Sudah dikirim ke agent
+  EXECUTED // Berhasil dieksekusi
+  FAILED // Gagal
+  CANCELLED // Dibatalkan
 }
 
 // Log aktivitas PC agent
 model PcAgentLog {
   id        String   @id @default(cuid())
   pcId      String
-  eventType String   // AGENT_STARTED, HEARTBEAT_SENT, COMMAND_RECEIVED, COMMAND_EXECUTED, ERROR
+  eventType String // AGENT_STARTED, HEARTBEAT_SENT, COMMAND_RECEIVED, COMMAND_EXECUTED, ERROR
   level     String   @default("INFO") // INFO, WARNING, ERROR
   message   String?
   createdAt DateTime @default(now())
@@ -520,7 +526,7 @@ model PcAgentLog {
 model PcWarning {
   id          String    @id @default(cuid())
   pcId        String
-  warningType String    // CPU_HIGH, RAM_HIGH, STORAGE_HIGH, AGENT_INACTIVE
+  warningType String // CPU_HIGH, RAM_HIGH, STORAGE_HIGH, AGENT_INACTIVE
   severity    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
   message     String?
   isResolved  Boolean   @default(false)
@@ -540,24 +546,24 @@ model PcWarning {
 // ============================================
 
 model Schedule {
-  id          String         @id @default(cuid())
+  id           String         @id @default(cuid())
   labId        String
   title        String
   semester     String?
   className    String?
-  lecturerName String?  // Nama dosen pengampu (teks biasa, bukan relasi — dosen tidak login ke sistem)
+  lecturerName String? // Nama dosen pengampu (teks biasa, bukan relasi — dosen tidak login ke sistem)
   assistantId  String?
-  day         DayOfWeek
-  startTime   String
-  endTime     String
-  status      ScheduleStatus @default(SCHEDULED)
-  type        ScheduleType   @default(PRAKTIKUM)
-  isActive    Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  day          DayOfWeek
+  startTime    String
+  endTime      String
+  status       ScheduleStatus @default(SCHEDULED)
+  type         ScheduleType   @default(PRAKTIKUM)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  lab       Lab       @relation(fields: [labId], references: [id])
-  assistant User?     @relation("ScheduleAssistant", fields: [assistantId], references: [id])
+  lab            Lab                     @relation(fields: [labId], references: [id])
+  assistant      User?                   @relation("ScheduleAssistant", fields: [assistantId], references: [id])
   changeRequests ScheduleChangeRequest[]
 
   @@index([labId, startTime])
@@ -567,10 +573,10 @@ model Schedule {
 }
 
 model ScheduleChangeRequest {
-  id              String                      @id @default(cuid())
+  id              String               @id @default(cuid())
   scheduleId      String?
   requestType     ScheduleChangeType
-  status          ScheduleChangeStatus        @default(PENDING)
+  status          ScheduleChangeStatus @default(PENDING)
   reason          String
   newDay          DayOfWeek?
   newStartTime    String?
@@ -581,35 +587,35 @@ model ScheduleChangeRequest {
   approvedById    String?
   rejectionReason String?
   adminNotes      String?
-  createdAt       DateTime                    @default(now())
-  updatedAt       DateTime                    @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   schedule    Schedule? @relation(fields: [scheduleId], references: [id])
-  requestedBy User     @relation("ScheduleChangeRequester", fields: [requestedById], references: [id])
-  approvedBy  User?    @relation("ScheduleChangeApprover", fields: [approvedById], references: [id])
+  requestedBy User      @relation("ScheduleChangeRequester", fields: [requestedById], references: [id])
+  approvedBy  User?     @relation("ScheduleChangeApprover", fields: [approvedById], references: [id])
 
   @@map("schedule_change_requests")
 }
 
 model Shift {
-  id                    String    @id @default(cuid())
-  name                  String?   // e.g. "Shift Pagi", "Shift Siang"
-  labId                 String
-  aslebId               String
-  day                   DayOfWeek
-  startTime             String    // HH:mm format
-  endTime               String    // HH:mm format
-  lateToleranceMinutes  Int       @default(15)
-  checkoutGraceMinutes  Int       @default(30)
-  isTaskRequired        Boolean   @default(true)
-  isActive              Boolean   @default(true)
-  notes                 String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  name                 String? // e.g. "Shift Pagi", "Shift Siang"
+  labId                String
+  aslebId              String
+  day                  DayOfWeek
+  startTime            String // HH:mm format
+  endTime              String // HH:mm format
+  lateToleranceMinutes Int       @default(15)
+  checkoutGraceMinutes Int       @default(30)
+  isTaskRequired       Boolean   @default(true)
+  isActive             Boolean   @default(true)
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  lab             Lab                  @relation(fields: [labId], references: [id])
-  asleb           User                 @relation("ShiftAsleb", fields: [aslebId], references: [id])
-  shiftSchedules  AsLabShiftSchedule[]
+  lab            Lab                  @relation(fields: [labId], references: [id])
+  asleb          User                 @relation("ShiftAsleb", fields: [aslebId], references: [id])
+  shiftSchedules AsLabShiftSchedule[]
 
   @@map("shifts")
 }
@@ -667,18 +673,18 @@ model Logbook {
 }
 
 model LogbookCondition {
-  id             String  @id @default(cuid())
+  id             String    @id @default(cuid())
   logbookId      String
   labId          String
   submittedById  String?
   kerusakanBaru  String?
   catatanKondisi String?
   fotoBukti      String[]
-  verified       Boolean  @default(false)
+  verified       Boolean   @default(false)
   verifiedById   String?
   verifiedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   logbook     Logbook @relation(fields: [logbookId], references: [id])
   lab         Lab     @relation(fields: [labId], references: [id])
@@ -816,16 +822,16 @@ model MissionClaim {
 model Attendance {
   id                  String           @id @default(cuid())
   userId              String
-  shiftScheduleId     String?          // Link to assigned shift schedule
+  shiftScheduleId     String? // Link to assigned shift schedule
   checkinAt           DateTime?
   checkoutAt          DateTime?
   checkinLatitude     Float?
   checkinLongitude    Float?
   checkoutLatitude    Float?
   checkoutLongitude   Float?
-  checkinLocationId   String?          // Which location was validated
+  checkinLocationId   String? // Which location was validated
   checkoutLocationId  String?
-  workDurationMinutes Int?             // Calculated on checkout
+  workDurationMinutes Int? // Calculated on checkout
   status              AttendanceStatus @default(CHECKED_IN)
   notes               String?
   verifiedBy          String?
@@ -834,11 +840,11 @@ model Attendance {
   updatedAt           DateTime         @updatedAt
 
   // Relations
-  user             User                @relation(fields: [userId], references: [id])
-  shiftSchedule    AsLabShiftSchedule? @relation(fields: [shiftScheduleId], references: [id])
-  checkinLocation  AttendanceLocation? @relation("CheckinLocation", fields: [checkinLocationId], references: [id])
-  checkoutLocation AttendanceLocation? @relation("CheckoutLocation", fields: [checkoutLocationId], references: [id])
-  verifier         User?               @relation("AttendanceVerifier", fields: [verifiedBy], references: [id])
+  user             User                          @relation(fields: [userId], references: [id])
+  shiftSchedule    AsLabShiftSchedule?           @relation(fields: [shiftScheduleId], references: [id])
+  checkinLocation  AttendanceLocation?           @relation("CheckinLocation", fields: [checkinLocationId], references: [id])
+  checkoutLocation AttendanceLocation?           @relation("CheckoutLocation", fields: [checkoutLocationId], references: [id])
+  verifier         User?                         @relation("AttendanceVerifier", fields: [verifiedBy], references: [id])
   dailyTasks       DailyTaskLog[]
   corrections      AttendanceCorrectionRequest[]
 
@@ -882,31 +888,31 @@ model LeaveRequest {
 }
 
 enum TaskCategory {
-  PIKET_BERSIH    // Piket kebersihan lab
-  MAINTENANCE_PC  // Maintenance/perbaikan PC
-  INVENTARIS      // Cek inventaris
-  INSTALASI       // Instalasi software
-  PENDAMPINGAN    // Pendampingan praktikum
-  ADMINISTRASI    // Tugas administrasi
-  LAINNYA         // Lain-lain
+  PIKET_BERSIH // Piket kebersihan lab
+  MAINTENANCE_PC // Maintenance/perbaikan PC
+  INVENTARIS // Cek inventaris
+  INSTALASI // Instalasi software
+  PENDAMPINGAN // Pendampingan praktikum
+  ADMINISTRASI // Tugas administrasi
+  LAINNYA // Lain-lain
 }
 
 model DailyTaskLog {
   id                String          @id @default(cuid())
   userId            String
-  attendanceId      String?         // Link to attendance session
-  task              String          // Title
+  attendanceId      String? // Link to attendance session
+  task              String // Title
   description       String?
   category          TaskCategory    @default(LAINNYA)
-  categoryConfigId  String?         // Link to dynamic TaskCategoryConfig
-  photoUrl          String?         // URL foto bukti
-  duration          Int?            // Durasi dalam menit
-  labId             String?         // Lab terkait (opsional)
-  relatedTicketId   String?         // Link to ticket if task from ticket
-  relatedMissionId  String?         // Link to mission if task from mission
-  relatedScheduleId String?         // Link to schedule if task from schedule
+  categoryConfigId  String? // Link to dynamic TaskCategoryConfig
+  photoUrl          String? // URL foto bukti
+  duration          Int? // Durasi dalam menit
+  labId             String? // Lab terkait (opsional)
+  relatedTicketId   String? // Link to ticket if task from ticket
+  relatedMissionId  String? // Link to mission if task from mission
+  relatedScheduleId String? // Link to schedule if task from schedule
   status            DailyTaskStatus @default(SUBMITTED)
-  reviewNote        String?         // Catatan dari koordinator saat review
+  reviewNote        String? // Catatan dari koordinator saat review
   reviewedBy        String?
   reviewedAt        DateTime?
   date              DateTime        @default(now())
@@ -914,13 +920,13 @@ model DailyTaskLog {
   updatedAt         DateTime        @updatedAt
 
   // Relations
-  user           User               @relation(fields: [userId], references: [id])
-  lab            Lab?               @relation(fields: [labId], references: [id], onDelete: SetNull)
-  attendance     Attendance?        @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  user           User                @relation(fields: [userId], references: [id])
+  lab            Lab?                @relation(fields: [labId], references: [id], onDelete: SetNull)
+  attendance     Attendance?         @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
   categoryConfig TaskCategoryConfig? @relation(fields: [categoryConfigId], references: [id], onDelete: SetNull)
-  relatedTicket  Ticket?            @relation("TaskTicket", fields: [relatedTicketId], references: [id], onDelete: SetNull)
-  relatedMission Mission?           @relation("TaskMission", fields: [relatedMissionId], references: [id], onDelete: SetNull)
-  reviewer       User?              @relation("TaskVerifier", fields: [reviewedBy], references: [id])
+  relatedTicket  Ticket?             @relation("TaskTicket", fields: [relatedTicketId], references: [id], onDelete: SetNull)
+  relatedMission Mission?            @relation("TaskMission", fields: [relatedMissionId], references: [id], onDelete: SetNull)
+  reviewer       User?               @relation("TaskVerifier", fields: [reviewedBy], references: [id])
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -933,29 +939,29 @@ model DailyTaskLog {
 // ============================================
 
 model AttendanceSettings {
-  id                          String   @id @default(cuid())
-  isGeofencingEnabled         Boolean  @default(true)
-  defaultRadiusMeter          Int      @default(100)
-  lateToleranceMinutes        Int      @default(15)
-  checkoutGraceMinutes        Int      @default(30)
-  forgotCheckoutAfterMinutes  Int      @default(120)
-  isTaskRequired              Boolean  @default(true)
-  isVerificationRequired      Boolean  @default(true)
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
+  id                         String   @id @default(cuid())
+  isGeofencingEnabled        Boolean  @default(true)
+  defaultRadiusMeter         Int      @default(100)
+  lateToleranceMinutes       Int      @default(15)
+  checkoutGraceMinutes       Int      @default(30)
+  forgotCheckoutAfterMinutes Int      @default(120)
+  isTaskRequired             Boolean  @default(true)
+  isVerificationRequired     Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   @@map("attendance_settings")
 }
 
 model AttendanceLocation {
-  id           String   @id @default(cuid())
-  name         String
-  latitude     Float
-  longitude    Float
-  radiusMeter  Int      @default(100)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  latitude    Float
+  longitude   Float
+  radiusMeter Int      @default(100)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   checkinAttendances  Attendance[] @relation("CheckinLocation")
   checkoutAttendances Attendance[] @relation("CheckoutLocation")
@@ -964,25 +970,25 @@ model AttendanceLocation {
 }
 
 model AsLabShiftSchedule {
-  id           String              @id @default(cuid())
+  id           String                 @id @default(cuid())
   userId       String
-  labId        String
+  destination  AsLabPicketDestination
   shiftId      String
-  scheduleDate DateTime            @db.Date
-  status       ShiftScheduleStatus @default(SCHEDULED)
+  scheduleDate DateTime               @db.Date
+  status       ShiftScheduleStatus    @default(SCHEDULED)
   assignedBy   String?
   notes        String?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
-  user       User        @relation("ShiftScheduleUser", fields: [userId], references: [id])
-  lab        Lab         @relation(fields: [labId], references: [id])
-  shift      Shift       @relation(fields: [shiftId], references: [id])
-  assigner   User?       @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
+  user        User         @relation("ShiftScheduleUser", fields: [userId], references: [id])
+  shift       Shift        @relation(fields: [shiftId], references: [id])
+  assigner    User?        @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
   attendances Attendance[]
 
   @@unique([userId, shiftId, scheduleDate])
   @@index([scheduleDate, status])
+  @@index([destination])
   @@map("aslab_shift_schedules")
 }
 
@@ -1029,8 +1035,8 @@ model AttendanceCorrectionRequest {
 model AuditLog {
   id          String   @id @default(cuid())
   userId      String
-  action      String   // e.g. "CORRECTION_APPROVED", "ATTENDANCE_MODIFIED"
-  targetType  String   // e.g. "Attendance", "DailyTaskLog"
+  action      String // e.g. "CORRECTION_APPROVED", "ATTENDANCE_MODIFIED"
+  targetType  String // e.g. "Attendance", "DailyTaskLog"
   targetId    String
   description String?
   ipAddress   String?
@@ -1042,8 +1048,6 @@ model AuditLog {
   @@index([targetType, targetId])
   @@map("audit_logs")
 }
-
-
 
 // ============================================
 // POINTS & LEADERBOARD
@@ -1094,7 +1098,7 @@ model CertificateTemplate {
   id        String          @id @default(cuid())
   name      String
   type      CertificateType
-  imageUrl  String          // Path to uploaded PNG/JPG template
+  imageUrl  String // Path to uploaded PNG/JPG template
   isActive  Boolean         @default(true)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -1107,17 +1111,17 @@ model CertificateTemplate {
 // ============================================
 
 enum NotificationType {
-  SCHEDULE_REMINDER    // Reminder jadwal 15 menit sebelum
-  KEY_NOT_RETURNED     // Kunci belum dikembalikan > 2 jam
-  ATTENDANCE_REMINDER  // Asleb belum absen
-  TICKET_ASSIGNED      // Ticket di-assign ke user
-  TICKET_RESOLVED      // Ticket sudah resolved
-  MISSION_AVAILABLE    // Misi baru tersedia
-  MISSION_VERIFIED     // Misi sudah diverifikasi
-  LOGBOOK_VERIFIED     // Logbook sudah diverifikasi
-  CERTIFICATE_ISSUED   // Sertifikat diterbitkan
-  ANNOUNCEMENT_NEW     // Pengumuman baru dari koordinator
-  SYSTEM               // Notifikasi sistem umum
+  SCHEDULE_REMINDER // Reminder jadwal 15 menit sebelum
+  KEY_NOT_RETURNED // Kunci belum dikembalikan > 2 jam
+  ATTENDANCE_REMINDER // Asleb belum absen
+  TICKET_ASSIGNED // Ticket di-assign ke user
+  TICKET_RESOLVED // Ticket sudah resolved
+  MISSION_AVAILABLE // Misi baru tersedia
+  MISSION_VERIFIED // Misi sudah diverifikasi
+  LOGBOOK_VERIFIED // Logbook sudah diverifikasi
+  CERTIFICATE_ISSUED // Sertifikat diterbitkan
+  ANNOUNCEMENT_NEW // Pengumuman baru dari koordinator
+  SYSTEM // Notifikasi sistem umum
 }
 
 model Notification {
@@ -1127,7 +1131,7 @@ model Notification {
   title     String
   message   String
   isRead    Boolean          @default(false)
-  metadata  Json?            // Extra data (link, referenceId, etc)
+  metadata  Json? // Extra data (link, referenceId, etc)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -1137,6 +1141,24 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
+  @@map("push_subscriptions")
 }
 
 // ============================================
