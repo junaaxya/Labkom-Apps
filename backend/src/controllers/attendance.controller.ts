@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AsLabPicketDestination, ShiftScheduleStatus } from "@prisma/client";
 import {
   AttendanceService,
   AttendanceSettingsService,
@@ -9,6 +10,17 @@ import {
   CorrectionRequestService,
   LeaveRequestService,
 } from "../services/attendance.service";
+
+const picketDestinations = new Set<string>(Object.values(AsLabPicketDestination));
+const shiftScheduleStatuses = new Set<string>(Object.values(ShiftScheduleStatus));
+
+function parsePicketDestination(value: unknown): AsLabPicketDestination | undefined {
+  return typeof value === "string" && picketDestinations.has(value) ? (value as AsLabPicketDestination) : undefined;
+}
+
+function parseShiftScheduleStatus(value: unknown): ShiftScheduleStatus | undefined {
+  return typeof value === "string" && shiftScheduleStatuses.has(value) ? (value as ShiftScheduleStatus) : undefined;
+}
 
 export class AttendanceController {
   static async checkin(req: Request, res: Response): Promise<void> {
@@ -334,8 +346,8 @@ export class AttendanceController {
         date: req.query.date as string | undefined,
         month: req.query.month as string | undefined,
         userId: req.query.userId as string | undefined,
-        labId: req.query.labId as string | undefined,
-        status: req.query.status as string | undefined,
+        destination: parsePicketDestination(req.query.destination),
+        status: parseShiftScheduleStatus(req.query.status),
       });
       res.json({ success: true, data });
     } catch (error: any) {
@@ -357,16 +369,23 @@ export class AttendanceController {
   static async createShiftSchedule(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const { userId, labId, shiftId, scheduleDate, dates, notes } = req.body;
-      if (!userId || !labId || !shiftId) {
-        res.status(400).json({ success: false, message: "userId, labId, shiftId wajib diisi" }); return;
+      const { userId, destination, shiftId, scheduleDate, dates, schedules, notes } = req.body;
+      const parsedDestination = parsePicketDestination(destination);
+      if (!userId || !parsedDestination || !shiftId) {
+        res.status(400).json({ success: false, message: "userId, destination, shiftId wajib diisi" }); return;
       }
 
       if (dates && Array.isArray(dates)) {
-        const data = await ShiftScheduleService.bulkCreate({ userId, labId, shiftId, dates, assignedBy: req.user.userId });
+        const data = await ShiftScheduleService.bulkCreate({ userId, destination: parsedDestination, shiftId, dates, assignedBy: req.user.userId, notes });
+        res.status(201).json({ success: true, message: `${data.length} jadwal shift berhasil dibuat`, data });
+      } else if (schedules && Array.isArray(schedules)) {
+        const requestDates = schedules
+          .map((item) => typeof item?.scheduleDate === "string" ? item.scheduleDate : undefined)
+          .filter((date): date is string => Boolean(date));
+        const data = await ShiftScheduleService.bulkCreate({ userId, destination: parsedDestination, shiftId, dates: requestDates, assignedBy: req.user.userId, notes });
         res.status(201).json({ success: true, message: `${data.length} jadwal shift berhasil dibuat`, data });
       } else if (scheduleDate) {
-        const data = await ShiftScheduleService.create({ userId, labId, shiftId, scheduleDate, assignedBy: req.user.userId, notes });
+        const data = await ShiftScheduleService.create({ userId, destination: parsedDestination, shiftId, scheduleDate, assignedBy: req.user.userId, notes });
         res.status(201).json({ success: true, message: "Jadwal shift berhasil dibuat", data });
       } else {
         res.status(400).json({ success: false, message: "scheduleDate atau dates wajib diisi" });

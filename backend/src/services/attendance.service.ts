@@ -1,4 +1,6 @@
 import prisma from "../config/database";
+import { AsLabPicketDestination, ShiftScheduleStatus } from "@prisma/client";
+import { notificationService } from "./notification.service";
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -34,6 +36,12 @@ function getTodayRange(): { start: Date; end: Date } {
   return { start, end };
 }
 
+const picketDestinationLabels: Record<AsLabPicketDestination, string> = {
+  RUANGAN_ASLAB: "Ruangan Aslab",
+  LAB_MULTIMEDIA: "Lab Multimedia",
+  LAB_DASAR: "Lab Dasar",
+};
+
 // ============================================
 // ATTENDANCE SETTINGS
 // ============================================
@@ -53,7 +61,6 @@ export class AttendanceSettingsService {
     lateToleranceMinutes?: number;
     checkoutGraceMinutes?: number;
     forgotCheckoutAfterMinutes?: number;
-    isTaskRequired?: boolean;
     isVerificationRequired?: boolean;
   }) {
     const existing = await this.get();
@@ -130,7 +137,7 @@ export class TaskCategoryConfigService {
 // ============================================
 
 export class ShiftScheduleService {
-  static async getAll(filters?: { date?: string; month?: string; userId?: string; labId?: string; status?: string }) {
+  static async getAll(filters?: { date?: string; month?: string; userId?: string; destination?: AsLabPicketDestination; status?: ShiftScheduleStatus }) {
     const where: any = {};
     if (filters?.date) {
       where.scheduleDate = new Date(filters.date);
@@ -139,14 +146,13 @@ export class ShiftScheduleService {
       where.scheduleDate = { gte: start, lte: end };
     }
     if (filters?.userId) where.userId = filters.userId;
-    if (filters?.labId) where.labId = filters.labId;
+    if (filters?.destination) where.destination = filters.destination;
     if (filters?.status) where.status = filters.status;
 
     return prisma.asLabShiftSchedule.findMany({
       where,
       include: {
         user: { select: { id: true, name: true, nim: true } },
-        lab: { select: { id: true, name: true } },
         shift: { select: { id: true, name: true, startTime: true, endTime: true } },
       },
       orderBy: { scheduleDate: "asc" },
@@ -162,8 +168,7 @@ export class ShiftScheduleService {
     return prisma.asLabShiftSchedule.findMany({
       where,
       include: {
-        lab: { select: { id: true, name: true } },
-        shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true, isTaskRequired: true } },
+        shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true } },
       },
       orderBy: { scheduleDate: "asc" },
     });
@@ -179,14 +184,12 @@ export class ShiftScheduleService {
         status: "SCHEDULED",
       },
       include: {
-        lab: { select: { id: true, name: true } },
-        shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true, checkoutGraceMinutes: true, isTaskRequired: true } },
+        shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true, checkoutGraceMinutes: true } },
       },
     });
   }
 
-  static async create(data: { userId: string; labId: string; shiftId: string; scheduleDate: string; assignedBy: string; notes?: string }) {
-    // Check for conflicts
+  static async create(data: { userId: string; destination: AsLabPicketDestination; shiftId: string; scheduleDate: string; assignedBy: string; notes?: string }) {
     const existing = await prisma.asLabShiftSchedule.findFirst({
       where: {
         userId: data.userId,
@@ -196,10 +199,10 @@ export class ShiftScheduleService {
     });
     if (existing) throw new Error("Aslab sudah memiliki jadwal shift pada tanggal tersebut");
 
-    return prisma.asLabShiftSchedule.create({
+    const schedule = await prisma.asLabShiftSchedule.create({
       data: {
         userId: data.userId,
-        labId: data.labId,
+        destination: data.destination,
         shiftId: data.shiftId,
         scheduleDate: new Date(data.scheduleDate),
         assignedBy: data.assignedBy,
@@ -207,33 +210,44 @@ export class ShiftScheduleService {
       },
       include: {
         user: { select: { id: true, name: true } },
-        lab: { select: { id: true, name: true } },
         shift: { select: { id: true, name: true, startTime: true, endTime: true } },
       },
     });
+
+    await notificationService.notifyShiftAssigned({
+      userId: data.userId,
+      destinationLabel: picketDestinationLabels[data.destination],
+      scheduleDate: data.scheduleDate,
+      shiftName: schedule.shift.name ?? `${schedule.shift.startTime} - ${schedule.shift.endTime}`,
+    });
+
+    return schedule;
   }
 
-  static async bulkCreate(data: { userId: string; labId: string; shiftId: string; dates: string[]; assignedBy: string }) {
+  static async bulkCreate(data: { userId: string; destination: AsLabPicketDestination; shiftId: string; dates: string[]; assignedBy: string; notes?: string }) {
     const results = [];
     for (const date of data.dates) {
       try {
         const schedule = await this.create({
           userId: data.userId,
-          labId: data.labId,
+          destination: data.destination,
           shiftId: data.shiftId,
           scheduleDate: date,
           assignedBy: data.assignedBy,
+          notes: data.notes,
         });
         results.push(schedule);
-      } catch {
-        // Skip conflicts
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes("Aslab sudah memiliki jadwal shift")) {
+          throw error;
+        }
       }
     }
     return results;
   }
 
-  static async update(id: string, data: { status?: string; notes?: string }) {
-    return prisma.asLabShiftSchedule.update({ where: { id }, data: data as any });
+  static async update(id: string, data: { status?: ShiftScheduleStatus; notes?: string; destination?: AsLabPicketDestination }) {
+    return prisma.asLabShiftSchedule.update({ where: { id }, data });
   }
 
   static async delete(id: string) {
