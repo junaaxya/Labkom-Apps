@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { syncExistingPushSubscription } from "@/services/push-notifications";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -47,6 +48,11 @@ export function ServiceWorkerRegistration() {
         const checkUpdate = () => reg.update().catch(() => {});
         const interval = setInterval(checkUpdate, 60 * 60 * 1000);
         window.addEventListener("focus", checkUpdate);
+
+        const token = localStorage.getItem("token");
+        if (token) {
+          syncExistingPushSubscription().catch(() => {});
+        }
 
         return () => {
           clearInterval(interval);

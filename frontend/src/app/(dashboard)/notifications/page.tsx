@@ -6,14 +6,10 @@ import {
   TbBell,
   TbCheck,
   TbChecks,
-  TbCircleDashed,
-  TbFilter,
   TbInfoCircle,
   TbLoader2,
-  TbSearch,
   TbSettings,
   TbTrash,
-  TbX,
   TbCalendarEvent,
   TbKey,
   TbClock,
@@ -24,6 +20,13 @@ import {
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
+import {
+  getCurrentPushSubscription,
+  getPushPermission,
+  isPushSupported,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/services/push-notifications";
 
 interface Notification {
   id: string;
@@ -109,6 +112,12 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [page, setPage] = useState(1);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">(() =>
+    isPushSupported() ? Notification.permission : "unsupported"
+  );
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -131,6 +140,24 @@ export default function NotificationsPage() {
     });
   }, [fetchNotifications]);
 
+  const refreshPushStatus = useCallback(async () => {
+    const permission = await getPushPermission();
+    setPushPermission(permission);
+    if (permission === "unsupported") {
+      setPushSubscribed(false);
+      return;
+    }
+    const subscription = await getCurrentPushSubscription();
+    setPushSubscribed(Boolean(subscription));
+  }, []);
+
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    queueMicrotask(() => {
+      void refreshPushStatus();
+    });
+  }, [refreshPushStatus]);
+
   const markAsRead = async (id: string) => {
     await api.patch<unknown>(`/notifications/${id}/read`, {});
     setNotifications((prev) =>
@@ -146,6 +173,26 @@ export default function NotificationsPage() {
   const deleteNotification = async (id: string) => {
     await api.delete<unknown>(`/notifications/${id}`);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    setPushMessage(null);
+    try {
+      if (pushSubscribed) {
+        await unsubscribeFromPush();
+        setPushMessage("Push perangkat dimatikan.");
+      } else {
+        await subscribeToPush();
+        setPushMessage("Push perangkat aktif. Notifikasi bisa muncul di bar HP.");
+      }
+      await refreshPushStatus();
+    } catch (error) {
+      setPushMessage(error instanceof Error ? error.message : "Gagal mengubah push notification");
+      await refreshPushStatus();
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -200,6 +247,38 @@ export default function NotificationsPage() {
       </div>
 
       <div className="space-y-4 sm:space-y-6">
+        <div className="bg-white neo-border rounded-2xl p-5 sm:p-6 shadow-[4px_4px_0px_#1a1a1a]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[#f3701e] text-white neo-border-sm flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#1a1a1a]">
+                <TbSettings size={24} strokeWidth={2.2} />
+              </div>
+              <div>
+                <p className="font-heading text-lg sm:text-xl font-bold text-[#1a1a1a]">Push Notification Perangkat</p>
+                <p className="text-sm text-[#4b607f] font-medium mt-1 leading-relaxed">
+                  Aktifkan supaya pengingat penting muncul di bar HP walau LabKom tidak sedang dibuka.
+                  Di iPhone/iPad, pasang LabKom ke Home Screen dulu.
+                </p>
+                <p className="text-xs text-[#5a5a5a] font-bold mt-2">
+                  Status: {pushPermission === "unsupported" ? "Tidak didukung browser" : pushPermission === "denied" ? "Izin diblokir" : pushSubscribed ? "Aktif di perangkat ini" : "Belum aktif"}
+                </p>
+                {pushMessage && <p className="text-xs font-bold text-[#4b607f] mt-2">{pushMessage}</p>}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={togglePush}
+              disabled={pushBusy || pushPermission === "unsupported" || pushPermission === "denied"}
+              className={`neo-btn min-h-[44px] px-5 font-bold whitespace-nowrap ${
+                pushSubscribed ? "bg-white text-[#1a1a1a]" : "bg-[#f3701e] text-white"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {pushBusy ? "Memproses..." : pushSubscribed ? "Nonaktifkan Push" : "Aktifkan Push"}
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="bg-white neo-border rounded-xl p-12 text-center shadow-[4px_4px_0px_#1a1a1a]">
             <TbLoader2 className="w-10 h-10 animate-spin text-[#f3701e] mx-auto" strokeWidth={2.2} />

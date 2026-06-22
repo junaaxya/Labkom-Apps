@@ -1,4 +1,4 @@
-const CACHE_NAME = "labkom-fca25bda12bc";
+const CACHE_NAME = "labkom-84b5683f3504";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
@@ -40,6 +40,45 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { body: event.data.text() };
+    }
+  }
+
+  const title = payload.title || "LabKom";
+  const options = {
+    body: payload.body || payload.message || "Notifikasi baru",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-192x192.png",
+    data: payload.data || { link: "/notifications" },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const link = event.notification.data?.link || "/notifications";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.navigate(link);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(link);
+    })
+  );
 });
 
 self.addEventListener("fetch", (event) => {
