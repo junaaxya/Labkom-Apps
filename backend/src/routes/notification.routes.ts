@@ -6,6 +6,9 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  getPushPublicKey,
+  subscribePush,
+  unsubscribePush,
 } from "../controllers/notification.controller";
 import { sseManager } from "../services/sse.service";
 
@@ -27,6 +30,9 @@ router.use(authenticate);
 
 router.get("/", getMyNotifications);
 router.get("/unread-count", getUnreadCount);
+router.get("/push/public-key", getPushPublicKey);
+router.post("/push/subscribe", subscribePush);
+router.post("/push/unsubscribe", unsubscribePush);
 router.patch("/read-all", markAllAsRead);
 router.patch("/:id/read", markAsRead);
 router.delete("/:id", deleteNotification);
