@@ -153,7 +153,6 @@ export default function AttendanceSettingsPage() {
           lateToleranceMinutes: settingsForm.lateToleranceMinutes,
           checkoutGraceMinutes: settingsForm.checkoutGraceMinutes,
           forgotCheckoutAfterMinutes: settingsForm.forgotCheckoutAfterMinutes,
-          isTaskRequired: settingsForm.isTaskRequired,
           isVerificationRequired: settingsForm.isVerificationRequired,
         }
       );
@@ -317,17 +316,6 @@ export default function AttendanceSettingsPage() {
           </div>
 
           <div className="neo-border bg-[#f5ede6] p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="font-bold text-[#1a1a1a]">Task Harian Wajib</p>
-              <ToggleSwitch
-                checked={settingsForm.isTaskRequired}
-                onToggle={() =>
-                  setSettingsForm((prev) =>
-                    prev ? { ...prev, isTaskRequired: !prev.isTaskRequired } : prev
-                  )
-                }
-              />
-            </div>
             <div className="flex items-center justify-between">
               <p className="font-bold text-[#1a1a1a]">Verifikasi Koordinator Wajib</p>
               <ToggleSwitch

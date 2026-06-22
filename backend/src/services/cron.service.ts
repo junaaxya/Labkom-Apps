@@ -3,6 +3,7 @@ import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 import { PCService } from "./pc.service";
 import { MissionService } from "./mission.service";
+import { AttendanceService } from "./attendance.service";
 
 const DAYS_MAP: Record<string, number> = {
   MINGGU: 0,
@@ -132,6 +133,22 @@ async function checkAttendanceReminder() {
   }
 }
 
+async function checkForgotCheckout() {
+  const stale = await AttendanceService.markForgotCheckout();
+  if (stale.length === 0) return;
+
+  const userIds = [...new Set(stale.map((s) => s.userId))];
+  if (userIds.length === 0) return;
+
+  await notificationService.createBulk({
+    userIds,
+    type: "SYSTEM",
+    title: "Lupa Check-out",
+    message: "Sesi absensi Anda ditandai sebagai lupa check-out. Hubungi koordinator jika perlu koreksi.",
+    metadata: { source: "forgot-checkout-cron", count: stale.length },
+  });
+}
+
 async function cleanupOldNotifications() {
   await notificationService.cleanup(30);
 }
@@ -180,6 +197,11 @@ export function startCronJobs() {
   // Every 5 minutes: check schedule reminders
   cron.schedule("*/5 * * * *", () => {
     checkScheduleReminders().catch(console.error);
+  });
+
+  // Every 15 minutes: mark stale check-ins as forgot checkout and notify
+  cron.schedule("*/15 * * * *", () => {
+    checkForgotCheckout().catch(console.error);
   });
 
   // Every 30 minutes: check keys not returned
