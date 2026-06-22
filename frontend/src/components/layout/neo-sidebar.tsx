@@ -37,6 +37,7 @@ import {
   TbCalendarClock,
   TbArrowsExchange,
   TbSpeakerphone,
+  TbClock,
   TbX,
 } from "react-icons/tb";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -58,6 +59,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Manajemen User", href: "/users", icon: TbUsers, group: "Management" },
     { label: "Daftar Asleb", href: "/assistants", icon: TbUserCode, group: "Management" },
     { label: "Monitoring Absensi", href: "/attendance/monitoring", icon: TbChecklist, group: "Operations" },
+    { label: "Jadwal Piket Aslab", href: "/attendance/shifts", icon: TbClock, group: "Operations" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Operations" },
     { label: "Monitoring Logbook", href: "/logbook", icon: TbBook2, group: "Operations" },
     { label: "Peminjaman Kunci", href: "/keys", icon: TbKey, group: "Operations" },
@@ -82,7 +84,8 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Absensi Saya", href: "/attendance", icon: TbChecklist, group: "My Work" },
-    { label: "Jadwal Tugas", href: "/schedules", icon: TbCalendarEvent, group: "My Work" },
+    { label: "Jadwal Piket", href: "/attendance/shifts", icon: TbClock, group: "My Work" },
+    { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "My Work" },
     { label: "Misi Saya", href: "/missions", icon: TbTargetArrow, group: "My Work" },
     { label: "Riwayat Tugas", href: "/task-history", icon: TbClipboardList, group: "My Work" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Operations" },

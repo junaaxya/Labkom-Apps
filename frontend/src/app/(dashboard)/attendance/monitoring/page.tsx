@@ -32,11 +32,11 @@ import { useToast } from "@/providers/toast-provider";
 import { MobileCard } from "@/components/ui/mobile-card";
 import type {
   AttendanceEntry,
+  AsLabPicketDestination,
   DailyTaskLog,
   ShiftSchedule,
   Shift,
   User,
-  Lab,
   AttendanceStatus,
   DailyTaskStatus,
   ShiftScheduleStatus,
@@ -64,15 +64,38 @@ type TodayMonitoringData = {
 
 type ShiftCreatePayload = {
   userId: string;
-  labId: string;
+  destination: AsLabPicketDestination;
   shiftId: string;
   scheduleDate: string;
   notes?: string;
 };
 
 type ShiftCreateBulkPayload = {
-  schedules: ShiftCreatePayload[];
+  userId: string;
+  destination: AsLabPicketDestination;
+  shiftId: string;
+  dates: string[];
+  notes?: string;
 };
+
+type ShiftFormState = {
+  userId: string;
+  destination: "" | AsLabPicketDestination;
+  shiftId: string;
+  scheduleDate: string;
+  bulkDatesText: string;
+  notes: string;
+};
+
+const PICKET_DESTINATIONS: Array<{ value: AsLabPicketDestination; label: string }> = [
+  { value: "RUANGAN_ASLAB", label: "Ruangan Aslab" },
+  { value: "LAB_MULTIMEDIA", label: "Lab Multimedia" },
+  { value: "LAB_DASAR", label: "Lab Dasar" },
+];
+
+function destinationLabel(destination?: AsLabPicketDestination): string {
+  return PICKET_DESTINATIONS.find((item) => item.value === destination)?.label ?? "-";
+}
 
 type ApiMaybeWrapped<T> = T | { data?: T; items?: T };
 
@@ -274,7 +297,6 @@ export default function AttendanceMonitoringPage() {
   const [scheduleMonth, setScheduleMonth] = useState(monthNow());
   const [shiftSchedules, setShiftSchedules] = useState<ShiftSchedule[]>([]);
   const [aslabUsers, setAslabUsers] = useState<User[]>([]);
-  const [labs, setLabs] = useState<Lab[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [leavesLoading, setLeavesLoading] = useState(false);
@@ -307,9 +329,9 @@ export default function AttendanceMonitoringPage() {
 
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
-  const [shiftForm, setShiftForm] = useState({
+  const [shiftForm, setShiftForm] = useState<ShiftFormState>({
     userId: "",
-    labId: "",
+    destination: "",
     shiftId: "",
     scheduleDate: "",
     bulkDatesText: "",
@@ -385,17 +407,14 @@ export default function AttendanceMonitoringPage() {
 
   const loadShiftReferences = useCallback(async () => {
     try {
-      const [usersRes, labsRes, shiftsRes] = await Promise.all([
+      const [usersRes, shiftsRes] = await Promise.all([
         api.get<ApiMaybeWrapped<User[]> | Record<string, unknown>>("/users?role=ASISTEN_LAB"),
-        api.get<ApiMaybeWrapped<Lab[]> | Record<string, unknown>>("/labs"),
-        api.get<ApiMaybeWrapped<Shift[]> | Record<string, unknown>>("/attendance/shifts"),
+        api.get<ApiMaybeWrapped<Shift[]> | Record<string, unknown>>("/shifts"),
       ]);
       setAslabUsers(safeArray<User>(usersRes, ["users", "rows"]));
-      setLabs(safeArray<Lab>(labsRes, ["labs", "rows"]));
       setShifts(safeArray<Shift>(shiftsRes, ["shifts", "rows"]));
     } catch {
       setAslabUsers([]);
-      setLabs([]);
       setShifts([]);
     }
   }, []);
@@ -810,7 +829,7 @@ export default function AttendanceMonitoringPage() {
   const openShiftModal = () => {
     setShiftForm({
       userId: "",
-      labId: "",
+      destination: "",
       shiftId: "",
       scheduleDate: "",
       bulkDatesText: "",
@@ -820,9 +839,9 @@ export default function AttendanceMonitoringPage() {
   };
 
   const submitShiftSchedule = async () => {
-    const { userId, labId, shiftId, scheduleDate, bulkDatesText, notes } = shiftForm;
-    if (!userId || !labId || !shiftId) {
-      toast.error("Pilih Aslab, Lab, dan Shift terlebih dahulu.");
+    const { userId, destination, shiftId, scheduleDate, bulkDatesText, notes } = shiftForm;
+    if (!userId || !destination || !shiftId) {
+      toast.error("Pilih Aslab, Tujuan Piket, dan Shift terlebih dahulu.");
       return;
     }
 
@@ -841,7 +860,7 @@ export default function AttendanceMonitoringPage() {
 
     const payloads: ShiftCreatePayload[] = uniqueDates.map((date) => ({
       userId,
-      labId,
+      destination,
       shiftId,
       scheduleDate: date,
       notes: notes.trim() ? notes.trim() : undefined,
@@ -852,10 +871,16 @@ export default function AttendanceMonitoringPage() {
       if (payloads.length === 1) {
         await api.post("/attendance/shift-schedules", payloads[0]);
       } else {
-        const bulkBody: ShiftCreateBulkPayload = { schedules: payloads };
+        const bulkBody: ShiftCreateBulkPayload = {
+          userId,
+          destination,
+          shiftId,
+          dates: uniqueDates,
+          notes: notes.trim() ? notes.trim() : undefined,
+        };
         await api.post("/attendance/shift-schedules", bulkBody);
       }
-      toast.success("Jadwal shift berhasil ditambahkan.");
+      toast.success("Jadwal shift berhasil ditambahkan. Notifikasi dikirim ke Aslab terkait.");
       setShiftModalOpen(false);
       await loadShiftSchedules();
     } catch (error) {
@@ -1184,7 +1209,7 @@ export default function AttendanceMonitoringPage() {
                             <th className="text-left p-3 text-sm font-black">Task</th>
                             <th className="text-left p-3 text-sm font-black">Category</th>
                             <th className="text-left p-3 text-sm font-black">Duration</th>
-                            <th className="text-left p-3 text-sm font-black">Lab</th>
+                            <th className="text-left p-3 text-sm font-black">Tujuan</th>
                             <th className="text-left p-3 text-sm font-black">Status</th>
                             <th className="text-left p-3 text-sm font-black">Date</th>
                             <th className="text-left p-3 text-sm font-black">Actions</th>
@@ -1283,7 +1308,7 @@ export default function AttendanceMonitoringPage() {
                               </span>
                             }
                             fields={[
-                              { label: "Lab", value: schedule.lab?.name ?? "-" },
+                    { label: "Tujuan", value: destinationLabel(schedule.destination) },
                               { label: "Shift", value: shiftLabel },
                             ]}
                             actions={[
@@ -1319,7 +1344,7 @@ export default function AttendanceMonitoringPage() {
                               <tr key={schedule.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
                                 <td className="p-3 text-sm text-[#1a1a1a]">{formatDate(schedule.scheduleDate)}</td>
                                 <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{schedule.user?.name ?? "-"}</td>
-                                <td className="p-3 text-sm text-[#5a5a5a]">{schedule.lab?.name ?? "-"}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{destinationLabel(schedule.destination)}</td>
                                 <td className="p-3 text-sm text-[#5a5a5a]">{shiftLabel}</td>
                                 <td className="p-3">
                                   <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>
@@ -1820,6 +1845,9 @@ export default function AttendanceMonitoringPage() {
                   <TbX className="w-5 h-5" />
                 </button>
               </div>
+              <p className="mt-2 text-xs font-bold text-[#f3701e]">
+                Notifikasi masuk ke panel aplikasi dan WhatsApp jika aktif. Push bar HP native butuh fitur Web Push terpisah.
+              </p>
 
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -1842,17 +1870,17 @@ export default function AttendanceMonitoringPage() {
 
                 <div>
                   <label className="text-xs font-bold uppercase text-[#5a5a5a] flex items-center gap-1">
-                    <TbBuildingWarehouse className="w-4 h-4" /> Lab
+                    <TbBuildingWarehouse className="w-4 h-4" /> Tujuan Piket
                   </label>
                   <select
-                    value={shiftForm.labId}
-                    onChange={(event) => setShiftForm((prev) => ({ ...prev, labId: event.target.value }))}
+                    value={shiftForm.destination}
+                    onChange={(event) => setShiftForm((prev) => ({ ...prev, destination: event.target.value as ShiftFormState["destination"] }))}
                     className="neo-input neo-border mt-1 w-full rounded-lg px-3 py-2 bg-white text-[#1a1a1a]"
                   >
-                    <option value="">Pilih Lab</option>
-                    {labs.map((lab) => (
-                      <option key={lab.id} value={lab.id}>
-                        {lab.name}
+                    <option value="">Pilih Tujuan</option>
+                    {PICKET_DESTINATIONS.map((destination) => (
+                      <option key={destination.value} value={destination.value}>
+                        {destination.label}
                       </option>
                     ))}
                   </select>

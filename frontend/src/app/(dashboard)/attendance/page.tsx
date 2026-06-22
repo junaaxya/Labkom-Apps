@@ -27,6 +27,7 @@ import type {
   TaskCategoryConfig,
   AttendanceCorrectionRequest,
   Lab,
+  AsLabPicketDestination,
 } from "@/types";
 
 const attendanceStatusConfig: Record<string, { label: string; color: string }> = {
@@ -57,6 +58,16 @@ const correctionTypes = [
   { value: "LOCATION_ERROR", label: "Error Lokasi" },
   { value: "STATUS_CORRECTION", label: "Koreksi Status" },
 ];
+
+const picketDestinationLabels: Record<AsLabPicketDestination, string> = {
+  RUANGAN_ASLAB: "Ruangan Aslab",
+  LAB_MULTIMEDIA: "Lab Multimedia",
+  LAB_DASAR: "Lab Dasar",
+};
+
+function destinationLabel(destination?: AsLabPicketDestination): string {
+  return destination ? picketDestinationLabels[destination] : "—";
+}
 
 interface LeaveRequestItem {
   id: string;
@@ -423,7 +434,7 @@ export default function AttendancePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                 <div>
                   <p className="text-[#5a5a5a] font-medium">Lab</p>
-                  <p className="font-bold text-[#1a1a1a]">{todayShift.lab?.name || "—"}</p>
+                  <p className="font-bold text-[#1a1a1a]">{destinationLabel(todayShift.destination)}</p>
                 </div>
                 <div>
                   <p className="text-[#5a5a5a] font-medium">Waktu</p>

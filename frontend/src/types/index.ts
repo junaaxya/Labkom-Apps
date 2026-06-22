@@ -159,7 +159,7 @@ export interface TaskCategoryConfig {
 export interface ShiftSchedule {
   id: string;
   userId: string;
-  labId: string;
+  destination: AsLabPicketDestination;
   shiftId: string;
   scheduleDate: string;
   status: ShiftScheduleStatus;
@@ -168,10 +168,11 @@ export interface ShiftSchedule {
   createdAt: string;
   updatedAt: string;
   user?: User;
-  lab?: Lab;
   shift?: Shift;
   assigner?: User;
 }
+
+export type AsLabPicketDestination = "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_DASAR";
 
 export interface Shift {
   id: string;
