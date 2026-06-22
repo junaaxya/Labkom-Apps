@@ -2,6 +2,7 @@ import prisma from "../config/database";
 import { NotificationType, Prisma } from "@prisma/client";
 import { sseManager } from "./sse.service";
 import { whatsappService } from "./whatsapp.service";
+import { webPushService } from "./web-push.service";
 
 interface CreateNotificationInput {
   userId: string;
@@ -37,6 +38,7 @@ class NotificationService {
     sseManager.sendToUser(input.userId, "notification", notification);
 
     whatsappService.sendNotification(input.userId, input.title, input.message).catch(() => {});
+    webPushService.sendToUser(input.userId, notification).catch(() => {});
 
     return notification;
   }
@@ -64,8 +66,43 @@ class NotificationService {
     }
 
     whatsappService.sendBulkNotification(input.userIds, input.title, input.message).catch(() => {});
+    webPushService
+      .sendToUsers(input.userIds, {
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        metadata: input.metadata ?? null,
+      })
+      .catch(() => {});
 
     return result;
+  }
+
+  async notifyShiftAssigned(input: {
+    userId: string;
+    destinationLabel: string;
+    scheduleDate: string;
+    shiftName: string;
+    count?: number;
+  }) {
+    const dateText = input.count && input.count > 1
+      ? `${input.count} jadwal baru`
+      : input.scheduleDate;
+
+    return this.create({
+      userId: input.userId,
+      type: "ATTENDANCE_REMINDER",
+      title: "Jadwal Piket Baru",
+      message: `Anda ditugaskan piket ${input.destinationLabel} pada ${dateText} shift ${input.shiftName}.`,
+      metadata: {
+        source: "shift-assignment",
+        link: "/attendance/shifts",
+        destination: input.destinationLabel,
+        scheduleDate: input.scheduleDate,
+        shiftName: input.shiftName,
+        count: input.count ?? 1,
+      },
+    });
   }
 
   /**
