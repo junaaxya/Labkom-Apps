@@ -35,6 +35,9 @@ export const config = {
   midtransServerKey: process.env.MIDTRANS_SERVER_KEY || "",
   midtransIsProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
   hostingBrandName: process.env.HOSTING_BRAND_NAME || "LabKom Hosting",
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || "",
+  vapidSubject: process.env.VAPID_SUBJECT || process.env.APP_URL || "mailto:admin@labkom.ac.id",
 };
 
 export function validateConfig(): void {
@@ -44,6 +47,9 @@ export function validateConfig(): void {
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push("GOOGLE_CLIENT_ID not set — Calendar sync disabled");
   if (!process.env.REDIS_URL) warnings.push("REDIS_URL not set — using default localhost");
   if (!process.env.MIDTRANS_SERVER_KEY) warnings.push("MIDTRANS_SERVER_KEY not set — hosting checkout disabled");
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    warnings.push("VAPID keys not set — Web Push disabled");
+  }
 
   if (config.nodeEnv === "production") {
     if (!process.env.CORS_ORIGIN) throw new Error("[FATAL] CORS_ORIGIN must be set in production");

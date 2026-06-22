@@ -42,6 +42,7 @@
     "node-cron": "^4.2.1",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4",
+    "web-push": "^3.6.7",
     "zod": "^4.4.1"
   },
   "devDependencies": {
@@ -54,6 +55,7 @@
     "@types/node": "^25.6.0",
     "@types/node-cron": "^3.0.11",
     "@types/pdfkit": "^0.17.6",
+    "@types/web-push": "^3.6.4",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
