@@ -39,11 +39,25 @@ interface CreateTransactionResponse {
   success: boolean;
   message?: string;
   data?: {
-    redirectUrl: string;
+    paymentUrl?: string;
+    redirectUrl?: string;
     token?: string;
     orderId: string;
+    reference?: string;
   };
 }
+
+const paymentMethods = [
+  { code: "BC", name: "BCA Virtual Account" },
+  { code: "M2", name: "Mandiri Virtual Account" },
+  { code: "I1", name: "BNI Virtual Account" },
+  { code: "BR", name: "BRIVA" },
+  { code: "NQ", name: "QRIS" },
+  { code: "OV", name: "OVO" },
+  { code: "DA", name: "DANA" },
+  { code: "SA", name: "ShopeePay" },
+  { code: "VC", name: "Kartu Kredit" },
+];
 
 const emptyCustomer: CustomerData = {
   fullName: "",
@@ -72,6 +86,7 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
   const [open, setOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerData>(emptyCustomer);
   const [fieldErrors, setFieldErrors] = useState<CustomerErrors>({});
+  const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0].code);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -100,6 +115,11 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
       return;
     }
 
+    if (!paymentMethod) {
+      setError("Pilih metode pembayaran sebelum melanjutkan.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -108,16 +128,18 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId: plan.id,
+          paymentMethod,
           customer: parsedCustomer.data,
         }),
       });
 
       const result = (await response.json()) as CreateTransactionResponse;
-      if (!response.ok || !result.data?.redirectUrl) {
+      const paymentUrl = result.data?.paymentUrl || result.data?.redirectUrl;
+      if (!response.ok || !paymentUrl) {
         throw new Error(result.message || "Gagal membuat transaksi pembayaran.");
       }
 
-      window.location.href = result.data.redirectUrl;
+      window.location.href = paymentUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat transaksi pembayaran.");
       setLoading(false);
@@ -129,6 +151,7 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
     setOpen(false);
     setError("");
     setFieldErrors({});
+    setPaymentMethod(paymentMethods[0].code);
   };
 
   return (
@@ -151,7 +174,7 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
           onClick={closeModal}
         >
           <div
-            className="neo-card w-full max-w-lg bg-white text-[#1a1a1a]"
+            className="neo-card max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto bg-white text-[#1a1a1a]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b-[3px] border-[#1a1a1a] bg-[#4b607f] p-5 text-white">
@@ -213,6 +236,38 @@ export function HostingOrderButton({ plan }: { plan: HostingPlan }) {
                 error={fieldErrors.whatsapp}
                 required
               />
+
+              <div>
+                <p className="mb-2 block text-sm font-bold">
+                  Metode Pembayaran <span className="ml-1 text-[#f3701e]">*</span>
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {paymentMethods.map((method) => (
+                    <label
+                      key={method.code}
+                      className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-lg border-2 px-3 py-2 font-semibold transition-colors ${
+                        paymentMethod === method.code
+                          ? "border-[#1a1a1a] bg-[#f3701e] text-white"
+                          : "border-[#1a1a1a] bg-white text-[#1a1a1a] hover:bg-[#f5ede6]"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={method.code}
+                        checked={paymentMethod === method.code}
+                        onChange={() => {
+                          setPaymentMethod(method.code);
+                          if (error) setError("");
+                        }}
+                        disabled={loading}
+                        className="h-4 w-4 accent-[#f3701e]"
+                      />
+                      <span className="text-sm">{method.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <label htmlFor="notes" className="mb-1.5 block text-sm font-bold">

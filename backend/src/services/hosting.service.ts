@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { config } from "../config";
 
 export interface HostingPlanSpec {
@@ -24,6 +25,13 @@ export interface HostingCustomer {
   email: string;
   whatsapp: string;
   notes?: string;
+}
+
+export interface HostingPaymentMethod {
+  paymentMethod: string;
+  paymentName: string;
+  paymentImage?: string;
+  totalFee?: string | number;
 }
 
 export const HOSTING_PLANS: HostingPlan[] = [
@@ -97,20 +105,38 @@ export const HOSTING_PLANS: HostingPlan[] = [
   },
 ];
 
-interface MidtransItemDetail {
-  id: string;
+interface DuitkuItemDetail {
   price: number;
   quantity: number;
   name: string;
-  brand?: string;
-  category?: string;
-  merchant_name?: string;
 }
 
-interface MidtransTransactionResponse {
-  token?: string;
-  redirect_url?: string;
-  error_messages?: string[];
+interface DuitkuTransactionResponse {
+  merchantCode?: string;
+  reference?: string;
+  paymentUrl?: string;
+  vaNumber?: string;
+  amount?: string;
+  statusCode?: string;
+  statusMessage?: string;
+  Message?: string;
+}
+
+interface DuitkuStatusResponse {
+  merchantOrderId?: string;
+  reference?: string;
+  amount?: string;
+  statusCode?: string;
+  statusMessage?: string;
+  Message?: string;
+}
+
+interface DuitkuPaymentMethodResponse {
+  paymentFee?: HostingPaymentMethod[];
+  paymentMethods?: HostingPaymentMethod[];
+  statusCode?: string;
+  statusMessage?: string;
+  Message?: string;
 }
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -123,10 +149,52 @@ function truncate(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
 }
 
-function getMidtransSnapUrl(): string {
-  return config.midtransIsProduction
-    ? "https://app.midtrans.com/snap/v1/transactions"
-    : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+function getDuitkuBaseUrl(): string {
+  return config.duitkuIsProduction
+    ? "https://passport.duitku.com/webapi/api/merchant"
+    : "https://sandbox.duitku.com/webapi/api/merchant";
+}
+
+function createDuitkuSignature(value: string): string {
+  return crypto.createHmac("sha256", config.duitkuApiKey).update(value).digest("hex");
+}
+
+function assertDuitkuConfig(): void {
+  if (!config.duitkuMerchantCode) {
+    throw new Error("DUITKU_MERCHANT_CODE belum dikonfigurasi.");
+  }
+
+  if (!config.duitkuApiKey) {
+    throw new Error("DUITKU_API_KEY belum dikonfigurasi.");
+  }
+
+  if (!config.duitkuCallbackUrl) {
+    throw new Error("DUITKU_CALLBACK_URL belum dikonfigurasi.");
+  }
+}
+
+function findPlanFromOrderId(orderId: string): HostingPlan | null {
+  return HOSTING_PLANS.find((plan) => orderId.startsWith(`labkom-vps-${plan.id}-`)) ?? null;
+}
+
+function mapDuitkuStatus(statusCode?: string): "SUCCESS" | "PROCESS" | "FAILED" | "UNKNOWN" {
+  if (statusCode === "00") return "SUCCESS";
+  if (statusCode === "01") return "PROCESS";
+  if (statusCode === "02") return "FAILED";
+  return "UNKNOWN";
+}
+
+function getDuitkuErrorMessage(data: DuitkuTransactionResponse | DuitkuStatusResponse | DuitkuPaymentMethodResponse): string {
+  return data.statusMessage || data.Message || "Gagal memproses request ke Duitku.";
+}
+
+function formatDuitkuDatetime(date = new Date()): string {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 export class HostingService {
@@ -138,36 +206,22 @@ export class HostingService {
     return HOSTING_PLANS.find((plan) => plan.id === planId) ?? null;
   }
 
-  static async createMidtransTransaction(planId: string, customer: HostingCustomer) {
+  static async createDuitkuTransaction(planId: string, customer: HostingCustomer, paymentMethod: string) {
     const plan = this.getPlanById(planId);
     if (!plan) throw new Error("Paket hosting tidak tersedia.");
 
-    if (!config.midtransServerKey) {
-      throw new Error("MIDTRANS_SERVER_KEY belum dikonfigurasi.");
-    }
+    assertDuitkuConfig();
 
     const orderId = `labkom-vps-${plan.id}-${Date.now()}`;
     const { firstName, lastName } = splitName(customer.fullName);
     const specsLine = plan.specs.map((spec) => `${spec.value} ${spec.label}`).join(" / ");
     const brandName = config.hostingBrandName;
 
-    const itemDetails: MidtransItemDetail[] = [
+    const itemDetails: DuitkuItemDetail[] = [
       {
-        id: `${plan.id}-base`,
-        price: plan.originalPrice,
+        price: plan.price,
         quantity: 1,
-        name: truncate(`${plan.name} ${plan.subtitle} (12 bulan)`, 50),
-        brand: brandName,
-        category: "VPS Hosting",
-        merchant_name: brandName,
-      },
-      {
-        id: `${plan.id}-discount`,
-        price: -(plan.originalPrice - plan.price),
-        quantity: 1,
-        name: truncate(`Diskon Promo (Hemat ${plan.discount}%)`, 50),
-        category: "Discount",
-        merchant_name: brandName,
+        name: truncate(`${plan.name} ${plan.subtitle} (12 bulan)`, 255),
       },
     ];
 
@@ -177,69 +231,141 @@ export class HostingService {
     }
 
     const payload = {
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: plan.price,
-      },
-      item_details: itemDetails,
-      customer_details: {
-        first_name: firstName,
-        last_name: lastName,
+      merchantCode: config.duitkuMerchantCode,
+      paymentAmount: plan.price,
+      paymentMethod,
+      merchantOrderId: orderId,
+      productDetails: truncate(`${plan.name} - ${plan.subtitle} (12 bulan) - ${brandName}`, 255),
+      email: customer.email,
+      phoneNumber: customer.whatsapp,
+      customerVaName: truncate(customer.fullName, 50),
+      itemDetails,
+      customerDetail: {
+        firstName,
+        lastName,
         email: customer.email,
-        phone: customer.whatsapp,
-        billing_address: {
-          first_name: firstName,
-          last_name: lastName,
-          email: customer.email,
-          phone: customer.whatsapp,
-          country_code: "IDN",
-        },
+        phoneNumber: customer.whatsapp,
       },
-      callbacks: {
-        finish: `${config.appUrl}/layanan-hosting/payment/success?order_id=${encodeURIComponent(orderId)}`,
-        error: `${config.appUrl}/layanan-hosting/payment/failed?order_id=${encodeURIComponent(orderId)}`,
-        pending: `${config.appUrl}/layanan-hosting/payment/success?status=pending&order_id=${encodeURIComponent(orderId)}`,
-      },
-      credit_card: {
-        secure: true,
-      },
-      custom_field1: truncate(
-        JSON.stringify({ name: customer.fullName, email: customer.email, whatsapp: customer.whatsapp }),
-        255
-      ),
-      custom_field2: truncate(
-        JSON.stringify({ planId: plan.id, planName: plan.name, amount: plan.price, specs: specsLine }),
-        255
-      ),
-      custom_field3: truncate(customer.notes || "", 255),
+      callbackUrl: config.duitkuCallbackUrl,
+      returnUrl: `${config.appUrl}/layanan-hosting/payment/status`,
+      expiryPeriod: 1440,
+      additionalParam: truncate(JSON.stringify({ notes: customer.notes || "", specs: specsLine }), 255),
+      signature: createDuitkuSignature(`${config.duitkuMerchantCode}${orderId}${plan.price}`),
     };
 
-    const response = await fetch(getMidtransSnapUrl(), {
+    const response = await fetch(`${getDuitkuBaseUrl()}/v2/inquiry`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${config.midtransServerKey}:`).toString("base64")}`,
       },
       body: JSON.stringify(payload),
     });
 
-    const data = (await response.json()) as MidtransTransactionResponse;
+    const data = (await response.json()) as DuitkuTransactionResponse;
 
-    if (!response.ok || !data.redirect_url) {
-      const message = data.error_messages?.join(", ") || "Gagal membuat transaksi Midtrans.";
-      throw new Error(message);
+    if (!response.ok || !data.paymentUrl) {
+      throw new Error(getDuitkuErrorMessage(data));
     }
 
     return {
       orderId,
-      token: data.token,
-      redirectUrl: data.redirect_url,
+      reference: data.reference,
+      paymentUrl: data.paymentUrl,
+      redirectUrl: data.paymentUrl,
+      vaNumber: data.vaNumber,
       plan: {
         id: plan.id,
         name: plan.name,
         price: plan.price,
       },
     };
+  }
+
+  static verifyDuitkuCallbackSignature(payload: Record<string, any>): boolean {
+    if (!config.duitkuApiKey) return false;
+
+    const merchantCode = String(payload.merchantCode || "");
+    const amount = String(payload.amount || "");
+    const merchantOrderId = String(payload.merchantOrderId || "");
+    const signature = String(payload.signature || "");
+
+    if (!merchantCode || !amount || !merchantOrderId || !signature) return false;
+
+    const expected = createDuitkuSignature(`${merchantCode}${amount}${merchantOrderId}`);
+    const expectedBuffer = Buffer.from(expected, "utf8");
+    const providedBuffer = Buffer.from(signature.toLowerCase(), "utf8");
+
+    if (expectedBuffer.length !== providedBuffer.length) return false;
+    return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  }
+
+  static async getTransactionStatusLive(orderId: string) {
+    assertDuitkuConfig();
+
+    const plan = findPlanFromOrderId(orderId);
+    if (!plan) {
+      throw new Error("Order ID hosting tidak valid.");
+    }
+
+    const payload = {
+      merchantCode: config.duitkuMerchantCode,
+      merchantOrderId: orderId,
+      signature: createDuitkuSignature(`${config.duitkuMerchantCode}${orderId}`),
+    };
+
+    const response = await fetch(`${getDuitkuBaseUrl()}/transactionStatus`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = (await response.json()) as DuitkuStatusResponse;
+
+    if (!response.ok) {
+      throw new Error(getDuitkuErrorMessage(data));
+    }
+
+    return {
+      orderId,
+      status: mapDuitkuStatus(data.statusCode),
+      statusCode: data.statusCode || "UNKNOWN",
+      statusMessage: data.statusMessage || "",
+      reference: data.reference,
+      planName: `${plan.name} - ${plan.subtitle}`,
+      amount: plan.price,
+    };
+  }
+
+  static async getActivePaymentMethods(amount: number): Promise<HostingPaymentMethod[]> {
+    assertDuitkuConfig();
+
+    const datetime = formatDuitkuDatetime();
+    const payload = {
+      merchantcode: config.duitkuMerchantCode,
+      amount,
+      datetime,
+      signature: createDuitkuSignature(`${config.duitkuMerchantCode}${amount}${datetime}`),
+    };
+
+    const response = await fetch(`${getDuitkuBaseUrl()}/paymentmethod/getpaymentmethod`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = (await response.json()) as DuitkuPaymentMethodResponse;
+
+    if (!response.ok) {
+      throw new Error(getDuitkuErrorMessage(data));
+    }
+
+    return data.paymentFee || data.paymentMethods || [];
   }
 }

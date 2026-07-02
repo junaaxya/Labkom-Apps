@@ -17,7 +17,7 @@ import { HOSTING_PLANS, formatIdr, type HostingPlan } from "@/lib/hosting-plans"
 export const metadata: Metadata = {
   title: "Paket Layanan Hosting VPS | LabKom",
   description:
-    "Paket layanan hosting VPS LabKom dengan harga dalam Rupiah dan pembayaran online melalui Midtrans.",
+    "Paket layanan hosting VPS LabKom dengan harga dalam Rupiah dan pembayaran online melalui Duitku.",
 };
 
 const includedFeatures = [
@@ -42,8 +42,8 @@ const processSteps = [
   },
   {
     icon: TbCreditCard,
-    title: "Bayar via Midtrans",
-    description: "Sistem membuat transaksi dan customer memilih metode pembayaran di halaman Midtrans.",
+    title: "Pilih Metode & Bayar",
+    description: "Customer memilih kanal pembayaran, lalu sistem mengarahkan ke halaman pembayaran Duitku.",
   },
   {
     icon: TbSettings,
@@ -157,7 +157,7 @@ export default function HostingServicesPage() {
       <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-16 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div>
           <span className="neo-badge bg-white text-[#1a1a1a]">
-            VPS kampus dengan pembayaran Midtrans
+            VPS kampus dengan pembayaran Duitku
           </span>
           <h1 className="mt-6 max-w-3xl text-4xl font-heading font-bold leading-tight sm:text-5xl lg:text-6xl">
             Paket Layanan Hosting VPS untuk Website dan Aplikasi Anda
@@ -165,7 +165,7 @@ export default function HostingServicesPage() {
           <p className="mt-5 max-w-2xl text-lg font-medium leading-relaxed text-[#5a5a5a]">
             LabKom menyediakan layanan VPS berbasis server mandiri kampus untuk kebutuhan website,
             sistem informasi, aplikasi praktikum, dan project bisnis. Harga tercantum dalam IDR dan
-            pembayaran diproses melalui Midtrans.
+            pembayaran diproses melalui Duitku.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href="#pricing" className="neo-btn inline-flex items-center justify-center gap-2 bg-[#f3701e] px-6 py-3 font-bold text-white">
@@ -213,7 +213,7 @@ export default function HostingServicesPage() {
             </h2>
             <p className="mt-3 font-medium text-[#5a5a5a]">
               Semua harga ditampilkan dalam Rupiah, berlaku untuk komitmen 12 bulan, dan pembayaran
-              dilakukan satu kali melalui payment gateway Midtrans.
+              dilakukan satu kali melalui payment gateway Duitku.
             </p>
           </div>
 

@@ -8,6 +8,7 @@ yarn-error.log*
 dist/
 .next/
 out/
+build/
 
 # Environment files
 .env
@@ -32,12 +33,17 @@ pids/
 
 # Coverage directory used by tools like istanbul
 coverage/
+playwright-report/
+test-results/
 
 # Dependency directories
 jspm_packages/
 
 # Optional npm cache directory
 .npm
+.cache/
+.turbo/
+.vercel/
 
 # Optional REPL history
 .node_repl_history
@@ -57,6 +63,9 @@ jspm_packages/
 *.swp
 *.swo
 *~
+
+# TypeScript incremental build info
+*.tsbuildinfo
 
 # OS generated files
 .DS_Store

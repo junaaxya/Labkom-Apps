@@ -32,8 +32,10 @@ export const config = {
   wolRelayUrl: process.env.WOL_RELAY_URL || "",
   wolRelayToken: process.env.WOL_RELAY_TOKEN || "",
   wolDefaultBroadcast: process.env.WOL_DEFAULT_BROADCAST || "",
-  midtransServerKey: process.env.MIDTRANS_SERVER_KEY || "",
-  midtransIsProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+  duitkuMerchantCode: process.env.DUITKU_MERCHANT_CODE || "",
+  duitkuApiKey: process.env.DUITKU_API_KEY || "",
+  duitkuIsProduction: process.env.DUITKU_IS_PRODUCTION === "true",
+  duitkuCallbackUrl: process.env.DUITKU_CALLBACK_URL || "http://localhost:5000/api/v1/hosting/callback",
   hostingBrandName: process.env.HOSTING_BRAND_NAME || "LabKom Hosting",
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY || "",
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || "",
@@ -46,7 +48,8 @@ export function validateConfig(): void {
   if (!process.env.OPENAI_API_KEY) warnings.push("OPENAI_API_KEY not set — AI features disabled");
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push("GOOGLE_CLIENT_ID not set — Calendar sync disabled");
   if (!process.env.REDIS_URL) warnings.push("REDIS_URL not set — using default localhost");
-  if (!process.env.MIDTRANS_SERVER_KEY) warnings.push("MIDTRANS_SERVER_KEY not set — hosting checkout disabled");
+  if (!process.env.DUITKU_MERCHANT_CODE) warnings.push("DUITKU_MERCHANT_CODE not set — hosting checkout disabled");
+  if (!process.env.DUITKU_API_KEY) warnings.push("DUITKU_API_KEY not set — hosting checkout disabled");
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     warnings.push("VAPID keys not set — Web Push disabled");
   }
