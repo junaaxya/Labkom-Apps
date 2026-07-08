@@ -1,4 +1,4 @@
-const CACHE_NAME = "labkom-84b5683f3504";
+const CACHE_NAME = "labkom-splash-logo-20260708";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
@@ -58,7 +58,7 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "LabKom";
   const options = {
     body: payload.body || payload.message || "Notifikasi baru",
-    icon: "/icons/icon-192x192.png",
+    icon: "/icons/labkom-logo-1024.png",
     badge: "/icons/icon-192x192.png",
     data: payload.data || { link: "/notifications" },
   };
