@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   title: "LabKom — Sistem Manajemen Laboratorium",
   description:
     "Sistem Manajemen Laboratorium Terpusat dengan QR Tracking, Digital Logbook, dan Ticketing Kerusakan",
-  manifest: "/manifest.json",
+  manifest: "/manifest-labkom-20260708.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

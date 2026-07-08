@@ -1,10 +1,11 @@
-const CACHE_NAME = "labkom-app-icon-20260708";
+const CACHE_NAME = "labkom-video-splash-20260708";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
   "/",
   "/offline",
   "/manifest.json",
+  "/manifest-labkom-20260708.webmanifest",
   "/icons/labkom-app-icon-192.png",
   "/icons/labkom-app-icon-512.png",
   "/icons/labkom-maskable-icon-192.png",
@@ -113,6 +114,7 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname === "/manifest.json" ||
+    url.pathname === "/manifest-labkom-20260708.webmanifest" ||
     url.pathname === "/apple-touch-icon.png" ||
     url.pathname === "/labkom-apple-touch-icon.png";
 
