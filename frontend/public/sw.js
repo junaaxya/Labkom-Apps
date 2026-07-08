@@ -1,17 +1,17 @@
-const CACHE_NAME = "labkom-splash-logo-20260708";
+const CACHE_NAME = "labkom-app-icon-20260708";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
   "/",
   "/offline",
   "/manifest.json",
-  "/icons/icon-192x192.png",
-  "/icons/icon-512x512.png",
-  "/icons/icon-maskable-192.png",
-  "/icons/icon-maskable-512.png",
+  "/icons/labkom-app-icon-192.png",
+  "/icons/labkom-app-icon-512.png",
+  "/icons/labkom-maskable-icon-192.png",
+  "/icons/labkom-maskable-icon-512.png",
   "/icons/labkom-logo-1024.png",
   "/labkom-splash.mp4",
-  "/apple-touch-icon.png",
+  "/labkom-apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -59,7 +59,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || payload.message || "Notifikasi baru",
     icon: "/icons/labkom-logo-1024.png",
-    badge: "/icons/icon-192x192.png",
+    badge: "/icons/labkom-app-icon-192.png",
     data: payload.data || { link: "/notifications" },
   };
 
@@ -113,7 +113,8 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname === "/manifest.json" ||
-    url.pathname === "/apple-touch-icon.png";
+    url.pathname === "/apple-touch-icon.png" ||
+    url.pathname === "/labkom-apple-touch-icon.png";
 
   if (!isStaticAsset) return;
 
