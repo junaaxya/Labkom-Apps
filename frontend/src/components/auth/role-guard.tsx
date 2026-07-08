@@ -35,7 +35,6 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/reports": ["KOORDINATOR_LAB"],
   "/pc-monitoring": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/inventory": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
-  "/energy": ["KOORDINATOR_LAB"],
 
   "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/predictive": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
