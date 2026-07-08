@@ -9,16 +9,18 @@ const SPLASH_DURATION_MS = 2600;
 const REDUCED_DURATION_MS = 700;
 
 export function AppSplash() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    if (sessionStorage.getItem(SPLASH_KEY)) return;
+    if (sessionStorage.getItem(SPLASH_KEY)) {
+      queueMicrotask(() => {
+        setVisible(false);
+      });
+      return;
+    }
 
     sessionStorage.setItem(SPLASH_KEY, "true");
-    queueMicrotask(() => {
-      setVisible(true);
-    });
 
     const timeout = window.setTimeout(
       () => setVisible(false),
