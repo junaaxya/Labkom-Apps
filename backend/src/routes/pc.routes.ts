@@ -13,7 +13,6 @@ router.get("/", authenticate, PCController.getAllPCs);
 router.get("/analytics", authenticate, PCController.getAnalytics);
 router.get("/uptime", authenticate, authorize("KOORDINATOR_LAB"), PCController.getUptimeStats);
 router.get("/inventory", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getInventorySummary);
-router.get("/energy", authenticate, authorize("KOORDINATOR_LAB"), PCController.getEnergyStats);
 router.get("/commands", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getCommandQueue);
 
 router.post("/agent/register", agentHeartbeatLimiter, authenticateAgent, PCController.agentRegister);

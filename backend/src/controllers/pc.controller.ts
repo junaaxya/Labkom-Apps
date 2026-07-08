@@ -164,16 +164,6 @@ export class PCController {
     }
   }
 
-  static async getEnergyStats(req: Request, res: Response) {
-    try {
-      const labId = req.query.labId as string;
-      const stats = await PCService.getEnergyStats(labId);
-      res.json({ success: true, data: stats });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-
   static async generateQRCode(req: Request, res: Response) {
     try {
       const pcId = getParam(req, "id");
