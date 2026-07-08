@@ -27,6 +27,7 @@ import scheduleChangeRoutes from "./schedule-change.routes";
 import leaveRoutes from "./leave.routes";
 import announcementRoutes from "./announcement.routes";
 import hostingRoutes from "./hosting.routes";
+import assetRoutes from "./asset.routes";
 
 
 const router = Router();
@@ -67,5 +68,6 @@ router.use("/schedule-changes", scheduleChangeRoutes);
 router.use("/leaves", leaveRoutes);
 router.use("/announcements", announcementRoutes);
 router.use("/hosting", hostingRoutes);
+router.use("/assets", assetRoutes);
 
 export default router;
