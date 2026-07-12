@@ -325,7 +325,6 @@ export class AttendanceService {
         shiftSchedule: {
           include: {
             shift: { select: { name: true, startTime: true, endTime: true } },
-            lab: { select: { id: true, name: true } },
           },
         },
       },
@@ -393,7 +392,6 @@ export class AttendanceService {
           shiftSchedule: {
             include: {
               shift: { select: { name: true, startTime: true, endTime: true } },
-              lab: { select: { id: true, name: true } },
             },
           },
           dailyTasks: { select: { id: true, task: true, status: true, category: true } },
@@ -432,7 +430,6 @@ export class AttendanceService {
           shiftSchedule: {
             include: {
               shift: { select: { name: true, startTime: true, endTime: true } },
-              lab: { select: { id: true, name: true } },
             },
           },
           dailyTasks: { select: { id: true, task: true, status: true } },
@@ -458,7 +455,6 @@ export class AttendanceService {
           shiftSchedule: {
             include: {
               shift: { select: { name: true, startTime: true, endTime: true } },
-              lab: { select: { id: true, name: true } },
             },
           },
           dailyTasks: { select: { id: true, task: true, status: true } },
@@ -631,7 +627,7 @@ export class AttendanceService {
       prisma.attendance.findMany({
         where,
         include: {
-          shiftSchedule: { include: { shift: true, lab: true } },
+          shiftSchedule: { include: { shift: true } },
           dailyTasks: true,
         },
         orderBy: { createdAt: "desc" },
