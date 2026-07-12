@@ -36,9 +36,9 @@ type LabForm = {
   name: string;
   location: string;
   description: string;
-  capacity: number;
+  capacity: string;
   isPicketEnabled: boolean;
-  defaultPicketAssistantCount: number;
+  defaultPicketAssistantCount: string;
 };
 
 type LabStatusFilter = "ALL" | Lab["status"];
@@ -60,19 +60,19 @@ export default function LabsPage() {
     name: "",
     location: "",
     description: "",
-    capacity: 0,
+    capacity: "",
     isPicketEnabled: false,
-    defaultPicketAssistantCount: 1,
+    defaultPicketAssistantCount: "1",
   });
   const [editingLabId, setEditingLabId] = useState<string | null>(null);
   const [editLab, setEditLab] = useState<LabForm & { status: Lab["status"] }>({
     name: "",
     location: "",
     description: "",
-    capacity: 0,
+    capacity: "",
     status: "ACTIVE",
     isPicketEnabled: false,
-    defaultPicketAssistantCount: 1,
+    defaultPicketAssistantCount: "1",
   });
 
   const statusColor: Record<string, string> = {
@@ -112,9 +112,9 @@ export default function LabsPage() {
       name: "",
       location: "",
       description: "",
-      capacity: 0,
+      capacity: "",
       isPicketEnabled: false,
-      defaultPicketAssistantCount: 1,
+      defaultPicketAssistantCount: "1",
     });
   };
 
@@ -149,10 +149,10 @@ export default function LabsPage() {
       name: lab.name,
       location: lab.location,
       description: lab.description ?? "",
-      capacity: lab.capacity,
+      capacity: String(lab.capacity),
       status: lab.status,
       isPicketEnabled: lab.isPicketEnabled,
-      defaultPicketAssistantCount: lab.defaultPicketAssistantCount,
+      defaultPicketAssistantCount: String(lab.defaultPicketAssistantCount),
     });
     setShowEditModal(true);
   };
@@ -462,7 +462,7 @@ export default function LabsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 pb-[calc(72px+env(safe-area-inset-bottom))] sm:items-center sm:p-4 sm:pb-4"
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
@@ -470,9 +470,9 @@ export default function LabsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.98, y: 48 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[6px_6px_0px_#1a1a1a] sm:rounded-b-xl sm:p-6"
+              className="neo-card flex max-h-[min(78dvh,calc(100dvh-96px-env(safe-area-inset-bottom)))] w-full max-w-md flex-col overflow-hidden rounded-t-2xl rounded-b-none p-0 shadow-[6px_6px_0px_#1a1a1a] sm:max-h-[86dvh] sm:rounded-xl"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex shrink-0 items-center justify-between border-b-2 border-[#1a1a1a] px-4 py-3 sm:px-6 sm:py-4">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#f3701e]">Lab baru</p>
                   <h2 className="font-heading text-xl font-black text-[#1a1a1a]">Tambah Lab Baru</h2>
@@ -480,14 +480,16 @@ export default function LabsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
+                  aria-label="Tutup modal"
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
                 >
                   <TbX size={20} strokeWidth={2.5} />
                 </button>
               </div>
 
-              <form className="space-y-4" onSubmit={handleCreateLab}>
-                <div>
+              <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleCreateLab}>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
+                  <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Nama Lab</label>
                   <input
                     type="text"
@@ -496,7 +498,7 @@ export default function LabsPage() {
                     placeholder="e.g. Lab Dasar"
                     className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
-                </div>
+                  </div>
                 <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lokasi</label>
                   <input
@@ -523,7 +525,7 @@ export default function LabsPage() {
                     type="number"
                     min={0}
                     value={newLab.capacity}
-                    onChange={(e) => setNewLab({ ...newLab, capacity: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setNewLab({ ...newLab, capacity: e.target.value })}
                     className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
@@ -545,19 +547,20 @@ export default function LabsPage() {
                       max={50}
                       disabled={!newLab.isPicketEnabled}
                       value={newLab.defaultPicketAssistantCount}
-                      onChange={(e) => setNewLab({ ...newLab, defaultPicketAssistantCount: parseInt(e.target.value) || 1 })}
+                      onChange={(e) => setNewLab({ ...newLab, defaultPicketAssistantCount: e.target.value })}
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
+                </div>
+                <div className="flex shrink-0 gap-2 border-t-2 border-[#1a1a1a] bg-[#f5ede6] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
                   <motion.button
                     type="submit"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isCreating}
-                    className="flex-1 py-3 min-h-[48px] bg-[#4b607f] text-white neo-btn"
+                    className="min-h-[44px] flex-1 px-3 py-2 text-sm font-black bg-[#4b607f] text-white neo-btn"
                   >
                     {isCreating ? "Menyimpan..." : "Simpan"}
                   </motion.button>
@@ -569,7 +572,7 @@ export default function LabsPage() {
                       setShowCreateModal(false);
                       resetCreateForm();
                     }}
-                    className="flex-1 py-3 min-h-[48px] bg-white text-[#1a1a1a] neo-btn"
+                    className="min-h-[44px] flex-1 px-3 py-2 text-sm font-black bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
@@ -586,7 +589,7 @@ export default function LabsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 pb-[calc(72px+env(safe-area-inset-bottom))] sm:items-center sm:p-4 sm:pb-4"
             onClick={() => {
               setShowEditModal(false);
               setEditingLabId(null);
@@ -597,9 +600,9 @@ export default function LabsPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.98, y: 48 }}
               onClick={(e) => e.stopPropagation()}
-              className="neo-card max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[6px_6px_0px_#1a1a1a] sm:rounded-b-xl sm:p-6"
+              className="neo-card flex max-h-[min(78dvh,calc(100dvh-96px-env(safe-area-inset-bottom)))] w-full max-w-md flex-col overflow-hidden rounded-t-2xl rounded-b-none p-0 shadow-[6px_6px_0px_#1a1a1a] sm:max-h-[86dvh] sm:rounded-xl"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex shrink-0 items-center justify-between border-b-2 border-[#1a1a1a] px-4 py-3 sm:px-6 sm:py-4">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#f3701e]">Perbarui</p>
                   <h2 className="font-heading text-xl font-black text-[#1a1a1a]">Edit Lab</h2>
@@ -610,14 +613,16 @@ export default function LabsPage() {
                     setShowEditModal(false);
                     setEditingLabId(null);
                   }}
+                  aria-label="Tutup modal"
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
                 >
                   <TbX size={20} strokeWidth={2.5} />
                 </button>
               </div>
 
-              <form className="space-y-4" onSubmit={handleEditLab}>
-                <div>
+              <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleEditLab}>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
+                  <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Nama Lab</label>
                   <input
                     type="text"
@@ -625,7 +630,7 @@ export default function LabsPage() {
                     onChange={(e) => setEditLab({ ...editLab, name: e.target.value })}
                     className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
-                </div>
+                  </div>
                 <div>
                   <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Lokasi</label>
                   <input
@@ -650,7 +655,7 @@ export default function LabsPage() {
                     type="number"
                     min={0}
                     value={editLab.capacity}
-                    onChange={(e) => setEditLab({ ...editLab, capacity: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setEditLab({ ...editLab, capacity: e.target.value })}
                     className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
                 </div>
@@ -686,19 +691,20 @@ export default function LabsPage() {
                       max={50}
                       disabled={!editLab.isPicketEnabled}
                       value={editLab.defaultPicketAssistantCount}
-                      onChange={(e) => setEditLab({ ...editLab, defaultPicketAssistantCount: parseInt(e.target.value) || 1 })}
+                      onChange={(e) => setEditLab({ ...editLab, defaultPicketAssistantCount: e.target.value })}
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
+                </div>
+                <div className="flex shrink-0 gap-2 border-t-2 border-[#1a1a1a] bg-[#f5ede6] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
                   <motion.button
                     type="submit"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     disabled={isEditing}
-                    className="flex-1 py-3 min-h-[48px] bg-[#4b607f] text-white neo-btn"
+                    className="min-h-[44px] flex-1 px-3 py-2 text-sm font-black bg-[#4b607f] text-white neo-btn"
                   >
                     {isEditing ? "Menyimpan..." : "Simpan Perubahan"}
                   </motion.button>
@@ -710,7 +716,7 @@ export default function LabsPage() {
                       setShowEditModal(false);
                       setEditingLabId(null);
                     }}
-                    className="flex-1 py-3 min-h-[48px] bg-white text-[#1a1a1a] neo-btn"
+                    className="min-h-[44px] flex-1 px-3 py-2 text-sm font-black bg-white text-[#1a1a1a] neo-btn"
                   >
                     Batal
                   </motion.button>
