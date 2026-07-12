@@ -1,4 +1,5 @@
 import prisma from "../config/database";
+import { operationalScheduleWhere } from "./schedule-availability";
 
 interface UsagePattern {
   day: string;
@@ -70,19 +71,18 @@ class SmartSchedulingService {
     });
 
     const existingSchedules = await prisma.schedule.findMany({
-      where: { isActive: true },
+      where: operationalScheduleWhere,
       select: { labId: true, day: true, startTime: true, endTime: true },
     });
 
     const slots: OptimalSlot[] = [];
     const daysToCheck = preferredDay ? [preferredDay] : this.DAYS;
     const durationMinutes = Math.max(this.SLOT_SIZE_MINUTES, duration);
+    const schedulesByLabDay = this.groupBy(existingSchedules, (schedule) => `${schedule.labId}:${schedule.day}`);
 
     for (const lab of labs) {
       for (const day of daysToCheck) {
-        const daySchedules = existingSchedules.filter(
-          (s) => s.labId === lab.id && s.day === day
-        );
+        const daySchedules = schedulesByLabDay.get(`${lab.id}:${day}`) || [];
 
         for (let i = 0; i < this.TIME_SLOTS.length; i++) {
           const startTime = this.TIME_SLOTS[i];
@@ -115,19 +115,20 @@ class SmartSchedulingService {
 
   async getUsagePatterns(): Promise<UsagePattern[]> {
     const schedules = await prisma.schedule.findMany({
-      where: { isActive: true },
+      where: operationalScheduleWhere,
       select: { day: true, startTime: true, endTime: true },
     });
 
     const patterns: UsagePattern[] = [];
+    const schedulesByDay = this.groupBy(schedules, (schedule) => schedule.day);
 
     for (const day of this.DAYS) {
+      const daySchedules = schedulesByDay.get(day) || [];
       for (let hour = 7; hour <= 21; hour++) {
         const timeStr = `${String(hour).padStart(2, "0")}:00`;
-        const usage = schedules.filter((s) => {
-          if (s.day !== day) return false;
-          return this.timeOverlaps(timeStr, this.minutesToTime(this.timeToMinutes(timeStr) + 60), s.startTime, s.endTime);
-        }).length;
+        const usage = daySchedules.filter((schedule) =>
+          this.timeOverlaps(timeStr, this.minutesToTime(this.timeToMinutes(timeStr) + 60), schedule.startTime, schedule.endTime)
+        ).length;
 
         const label = usage === 0 ? "Kosong" : usage === 1 ? "Normal" : usage >= 2 ? "Padat" : "Normal";
 
@@ -140,9 +141,9 @@ class SmartSchedulingService {
 
   async getLoadBalance(): Promise<LoadBalance[]> {
     const labs = await prisma.lab.findMany({
-      where: { status: "ACTIVE" },
-      include: {
-        schedules: { where: { isActive: true }, select: { day: true, startTime: true, endTime: true } },
+        where: { status: "ACTIVE" },
+        include: {
+          schedules: { where: operationalScheduleWhere, select: { day: true, startTime: true, endTime: true } },
       },
     });
 
@@ -166,8 +167,13 @@ class SmartSchedulingService {
       const usedSlots = Math.round(usedMinutes / this.SLOT_SIZE_MINUTES);
       const utilizationPercent = Math.round((usedSlots / totalPossibleSlots) * 100);
 
-      const peakDay = Object.entries(dayMinutes).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
-      const quietestDay = Object.entries(dayMinutes).sort(([, a], [, b]) => a - b)[0]?.[0] || "N/A";
+      const hasOperationalSchedules = usedMinutes > 0;
+      const peakDay = hasOperationalSchedules
+        ? Object.entries(dayMinutes).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A"
+        : "Belum ada jadwal";
+      const quietestDay = hasOperationalSchedules
+        ? Object.entries(dayMinutes).sort(([, a], [, b]) => a - b)[0]?.[0] || "N/A"
+        : "Belum ada jadwal";
 
       let recommendation: string;
       if (utilizationPercent > 80) {
@@ -198,7 +204,7 @@ class SmartSchedulingService {
     warnings: string[];
   }> {
     const schedules = await prisma.schedule.findMany({
-      where: { isActive: true },
+      where: operationalScheduleWhere,
       include: {
         lab: { select: { name: true } },
         assistant: { select: { name: true } },
@@ -207,49 +213,51 @@ class SmartSchedulingService {
 
     const conflicts: ScheduleConflict[] = [];
     const warnings: string[] = [];
+    const schedulesByDay = this.groupBy(schedules, (schedule) => schedule.day);
 
-    for (let i = 0; i < schedules.length; i++) {
-      for (let j = i + 1; j < schedules.length; j++) {
-        const s1 = schedules[i];
-        const s2 = schedules[j];
+    for (const daySchedules of schedulesByDay.values()) {
+      for (let i = 0; i < daySchedules.length; i++) {
+        for (let j = i + 1; j < daySchedules.length; j++) {
+          const s1 = daySchedules[i];
+          const s2 = daySchedules[j];
 
-        if (s1.day !== s2.day) continue;
+          if (s1.labId === s2.labId && this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)) {
+            conflicts.push({
+              schedule1: this.formatConflictSchedule(s1),
+              schedule2: this.formatConflictSchedule(s2),
+              type: "LAB_CONFLICT",
+            });
+          }
 
-        if (s1.labId === s2.labId && this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)) {
-          conflicts.push({
-            schedule1: this.formatConflictSchedule(s1),
-            schedule2: this.formatConflictSchedule(s2),
-            type: "LAB_CONFLICT",
-          });
-        }
+          if (
+            s1.lecturerName &&
+            s1.lecturerName.trim().toLocaleLowerCase("id-ID") === s2.lecturerName?.trim().toLocaleLowerCase("id-ID") &&
+            this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
+          ) {
+            conflicts.push({
+              schedule1: this.formatConflictSchedule(s1),
+              schedule2: this.formatConflictSchedule(s2),
+              type: "LECTURER_CONFLICT",
+            });
+          }
 
-        if (
-          s1.lecturerName &&
-          s1.lecturerName === s2.lecturerName &&
-          this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
-        ) {
-          conflicts.push({
-            schedule1: this.formatConflictSchedule(s1),
-            schedule2: this.formatConflictSchedule(s2),
-            type: "LECTURER_CONFLICT",
-          });
-        }
-
-        if (
-          s1.assistantId &&
-          s1.assistantId === s2.assistantId &&
-          this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
-        ) {
-          conflicts.push({
-            schedule1: this.formatConflictSchedule(s1),
-            schedule2: this.formatConflictSchedule(s2),
-            type: "ASSISTANT_CONFLICT",
-          });
+          if (
+            s1.assistantId &&
+            s1.assistantId === s2.assistantId &&
+            this.timeOverlaps(s1.startTime, s1.endTime, s2.startTime, s2.endTime)
+          ) {
+            conflicts.push({
+              schedule1: this.formatConflictSchedule(s1),
+              schedule2: this.formatConflictSchedule(s2),
+              type: "ASSISTANT_CONFLICT",
+            });
+          }
         }
       }
     }
 
     const labLoad: Record<string, number> = {};
+    const labNames = new Map(schedules.map((schedule) => [schedule.labId, schedule.lab.name]));
     schedules.forEach((s) => {
       const key = `${s.labId}-${s.day}`;
       labLoad[key] = (labLoad[key] || 0) + this.scheduleDurationMinutes(s.startTime, s.endTime);
@@ -258,7 +266,7 @@ class SmartSchedulingService {
     Object.entries(labLoad).forEach(([key, minutes]) => {
       if (minutes >= 6 * 60) {
         const [labId, day] = key.split("-");
-        const lab = schedules.find((s) => s.labId === labId)?.lab.name;
+        const lab = labNames.get(labId) || "Lab";
         warnings.push(`${lab} terpakai ${Math.round(minutes / 60 * 10) / 10} jam pada hari ${day} — pertimbangkan redistribusi`);
       }
     });
@@ -276,12 +284,13 @@ class SmartSchedulingService {
     });
 
     const schedules = await prisma.schedule.findMany({
-      where: { isActive: true, assistantId: { not: null } },
+      where: { ...operationalScheduleWhere, assistantId: { not: null } },
       select: { assistantId: true, day: true, startTime: true, endTime: true },
     });
+    const schedulesByAssistant = this.groupBy(schedules, (schedule) => schedule.assistantId || "");
 
     const workloads = assistants.map((a) => {
-      const mySchedules = schedules.filter((s) => s.assistantId === a.id);
+      const mySchedules = schedulesByAssistant.get(a.id) || [];
       const totalMinutes = mySchedules.reduce((sum, s) => {
         const start = parseInt(s.startTime.split(":")[0]) * 60 + parseInt(s.startTime.split(":")[1]);
         const end = parseInt(s.endTime.split(":")[0]) * 60 + parseInt(s.endTime.split(":")[1]);
@@ -349,6 +358,17 @@ class SmartSchedulingService {
     });
 
     return merged;
+  }
+
+  private groupBy<T>(items: T[], keyFor: (item: T) => string): Map<string, T[]> {
+    const groups = new Map<string, T[]>();
+    for (const item of items) {
+      const key = keyFor(item);
+      const group = groups.get(key);
+      if (group) group.push(item);
+      else groups.set(key, [item]);
+    }
+    return groups;
   }
 
   private formatConflictSchedule(schedule: {

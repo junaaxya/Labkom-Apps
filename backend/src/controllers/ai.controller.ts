@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { aiAssistantService } from "../services/ai-assistant.service";
 import { predictiveMaintenanceService } from "../services/predictive-maintenance.service";
 import { smartSchedulingService } from "../services/smart-scheduling.service";
+import { smartSchedulingSuggestionQuerySchema } from "../validators/smart-scheduling.validator";
 
 export const chat = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -75,10 +76,21 @@ export const getOverallHealth = async (_req: Request, res: Response, next: NextF
 
 export const suggestSlots = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const duration = parseInt(req.query.duration as string) || 120;
-    const preferredDay = req.query.day as string | undefined;
-    const preferredLab = req.query.labId as string | undefined;
-    const slots = await smartSchedulingService.suggestOptimalSlots(duration, preferredDay, preferredLab);
+    const parsed = smartSchedulingSuggestionQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: "Parameter Smart Scheduling tidak valid",
+        errors: parsed.error.issues,
+      });
+      return;
+    }
+
+    const slots = await smartSchedulingService.suggestOptimalSlots(
+      parsed.data.duration,
+      parsed.data.day,
+      parsed.data.labId
+    );
     res.json({ success: true, data: slots });
   } catch (error) {
     next(error);

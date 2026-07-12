@@ -16,7 +16,7 @@ router.get("/predictive/trends", authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), ai
 router.get("/predictive/health", aiController.getOverallHealth);
 
 router.get("/scheduling/suggest", authorize("KOORDINATOR_LAB"), aiController.suggestSlots);
-router.get("/scheduling/usage-patterns", authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), aiController.getUsagePatterns);
+router.get("/scheduling/usage-patterns", authorize("KOORDINATOR_LAB"), aiController.getUsagePatterns);
 router.get("/scheduling/load-balance", authorize("KOORDINATOR_LAB"), aiController.getLoadBalance);
 router.get("/scheduling/conflicts", authorize("KOORDINATOR_LAB"), aiController.detectConflicts);
 router.get("/scheduling/workload", authorize("KOORDINATOR_LAB"), aiController.getAssistantWorkload);
