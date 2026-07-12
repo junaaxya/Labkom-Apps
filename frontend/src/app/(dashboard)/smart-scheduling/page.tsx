@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import {
   TbClock,
   TbLoader2,
@@ -214,6 +214,10 @@ export default function SmartSchedulingPage() {
                     </select>
                   </div>
                 </div>
+                <div className="flex items-start gap-2 bg-[#fff8f0] p-3 rounded-lg border border-[#f3701e]/30 text-sm text-[#4b607f]">
+                  <TbAlertTriangle className="w-5 h-5 text-[#f3701e] shrink-0 mt-0.5" />
+                  <p><span className="font-bold text-[#1a1a1a]">Catatan:</span> saran slot hanya memverifikasi ketersediaan lab. Validasi dosen dan asisten dilakukan saat jadwal disimpan.</p>
+                </div>
                 <button 
                   onClick={fetchData} 
                   className="neo-btn bg-[#f3701e] text-white px-6 min-h-[44px] flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_#1a1a1a] transition-all w-full sm:w-auto"
@@ -273,7 +277,7 @@ export default function SmartSchedulingPage() {
                     <div key={d} className="text-center text-sm font-bold font-heading p-2 bg-[#e8d8c9] neo-border-sm">{d.slice(0, 3)}</div>
                   ))}
                   {HOURS.map((hour) => (
-                    <>
+                    <Fragment key={hour}>
                       <div key={`h-${hour}`} className="text-sm font-bold font-heading text-right pr-4 py-2 flex items-center justify-end">
                         {String(hour).padStart(2, "0")}:00
                       </div>
@@ -289,7 +293,7 @@ export default function SmartSchedulingPage() {
                           </div>
                         );
                       })}
-                    </>
+                    </Fragment>
                   ))}
                 </div>
                 <div className="flex items-center gap-4 mt-6 text-xs font-bold">
@@ -376,13 +380,23 @@ export default function SmartSchedulingPage() {
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                      <div className="bg-red-50 p-2 rounded">
+                      <div className="bg-red-50 p-3 rounded border border-red-200">
                         <div className="font-bold">{c.schedule1.title}</div>
-                        <div className="text-[#4b607f]">{c.schedule1.time} • {c.schedule1.lab || c.schedule1.lecturerName || c.schedule1.assistant}</div>
+                        <div className="text-[#4b607f] mb-2">{c.schedule1.time}</div>
+                        <dl className="space-y-1 text-[#4b607f]">
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Lab:</dt><dd>{c.schedule1.lab || "—"}</dd></div>
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Dosen:</dt><dd>{c.schedule1.lecturerName || "—"}</dd></div>
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Asisten:</dt><dd>{c.schedule1.assistant || "—"}</dd></div>
+                        </dl>
                       </div>
-                      <div className="bg-red-50 p-2 rounded">
+                      <div className="bg-red-50 p-3 rounded border border-red-200">
                         <div className="font-bold">{c.schedule2.title}</div>
-                        <div className="text-[#4b607f]">{c.schedule2.time} • {c.schedule2.lab || c.schedule2.lecturerName || c.schedule2.assistant}</div>
+                        <div className="text-[#4b607f] mb-2">{c.schedule2.time}</div>
+                        <dl className="space-y-1 text-[#4b607f]">
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Lab:</dt><dd>{c.schedule2.lab || "—"}</dd></div>
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Dosen:</dt><dd>{c.schedule2.lecturerName || "—"}</dd></div>
+                          <div className="flex gap-2"><dt className="font-bold text-[#1a1a1a]">Asisten:</dt><dd>{c.schedule2.assistant || "—"}</dd></div>
+                        </dl>
                       </div>
                     </div>
                   </div>
