@@ -82,6 +82,17 @@ interface LeaveRequestItem {
 
 type ApiEnvelope<T> = T | { data?: T; items?: T };
 
+function unwrapListPayload<T>(value: unknown): T {
+  if (Array.isArray(value)) return value as T;
+  if (value && typeof value === "object") {
+    const obj = value as { items?: unknown; data?: unknown; rows?: unknown };
+    if (Array.isArray(obj.items)) return obj.items as T;
+    if (Array.isArray(obj.rows)) return obj.rows as T;
+    if (Array.isArray(obj.data)) return obj.data as T;
+  }
+  return (Array.isArray(value) ? value : []) as T;
+}
+
 function extractData<T>(response: unknown): T {
   const env = response as ApiEnvelope<T> | undefined;
   if (env && typeof env === "object") {
@@ -90,6 +101,37 @@ function extractData<T>(response: unknown): T {
     if ("items" in obj && obj.items !== undefined) return obj.items as T;
   }
   return env as T;
+}
+
+function extractListData<T>(response: unknown): T[] {
+  return unwrapListPayload<T[]>(extractData(response));
+}
+
+function normalizeAttendanceStats(raw: unknown): AttendanceStats {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const num = (value: unknown, fallback = 0) =>
+    typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+  const present = num(obj.presentDays, num(obj.present));
+  const late = num(obj.lateDays, num(obj.late));
+  const absent = num(obj.absentDays, num(obj.absent));
+  const totalHours = num(obj.totalHours);
+  const totalWorkMinutes = num(obj.totalWorkMinutes, Math.round(totalHours * 60));
+  const averageWorkMinutes = num(
+    obj.averageWorkMinutes,
+    Math.round(num(obj.averageHoursPerDay) * 60)
+  );
+
+  return {
+    totalDays: num(obj.totalDays, present + late + absent),
+    presentDays: present,
+    lateDays: late,
+    absentDays: absent,
+    totalWorkMinutes,
+    averageWorkMinutes,
+    totalTasks: num(obj.totalTasks),
+    approvedTasks: num(obj.approvedTasks),
+  };
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -176,7 +218,7 @@ export default function AttendancePage() {
         await Promise.allSettled([
           api.get<{ data: ShiftSchedule[] }>("/attendance/shift-schedules/me"),
           api.get<{ data: AttendanceEntry[] }>(`/attendance/me?month=${selectedMonth}`),
-          api.get<{ data: AttendanceStats }>("/attendance/stats"),
+          api.get<{ data: AttendanceStats }>(`/attendance/stats?month=${selectedMonth}`),
           api.get<{ data: DailyTaskLog[] }>("/attendance/tasks/me"),
           api.get<{ data: TaskCategoryConfig[] }>("/attendance/task-categories"),
           api.get<{ data: Lab[] }>("/labs"),
@@ -185,7 +227,7 @@ export default function AttendancePage() {
         ]);
 
       if (shiftRes.status === "fulfilled") {
-        const schedules = extractData<ShiftSchedule[]>(shiftRes.value);
+        const schedules = extractListData<ShiftSchedule>(shiftRes.value);
         const today = new Date().toISOString().split("T")[0];
         const todaySchedule = schedules.find(
           (s) => s.scheduleDate?.split("T")[0] === today && s.status === "SCHEDULED"
@@ -194,7 +236,7 @@ export default function AttendancePage() {
       }
 
       if (attendanceRes.status === "fulfilled") {
-        const entries = extractData<AttendanceEntry[]>(attendanceRes.value);
+        const entries = extractListData<AttendanceEntry>(attendanceRes.value);
         setHistory(entries);
         const today = new Date().toDateString();
         const todayEntry = entries.find(
@@ -204,23 +246,22 @@ export default function AttendancePage() {
       }
 
       if (statsRes.status === "fulfilled") {
-        setStats(extractData<AttendanceStats>(statsRes.value));
+        setStats(normalizeAttendanceStats(extractData(statsRes.value)));
       }
       if (tasksRes.status === "fulfilled") {
-        setTasks(extractData<DailyTaskLog[]>(tasksRes.value));
+        setTasks(extractListData<DailyTaskLog>(tasksRes.value));
       }
       if (catsRes.status === "fulfilled") {
-        setCategories(extractData<TaskCategoryConfig[]>(catsRes.value));
+        setCategories(extractListData<TaskCategoryConfig>(catsRes.value));
       }
       if (labsRes.status === "fulfilled") {
-        const labData = extractData<Lab[]>(labsRes.value);
-        setLabs(Array.isArray(labData) ? labData : []);
+        setLabs(extractListData<Lab>(labsRes.value));
       }
       if (correctionsRes.status === "fulfilled") {
-        setCorrections(extractData<AttendanceCorrectionRequest[]>(correctionsRes.value));
+        setCorrections(extractListData<AttendanceCorrectionRequest>(correctionsRes.value));
       }
       if (leavesRes.status === "fulfilled") {
-        setLeaveRequests(extractData<LeaveRequestItem[]>(leavesRes.value));
+        setLeaveRequests(extractListData<LeaveRequestItem>(leavesRes.value));
       }
     } catch {
       // silent
@@ -396,7 +437,7 @@ export default function AttendancePage() {
           <div className="w-12 h-12 rounded-full neo-border bg-[#e8d8c9] flex items-center justify-center mx-auto mb-3">
             <TbClipboardList className="w-6 h-6 text-[#1a1a1a]" strokeWidth={2.2} />
           </div>
-          <p className="text-3xl font-heading font-bold text-[#1a1a1a]">{stats?.totalTasks || 0}</p>
+          <p className="text-3xl font-heading font-bold text-[#1a1a1a]">{stats?.totalTasks ?? tasks.length}</p>
           <p className="text-sm font-bold text-[#5a5a5a] mt-2">Total Task</p>
         </div>
       </div>
@@ -434,7 +475,7 @@ export default function AttendancePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                 <div>
                   <p className="text-[#5a5a5a] font-medium">Lab</p>
-                  <p className="font-bold text-[#1a1a1a]">{destinationLabel(todayShift.destination)}</p>
+                  <p className="font-bold text-[#1a1a1a]">{todayShift.lab?.name ?? destinationLabel(todayShift.destination)}</p>
                 </div>
                 <div>
                   <p className="text-[#5a5a5a] font-medium">Waktu</p>

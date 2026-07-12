@@ -159,7 +159,8 @@ export interface TaskCategoryConfig {
 export interface ShiftSchedule {
   id: string;
   userId: string;
-  destination: AsLabPicketDestination;
+  destination?: AsLabPicketDestination;
+  labId?: string;
   shiftId: string;
   scheduleDate: string;
   status: ShiftScheduleStatus;
@@ -168,8 +169,26 @@ export interface ShiftSchedule {
   createdAt: string;
   updatedAt: string;
   user?: User;
+  lab?: Lab;
   shift?: Shift;
   assigner?: User;
+}
+
+export interface RecurringShiftPattern {
+  id?: string;
+  effectiveFrom?: string;
+  weekStart?: string;
+  shiftId?: string;
+  notes?: string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RecurringShiftPatternState {
+  horizonStart?: string;
+  horizonEnd?: string;
+  materializedWeeks?: number;
+  patterns: RecurringShiftPattern[];
 }
 
 export type AsLabPicketDestination = "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_DASAR";
@@ -197,6 +216,7 @@ export interface AttendanceSettings {
   forgotCheckoutAfterMinutes: number;
   isTaskRequired: boolean;
   isVerificationRequired: boolean;
+  activePicketWeekdays: number[];
 }
 
 export interface AttendanceCorrectionRequest {
@@ -228,6 +248,12 @@ export interface AttendanceStats {
   averageWorkMinutes: number;
   totalTasks: number;
   approvedTasks: number;
+  present?: number;
+  late?: number;
+  absent?: number;
+  totalHours?: number;
+  averageHoursPerDay?: number;
+  forgotCheckout?: number;
 }
 
 export interface User {
@@ -242,6 +268,7 @@ export interface User {
   isKetuaKelas: boolean;
   avatar?: string;
   isActive: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -253,6 +280,8 @@ export interface Lab {
   description?: string;
   status: LabStatus;
   capacity: number;
+  isPicketEnabled: boolean;
+  defaultPicketAssistantCount: number;
   pcs?: PC[];
   createdAt: string;
   updatedAt: string;
