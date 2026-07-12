@@ -64,15 +64,58 @@ export class LabService {
   static async deleteLab(id: string) {
     const lab = await prisma.lab.findUnique({
       where: { id },
-      include: { _count: { select: { pcs: true, schedules: true, shiftSchedules: true } } },
+      include: {
+        keys: { select: { id: true, status: true, currentHolderId: true, keyCode: true } },
+        _count: {
+          select: {
+            pcs: true,
+            schedules: true,
+            shiftSchedules: true,
+            tickets: true,
+            bookings: true,
+            assets: true,
+            shifts: true,
+            dailyTaskLogs: true,
+            logbookConditions: true,
+            picketPatternAssignments: true,
+          },
+        },
+      },
     });
 
     if (!lab) throw new Error("Lab tidak ditemukan");
-    if (lab._count.pcs > 0 || lab._count.schedules > 0 || lab._count.shiftSchedules > 0) {
-      throw new Error("Lab masih memiliki PC atau jadwal terkait. Hapus terlebih dahulu.");
+
+    const blockers: string[] = [];
+    if (lab._count.pcs > 0) blockers.push("PC");
+    if (lab._count.schedules > 0) blockers.push("jadwal lab");
+    if (lab._count.shiftSchedules > 0) blockers.push("jadwal piket");
+    if (lab._count.tickets > 0) blockers.push("tiket");
+    if (lab._count.bookings > 0) blockers.push("peminjaman lab");
+    if (lab._count.assets > 0) blockers.push("aset");
+    if (lab._count.shifts > 0) blockers.push("shift");
+    if (lab._count.dailyTaskLogs > 0) blockers.push("log tugas");
+    if (lab._count.logbookConditions > 0) blockers.push("logbook");
+    if (lab._count.picketPatternAssignments > 0) blockers.push("pola piket");
+
+    const activeKeys = lab.keys.filter(
+      (key) => key.status === "BORROWED" || key.status === "MISSING" || key.currentHolderId
+    );
+    if (activeKeys.length > 0) {
+      blockers.push(`kunci aktif (${activeKeys.map((k) => k.keyCode).join(", ")})`);
     }
 
-    return prisma.lab.delete({ where: { id } });
+    if (blockers.length > 0) {
+      throw new Error(`Lab masih memiliki ${blockers.join(", ")}. Hapus atau selesaikan dulu.`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const keyIds = lab.keys.map((key) => key.id);
+      if (keyIds.length > 0) {
+        await tx.keyLog.deleteMany({ where: { keyId: { in: keyIds } } });
+        await tx.key.deleteMany({ where: { labId: id } });
+      }
+      return tx.lab.delete({ where: { id } });
+    });
   }
 
   static async getPCsByLab(labId: string) {
