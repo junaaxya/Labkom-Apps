@@ -4,10 +4,15 @@ export const createLabSchema = z.object({
   name: z.string().min(2, "Nama lab minimal 2 karakter"),
   location: z.string().min(2, "Lokasi minimal 2 karakter"),
   description: z.string().optional(),
-  capacity: z.number().int().min(1, "Kapasitas minimal 1").default(0),
+  capacity: z.coerce.number().int("Kapasitas harus bilangan bulat").min(0, "Kapasitas minimal 0").default(0),
   status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]).default("ACTIVE"),
   isPicketEnabled: z.boolean().default(false),
-  defaultPicketAssistantCount: z.number().int().min(1).max(50).default(2),
+  defaultPicketAssistantCount: z.coerce
+    .number()
+    .int("Jumlah aslab harus bilangan bulat")
+    .min(1, "Jumlah aslab minimal 1")
+    .max(50, "Jumlah aslab maksimal 50")
+    .default(2),
 });
 
 export const updateLabSchema = createLabSchema.partial();

@@ -7,6 +7,34 @@ function getParam(param: string | string[] | undefined): string {
   return param || "";
 }
 
+function formatZodErrors(error: {
+  issues?: Array<{ path?: Array<string | number>; message?: string }>;
+  errors?: Array<{ path?: Array<string | number>; message?: string }>;
+}): Array<{ field: string; message: string }> {
+  const raw = Array.isArray(error.issues)
+    ? error.issues
+    : Array.isArray(error.errors)
+      ? error.errors
+      : [];
+
+  return raw.map((issue) => ({
+    field: Array.isArray(issue.path) ? issue.path.join(".") : "",
+    message: issue.message || "Tidak valid",
+  }));
+}
+
+function zodValidationResponse(error: {
+  issues?: Array<{ path?: Array<string | number>; message?: string }>;
+  errors?: Array<{ path?: Array<string | number>; message?: string }>;
+}) {
+  const errors = formatZodErrors(error);
+  return {
+    success: false as const,
+    message: errors[0]?.message || "Validasi gagal",
+    errors,
+  };
+}
+
 export class LabController {
   static async getAllLabs(req: Request, res: Response): Promise<void> {
     try {
@@ -34,7 +62,7 @@ export class LabController {
       res.status(201).json({ success: true, message: "Lab berhasil dibuat", data: lab });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        res.status(400).json(zodValidationResponse(error));
         return;
       }
       res.status(400).json({ success: false, message: error.message });
@@ -48,7 +76,7 @@ export class LabController {
       res.json({ success: true, message: "Lab berhasil diupdate", data: lab });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        res.status(400).json(zodValidationResponse(error));
         return;
       }
       res.status(400).json({ success: false, message: error.message });
@@ -98,7 +126,7 @@ export class LabController {
       res.status(201).json({ success: true, message: "PC berhasil ditambahkan", data: pc });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        res.status(400).json(zodValidationResponse(error));
         return;
       }
       res.status(400).json({ success: false, message: error.message });
@@ -112,7 +140,7 @@ export class LabController {
       res.json({ success: true, message: "PC berhasil diupdate", data: pc });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        res.status(400).json(zodValidationResponse(error));
         return;
       }
       res.status(400).json({ success: false, message: error.message });
