@@ -47,14 +47,29 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response.json().catch(() => ({ message: "Request failed" })) as {
+      message?: string;
+      errors?: Array<{ field?: string; message?: string } | string | { message?: string }>;
+    };
 
     if (response.status === 401) {
       redirectToLogin();
       return new Promise<T>(() => {});
     }
 
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const firstFieldError = Array.isArray(error.errors)
+      ? error.errors
+          .map((item) => {
+            if (typeof item === "string") return item;
+            if (item && typeof item === "object" && typeof item.message === "string") {
+              return item.message;
+            }
+            return "";
+          })
+          .find((msg) => msg.length > 0)
+      : undefined;
+
+    throw new Error(firstFieldError || error.message || `HTTP ${response.status}`);
   }
 
   return response.json();

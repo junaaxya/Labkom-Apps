@@ -123,11 +123,17 @@ export default function LabsPage() {
     setIsCreating(true);
 
     try {
+      const capacity = Number(newLab.capacity);
+      if (newLab.capacity.trim() !== "" && (!Number.isFinite(capacity) || capacity < 0)) {
+        toast.error("Kapasitas minimal 0");
+        return;
+      }
+
       await api.post<{ success: boolean; data: LabWithCount }>("/labs", {
         name: newLab.name.trim(),
         location: newLab.location.trim(),
         description: newLab.description.trim(),
-        capacity: Number(newLab.capacity) || 0,
+        capacity: Number.isFinite(capacity) && capacity >= 0 ? Math.floor(capacity) : 0,
         isPicketEnabled: newLab.isPicketEnabled,
         defaultPicketAssistantCount: Math.min(50, Math.max(1, Number(newLab.defaultPicketAssistantCount) || 1)),
       });
@@ -164,11 +170,17 @@ export default function LabsPage() {
     setIsEditing(true);
 
     try {
+      const capacity = Number(editLab.capacity);
+      if (editLab.capacity.trim() !== "" && (!Number.isFinite(capacity) || capacity < 0)) {
+        toast.error("Kapasitas minimal 0");
+        return;
+      }
+
       await api.put<{ success: boolean; data: LabWithCount }>(`/labs/${editingLabId}`, {
         name: editLab.name.trim(),
         location: editLab.location.trim(),
         description: editLab.description.trim(),
-        capacity: Number(editLab.capacity) || 0,
+        capacity: Number.isFinite(capacity) && capacity >= 0 ? Math.floor(capacity) : 0,
         status: editLab.status,
         isPicketEnabled: editLab.isPicketEnabled,
         defaultPicketAssistantCount: Math.min(50, Math.max(1, Number(editLab.defaultPicketAssistantCount) || 1)),
