@@ -159,17 +159,17 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5 group">
                 <label className="block text-sm font-bold text-[#1a1a1a]">
-                  Email
+                  Email atau NIM
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#5a5a5a] group-focus-within:text-[var(--color-steel-blue)] transition-colors">
                     <TbMail className="text-xl" />
                   </div>
                    <input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="nama@email.com"
+                    placeholder="nama@email.com atau NIM"
                     required
                     className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm transition-all"
                   />

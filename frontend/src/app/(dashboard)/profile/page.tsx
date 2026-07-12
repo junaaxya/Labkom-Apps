@@ -42,6 +42,7 @@ interface ProfileData {
   isKetuaKelas: boolean;
   avatar?: string;
   phone?: string;
+  mustChangePassword?: boolean;
   createdAt?: string;
 }
 
@@ -70,6 +71,7 @@ export default function ProfilePage() {
     try {
       const res = await api.get<{ data: ProfileData }>("/auth/profile");
       setProfile(res.data);
+      localStorage.setItem("user", JSON.stringify(res.data));
       setName(res.data.name || "");
       setPhone(res.data.phone || "");
       setSemester(res.data.semester || "");
@@ -127,6 +129,12 @@ export default function ProfilePage() {
     setChangingPassword(true);
     try {
       await api.patch("/auth/change-password", { currentPassword, newPassword });
+      setProfile((current) => {
+        if (!current) return current;
+        const updated = { ...current, mustChangePassword: false };
+        localStorage.setItem("user", JSON.stringify(updated));
+        return updated;
+      });
       toast.success("Password berhasil diubah");
       setCurrentPassword("");
       setNewPassword("");
@@ -173,6 +181,11 @@ export default function ProfilePage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="neo-card bg-white overflow-hidden">
+        {profile?.mustChangePassword && (
+          <div className="bg-[#fff3cd] border-b-2 border-[#1a1a1a] px-6 sm:px-8 py-4">
+            <p className="font-bold text-[#1a1a1a]">Password awal masih NIM. Ganti password dulu sebelum lanjut pakai sistem.</p>
+          </div>
+        )}
         <div className="h-24 bg-[#4b607f] relative">
           <div
             className="absolute inset-0 opacity-10"

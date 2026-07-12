@@ -23,6 +23,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/tickets": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/attendance": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/settings": ["KOORDINATOR_LAB"],
   "/attendance/monitoring": ["KOORDINATOR_LAB"],
   "/task-history": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
@@ -80,9 +81,18 @@ export function RoleGuard({ children }: RoleGuardProps) {
           user && typeof user === "object" && "role" in user
             ? (user as { role?: Role }).role
             : undefined;
+        const mustChangePassword =
+          user && typeof user === "object" && "mustChangePassword" in user
+            ? Boolean((user as { mustChangePassword?: boolean }).mustChangePassword)
+            : false;
 
         if (!role) {
           router.push("/login");
+          return;
+        }
+
+        if (mustChangePassword && pathname !== "/profile") {
+          router.push("/profile");
           return;
         }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { TbUserPlus, TbSearch, TbEdit, TbLock, TbToggleLeft, TbToggleRight, TbX } from "react-icons/tb";
+import { TbUserPlus, TbSearch, TbEdit, TbLock, TbToggleLeft, TbToggleRight, TbX, TbUpload, TbDownload } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { MobileCard } from "@/components/ui/mobile-card";
@@ -23,7 +23,24 @@ interface User {
   className: string | null;
   isKetuaKelas: boolean;
   isActive: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
+}
+
+interface ImportFailure {
+  rowNumber: number;
+  nim?: string;
+  name?: string;
+  message: string;
+}
+
+interface ImportResult {
+  totalRows: number;
+  createdCount: number;
+  failedCount: number;
+  defaultPassword: string;
+  emailFallbackDomain: string;
+  failures: ImportFailure[];
 }
 
 interface UserStats {
@@ -55,6 +72,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -75,8 +93,10 @@ export default function UsersPage() {
         setUsers(res.data.users);
         setTotalPages(res.data.pagination.totalPages);
       }
-    } catch {
-      console.error("Failed to fetch users");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal mengambil data user";
+      console.error("Failed to fetch users", err);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -123,13 +143,22 @@ export default function UsersPage() {
           </h1>
           <p className="text-[#5a5a5a] text-sm">Kelola semua pengguna sistem Labkom</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="neo-btn flex items-center justify-center gap-2 bg-[#f3701e] text-white px-6 py-3 font-bold hover:bg-[#e05b0c] transition-colors"
-        >
-          <TbUserPlus className="w-5 h-5" strokeWidth={2.5} />
-          Tambah User
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="neo-btn flex items-center justify-center gap-2 bg-white text-[#1a1a1a] px-6 py-3 font-bold hover:bg-[#f5ede6] transition-colors"
+          >
+            <TbUpload className="w-5 h-5" strokeWidth={2.5} />
+            Import CSV/Excel
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="neo-btn flex items-center justify-center gap-2 bg-[#f3701e] text-white px-6 py-3 font-bold hover:bg-[#e05b0c] transition-colors"
+          >
+            <TbUserPlus className="w-5 h-5" strokeWidth={2.5} />
+            Tambah User
+          </button>
+        </div>
       </div>
 
       {stats && (
@@ -390,6 +419,13 @@ export default function UsersPage() {
         />
       )}
 
+      {showImportModal && (
+        <ImportUsersModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => { fetchUsers(); fetchStats(); }}
+        />
+      )}
+
       {showEditModal && selectedUser && (
         <EditUserModal
           user={selectedUser}
@@ -405,6 +441,148 @@ export default function UsersPage() {
           onSuccess={() => { setShowResetModal(false); setSelectedUser(null); }}
         />
       )}
+    </div>
+  );
+}
+
+function ImportUsersModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const toast = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<ImportResult | null>(null);
+
+  const downloadTemplate = () => {
+    const csv = [
+      "nim,nama,email,role,kelas,semester,phone,isKetuaKelas",
+      "23010001,Budi Santoso,,MAHASISWA,TI-2A,4,6281234567890,false",
+      "23010002,Siti Aminah,,MAHASISWA,TI-2A,4,,true",
+      "ASL001,Raka Aslab,,ASISTEN_LAB,,,6289876543210,false",
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "template-import-user-labkom.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) {
+      toast.error("Pilih file CSV atau Excel dulu");
+      return;
+    }
+
+    setSubmitting(true);
+    setResult(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/import`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+      const data: ApiRes<ImportResult> = await res.json();
+
+      if (!res.ok || !data.success) {
+        toast.error(data.message || "Import user gagal");
+        return;
+      }
+
+      setResult(data.data);
+      onSuccess();
+      toast.success(`${data.data.createdCount} user berhasil dibuat`);
+    } catch {
+      toast.error("Import user gagal");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="neo-card p-4 sm:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#e8d8c9] shadow-[8px_8px_0px_#1a1a1a]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold font-heading flex items-center gap-3 text-[#1a1a1a]">
+            <div className="w-12 h-12 bg-white rounded-xl neo-border flex items-center justify-center shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0">
+              <TbUpload className="w-6 h-6 text-[#4b607f]" strokeWidth={2.2} />
+            </div>
+            Import User Massal
+          </h2>
+          <button type="button" onClick={onClose} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0">
+            <TbX className="w-5 h-5" strokeWidth={2.5} />
+          </button>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl neo-border mb-5 space-y-3">
+          <p className="font-bold text-[#1a1a1a]">Format kolom: nim, nama, role, kelas, semester, email opsional.</p>
+          <p className="text-sm text-[#5a5a5a] font-medium">
+            Kalau email kosong, sistem buat email otomatis <span className="font-mono font-bold">nim@labkom.local</span>. Password awal semua akun = NIM dan user wajib ganti password.
+          </p>
+          <button type="button" onClick={downloadTemplate} className="neo-btn bg-[#f5ede6] text-[#1a1a1a] px-4 py-3 font-bold inline-flex items-center gap-2">
+            <TbDownload className="w-5 h-5" />
+            Download Template CSV
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white p-5 rounded-xl neo-border space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-[#1a1a1a] mb-2">File CSV / Excel (.csv, .xlsx)</label>
+            <input
+              type="file"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="neo-input w-full px-4 py-3 min-h-[44px] bg-white"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t-2 border-dashed border-gray-200">
+            <button type="button" onClick={onClose} className="neo-btn py-3.5 bg-[#f8f9fa] text-[#1a1a1a] flex-1 font-bold hover:bg-[#e8d8c9] transition-colors">Batal</button>
+            <button type="submit" disabled={submitting || !file} className="neo-btn bg-[#4b607f] text-white py-3.5 flex-1 font-bold disabled:opacity-50 hover:bg-[#3f526d] transition-colors">
+              {submitting ? "Mengimport..." : "Import User"}
+            </button>
+          </div>
+        </form>
+
+        {result && (
+          <div className="mt-5 bg-white p-5 rounded-xl neo-border space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-[#f5ede6] rounded-lg neo-border-sm p-3">
+                <p className="text-2xl font-heading font-bold">{result.totalRows}</p>
+                <p className="text-xs font-bold text-[#5a5a5a]">Baris</p>
+              </div>
+              <div className="bg-green-50 rounded-lg neo-border-sm p-3">
+                <p className="text-2xl font-heading font-bold text-green-700">{result.createdCount}</p>
+                <p className="text-xs font-bold text-[#5a5a5a]">Dibuat</p>
+              </div>
+              <div className="bg-red-50 rounded-lg neo-border-sm p-3">
+                <p className="text-2xl font-heading font-bold text-red-700">{result.failedCount}</p>
+                <p className="text-xs font-bold text-[#5a5a5a]">Gagal</p>
+              </div>
+            </div>
+
+            {result.failures.length > 0 && (
+              <div>
+                <p className="font-bold text-[#1a1a1a] mb-2">Baris gagal</p>
+                <div className="max-h-48 overflow-y-auto border-2 border-[#1a1a1a] rounded-lg">
+                  {result.failures.map((failure) => (
+                    <div key={`${failure.rowNumber}-${failure.nim ?? failure.message}`} className="p-3 border-b last:border-b-0 border-[#1a1a1a]/10 text-sm">
+                      <span className="font-bold">Baris {failure.rowNumber}</span>
+                      {failure.nim && <span className="font-mono ml-2">{failure.nim}</span>}
+                      <p className="text-red-700 font-medium">{failure.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
