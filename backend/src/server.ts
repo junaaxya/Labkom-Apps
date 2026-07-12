@@ -4,6 +4,7 @@ import { config, validateConfig } from "./config";
 import prisma from "./config/database";
 import redis from "./config/redis";
 import { startCronJobs } from "./services/cron.service";
+import { ShiftScheduleService } from "./services/attendance.service";
 
 const startServer = async () => {
   try {
@@ -14,6 +15,9 @@ const startServer = async () => {
     console.log("[Redis] Auto-connecting on first use");
 
     startCronJobs();
+    ShiftScheduleService.maintainRecurringPicketHorizon().catch((error) => {
+      console.error("[Recurring Picket] Horizon maintenance failed:", error);
+    });
 
     if (process.env.ENABLE_WHATSAPP === "true") {
       import("./services/whatsapp.service").then(({ whatsappService }) => {

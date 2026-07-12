@@ -3,7 +3,7 @@ import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 import { PCService } from "./pc.service";
 import { MissionService } from "./mission.service";
-import { AttendanceService } from "./attendance.service";
+import { AttendanceService, ShiftScheduleService } from "./attendance.service";
 
 const DAYS_MAP: Record<string, number> = {
   MINGGU: 0,
@@ -188,6 +188,13 @@ async function checkPcAgentOffline() {
   });
 }
 
+async function maintainRecurringPicketHorizon() {
+  const result = await ShiftScheduleService.maintainRecurringPicketHorizon();
+  if (result.createdCount > 0 || result.skippedDates.length > 0) {
+    console.log(`[CRON] Recurring picket horizon: ${result.createdCount} jadwal ditambahkan, ${result.skippedDates.length} tanggal dilewati`);
+  }
+}
+
 export function startCronJobs() {
   // Every minute: mark stale PC agents offline and notify operators once per offline transition
   cron.schedule("* * * * *", () => {
@@ -222,6 +229,10 @@ export function startCronJobs() {
   // Daily at 01:00: expire overdue missions
   cron.schedule("0 1 * * *", () => {
     MissionService.expireOverdueMissions().catch(console.error);
+  });
+
+  cron.schedule("15 1 * * *", () => {
+    maintainRecurringPicketHorizon().catch(console.error);
   });
 
   console.log("[CRON] Scheduled jobs started");

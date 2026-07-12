@@ -9,7 +9,9 @@ import {
   DailyTaskService,
   CorrectionRequestService,
   LeaveRequestService,
+  WeeklyPlannerError,
 } from "../services/attendance.service";
+import { recurringShiftPlanSchema, weeklyShiftPlanSchema, weeklyShiftPreviewSchema } from "../validators/attendance.validator";
 
 const picketDestinations = new Set<string>(Object.values(AsLabPicketDestination));
 const shiftScheduleStatuses = new Set<string>(Object.values(ShiftScheduleStatus));
@@ -347,6 +349,7 @@ export class AttendanceController {
         month: req.query.month as string | undefined,
         userId: req.query.userId as string | undefined,
         destination: parsePicketDestination(req.query.destination),
+        labId: req.query.labId as string | undefined,
         status: parseShiftScheduleStatus(req.query.status),
       });
       res.json({ success: true, data });
@@ -392,6 +395,81 @@ export class AttendanceController {
       }
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  static async previewWeeklyShiftPlan(req: Request, res: Response): Promise<void> {
+    try {
+      const parsed = weeklyShiftPreviewSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          success: false,
+          message: "Payload preview jadwal mingguan tidak valid",
+          errors: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+        });
+        return;
+      }
+
+      const data = await ShiftScheduleService.previewWeeklyPlan(parsed.data);
+      res.json({ success: true, message: "Draft jadwal mingguan berhasil dibuat dan belum disimpan", data });
+    } catch (error: unknown) {
+      if (error instanceof WeeklyPlannerError) {
+        res.status(400).json({ success: false, message: error.message, errors: error.details });
+        return;
+      }
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Gagal membuat preview jadwal mingguan" });
+    }
+  }
+
+  static async saveWeeklyShiftPlan(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
+      const parsed = weeklyShiftPlanSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          success: false,
+          message: "Payload jadwal mingguan tidak valid",
+          errors: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+        });
+        return;
+      }
+
+      const data = await ShiftScheduleService.saveWeeklyPlan(parsed.data, req.user.userId);
+      res.status(201).json({
+        success: true,
+        message: `${data.schedules.length} jadwal piket mingguan berhasil disimpan`,
+        data,
+      });
+    } catch (error: unknown) {
+      if (error instanceof WeeklyPlannerError) {
+        res.status(409).json({ success: false, message: error.message, errors: error.details });
+        return;
+      }
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Gagal menyimpan jadwal mingguan" });
+    }
+  }
+
+  static async getRecurringShiftPattern(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await ShiftScheduleService.getRecurringPattern() });
+    } catch (error: unknown) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Gagal mengambil pola piket" });
+    }
+  }
+
+  static async saveRecurringShiftPlan(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
+      const parsed = recurringShiftPlanSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ success: false, message: "Payload pola piket tidak valid", errors: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) });
+        return;
+      }
+      const data = await ShiftScheduleService.saveRecurringPlan(parsed.data, req.user.userId);
+      res.status(201).json({ success: true, message: `${data.createdCount} jadwal piket berulang berhasil dibuat`, data });
+    } catch (error: unknown) {
+      if (error instanceof WeeklyPlannerError) { res.status(409).json({ success: false, message: error.message, errors: error.details }); return; }
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Gagal menyimpan pola piket" });
     }
   }
 

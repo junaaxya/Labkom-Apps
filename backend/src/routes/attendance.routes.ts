@@ -9,7 +9,7 @@ router.post("/checkin", authenticate, authorize("ASISTEN_LAB"), AttendanceContro
 router.post("/checkout", authenticate, authorize("ASISTEN_LAB"), AttendanceController.checkout);
 router.get("/me", authenticate, AttendanceController.getMyAttendance);
 router.get("/stats", authenticate, AttendanceController.getAttendanceStats);
-router.get("/today-count", authenticate, AttendanceController.getTodayCount);
+router.get("/today-count", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getTodayCount);
 
 // Aslab: Daily Tasks
 router.post("/tasks", authenticate, authorize("ASISTEN_LAB"), AttendanceController.addDailyTask);
@@ -40,6 +40,10 @@ router.patch("/tasks/:taskId/review", authenticate, authorize("KOORDINATOR_LAB")
 // Koordinator: Shift Schedule Management
 router.get("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getShiftSchedules);
 router.post("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.createShiftSchedule);
+router.post("/shift-schedules/weekly-preview", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.previewWeeklyShiftPlan);
+router.post("/shift-schedules/weekly-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveWeeklyShiftPlan);
+router.get("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getRecurringShiftPattern);
+router.post("/shift-schedules/recurring-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveRecurringShiftPlan);
 router.patch("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.updateShiftSchedule);
 router.delete("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteShiftSchedule);
 
