@@ -250,48 +250,51 @@ model User {
   isKetuaKelas        Boolean  @default(false) // Flag ketua kelas
   avatar              String?
   isActive            Boolean  @default(true)
+  mustChangePassword  Boolean  @default(false) // Wajib ganti password setelah import/reset
   waNotify            Boolean  @default(true) // Opt-in WhatsApp notifications
   googleCalendarToken String? // Google Calendar OAuth refresh token
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   // Relations
-  schedulesAsAssistant    Schedule[]                    @relation("ScheduleAssistant")
-  logbooksCheckinBy       Logbook[]                     @relation("LogbookCheckinBy")
-  logbooksCheckoutBy      Logbook[]                     @relation("LogbookCheckoutBy")
-  conditionsSubmitted     LogbookCondition[]            @relation("ConditionSubmitter")
-  conditionsVerified      LogbookCondition[]            @relation("ConditionVerifier")
-  keysCurrentHolder       Key[]                         @relation("KeyCurrentHolder")
-  keyLogs                 KeyLog[]
-  ticketsReported         Ticket[]                      @relation("TicketReporter")
-  ticketsAssigned         Ticket[]                      @relation("TicketAssignee")
-  missionsCreated         Mission[]                     @relation("MissionCreator")
-  missionClaims           MissionClaim[]                @relation("MissionClaimant")
-  missionClaimsVerified   MissionClaim[]                @relation("MissionVerifier")
-  attendances             Attendance[]
-  dailyTaskLogs           DailyTaskLog[]
-  reviewedTasks           DailyTaskLog[]                @relation("TaskVerifier")
-  points                  Point[]
-  certificatesOwned       Certificate[]                 @relation("CertificateOwner")
-  certificatesIssued      Certificate[]                 @relation("CertificateIssuer")
-  notifications           Notification[]
-  pushSubscriptions       PushSubscription[]
-  shifts                  Shift[]                       @relation("ShiftAsleb")
-  bookingsRequested       LabBooking[]                  @relation("BookingRequester")
-  bookingsApproved        LabBooking[]                  @relation("BookingApprover")
-  scheduleChangeRequests  ScheduleChangeRequest[]       @relation("ScheduleChangeRequester")
-  scheduleChangeApprovals ScheduleChangeRequest[]       @relation("ScheduleChangeApprover")
-  leaveRequests           LeaveRequest[]                @relation("LeaveRequester")
-  leaveReviews            LeaveRequest[]                @relation("LeaveReviewer")
-  shiftSchedules          AsLabShiftSchedule[]          @relation("ShiftScheduleUser")
-  shiftSchedulesAssigned  AsLabShiftSchedule[]          @relation("ShiftScheduleAssigner")
-  attendancesVerified     Attendance[]                  @relation("AttendanceVerifier")
-  correctionRequests      AttendanceCorrectionRequest[] @relation("CorrectionRequester")
-  correctionReviews       AttendanceCorrectionRequest[] @relation("CorrectionReviewer")
-  auditLogs               AuditLog[]
-  announcements           Announcement[]                @relation("AnnouncementCreator")
-  announcementReads       AnnouncementRead[]
-  assetAuditLogs          AssetAuditLog[]
+  schedulesAsAssistant     Schedule[]                     @relation("ScheduleAssistant")
+  logbooksCheckinBy        Logbook[]                      @relation("LogbookCheckinBy")
+  logbooksCheckoutBy       Logbook[]                      @relation("LogbookCheckoutBy")
+  conditionsSubmitted      LogbookCondition[]             @relation("ConditionSubmitter")
+  conditionsVerified       LogbookCondition[]             @relation("ConditionVerifier")
+  keysCurrentHolder        Key[]                          @relation("KeyCurrentHolder")
+  keyLogs                  KeyLog[]
+  ticketsReported          Ticket[]                       @relation("TicketReporter")
+  ticketsAssigned          Ticket[]                       @relation("TicketAssignee")
+  missionsCreated          Mission[]                      @relation("MissionCreator")
+  missionClaims            MissionClaim[]                 @relation("MissionClaimant")
+  missionClaimsVerified    MissionClaim[]                 @relation("MissionVerifier")
+  attendances              Attendance[]
+  dailyTaskLogs            DailyTaskLog[]
+  reviewedTasks            DailyTaskLog[]                 @relation("TaskVerifier")
+  points                   Point[]
+  certificatesOwned        Certificate[]                  @relation("CertificateOwner")
+  certificatesIssued       Certificate[]                  @relation("CertificateIssuer")
+  notifications            Notification[]
+  pushSubscriptions        PushSubscription[]
+  shifts                   Shift[]                        @relation("ShiftAsleb")
+  bookingsRequested        LabBooking[]                   @relation("BookingRequester")
+  bookingsApproved         LabBooking[]                   @relation("BookingApprover")
+  scheduleChangeRequests   ScheduleChangeRequest[]        @relation("ScheduleChangeRequester")
+  scheduleChangeApprovals  ScheduleChangeRequest[]        @relation("ScheduleChangeApprover")
+  leaveRequests            LeaveRequest[]                 @relation("LeaveRequester")
+  leaveReviews             LeaveRequest[]                 @relation("LeaveReviewer")
+  shiftSchedules           AsLabShiftSchedule[]           @relation("ShiftScheduleUser")
+  shiftSchedulesAssigned   AsLabShiftSchedule[]           @relation("ShiftScheduleAssigner")
+  picketPatternsCreated    AsLabPicketPattern[]           @relation("PicketPatternCreator")
+  picketPatternAssignments AsLabPicketPatternAssignment[] @relation("PicketPatternAssistant")
+  attendancesVerified      Attendance[]                   @relation("AttendanceVerifier")
+  correctionRequests       AttendanceCorrectionRequest[]  @relation("CorrectionRequester")
+  correctionReviews        AttendanceCorrectionRequest[]  @relation("CorrectionReviewer")
+  auditLogs                AuditLog[]
+  announcements            Announcement[]                 @relation("AnnouncementCreator")
+  announcementReads        AnnouncementRead[]
+  assetAuditLogs           AssetAuditLog[]
 
   @@map("users")
 }
@@ -301,25 +304,29 @@ model User {
 // ============================================
 
 model Lab {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  location    String
-  description String?
-  status      LabStatus @default(ACTIVE)
-  capacity    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                          String    @id @default(cuid())
+  name                        String    @unique
+  location                    String
+  description                 String?
+  status                      LabStatus @default(ACTIVE)
+  capacity                    Int       @default(0)
+  isPicketEnabled             Boolean   @default(false)
+  defaultPicketAssistantCount Int       @default(2)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   // Relations
-  pcs               PC[]
-  schedules         Schedule[]
-  keys              Key[]
-  tickets           Ticket[]
-  dailyTaskLogs     DailyTaskLog[]
-  shifts            Shift[]
-  bookings          LabBooking[]
-  logbookConditions LogbookCondition[]
-  assets            Asset[]
+  pcs                      PC[]
+  schedules                Schedule[]
+  keys                     Key[]
+  tickets                  Ticket[]
+  dailyTaskLogs            DailyTaskLog[]
+  shifts                   Shift[]
+  bookings                 LabBooking[]
+  logbookConditions        LogbookCondition[]
+  assets                   Asset[]
+  shiftSchedules           AsLabShiftSchedule[]
+  picketPatternAssignments AsLabPicketPatternAssignment[]
 
   @@map("labs")
 }
@@ -613,9 +620,10 @@ model Shift {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  lab            Lab                  @relation(fields: [labId], references: [id])
-  asleb          User                 @relation("ShiftAsleb", fields: [aslebId], references: [id])
-  shiftSchedules AsLabShiftSchedule[]
+  lab                 Lab                  @relation(fields: [labId], references: [id])
+  asleb               User                 @relation("ShiftAsleb", fields: [aslebId], references: [id])
+  shiftSchedules      AsLabShiftSchedule[]
+  asLabPicketPatterns AsLabPicketPattern[]
 
   @@map("shifts")
 }
@@ -947,6 +955,7 @@ model AttendanceSettings {
   forgotCheckoutAfterMinutes Int      @default(120)
   isTaskRequired             Boolean  @default(true)
   isVerificationRequired     Boolean  @default(true)
+  activePicketWeekdays       Json     @default("[1,2,3,4,5]")
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 
@@ -970,26 +979,69 @@ model AttendanceLocation {
 }
 
 model AsLabShiftSchedule {
-  id           String                 @id @default(cuid())
+  id           String                  @id @default(cuid())
   userId       String
-  destination  AsLabPicketDestination
+  destination  AsLabPicketDestination?
+  labId        String?
   shiftId      String
-  scheduleDate DateTime               @db.Date
-  status       ShiftScheduleStatus    @default(SCHEDULED)
+  scheduleDate DateTime                @db.Date
+  status       ShiftScheduleStatus     @default(SCHEDULED)
   assignedBy   String?
   notes        String?
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  patternId    String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 
-  user        User         @relation("ShiftScheduleUser", fields: [userId], references: [id])
-  shift       Shift        @relation(fields: [shiftId], references: [id])
-  assigner    User?        @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
+  user        User                @relation("ShiftScheduleUser", fields: [userId], references: [id])
+  shift       Shift               @relation(fields: [shiftId], references: [id])
+  lab         Lab?                @relation(fields: [labId], references: [id], onDelete: Restrict)
+  assigner    User?               @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
   attendances Attendance[]
+  pattern     AsLabPicketPattern? @relation(fields: [patternId], references: [id], onDelete: Restrict)
 
   @@unique([userId, shiftId, scheduleDate])
   @@index([scheduleDate, status])
   @@index([destination])
+  @@index([labId, scheduleDate, status])
+  @@index([patternId, scheduleDate, status])
   @@map("aslab_shift_schedules")
+}
+
+model AsLabPicketPattern {
+  id                   String   @id @default(cuid())
+  effectiveFrom        DateTime @db.Date
+  horizonStart         DateTime @db.Date
+  horizonEnd           DateTime @db.Date
+  activePicketWeekdays Json
+  shiftId              String
+  createdBy            String
+  notes                String?
+  createdAt            DateTime @default(now())
+
+  shift       Shift                          @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  creator     User                           @relation("PicketPatternCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  assignments AsLabPicketPatternAssignment[]
+  schedules   AsLabShiftSchedule[]
+
+  @@index([effectiveFrom, createdAt])
+  @@map("aslab_picket_patterns")
+}
+
+model AsLabPicketPatternAssignment {
+  id                     String @id @default(cuid())
+  patternId              String
+  weekday                Int
+  labId                  String
+  requiredAssistantCount Int
+  userId                 String
+
+  pattern AsLabPicketPattern @relation(fields: [patternId], references: [id], onDelete: Restrict)
+  lab     Lab                @relation(fields: [labId], references: [id], onDelete: Restrict)
+  user    User               @relation("PicketPatternAssistant", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([patternId, weekday, labId, userId])
+  @@index([patternId, weekday, labId])
+  @@map("aslab_picket_pattern_assignments")
 }
 
 model TaskCategoryConfig {
