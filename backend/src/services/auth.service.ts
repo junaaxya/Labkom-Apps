@@ -48,6 +48,7 @@ export class AuthService {
         isKetuaKelas: true,
         avatar: true,
         isActive: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -59,12 +60,15 @@ export class AuthService {
   }
 
   static async login(data: LoginInput) {
-    const user = await prisma.user.findUnique({
-      where: { email: data.email },
+    const identifier = (data.identifier ?? data.email ?? "").trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { email: identifier.toLowerCase() }, { nim: identifier }],
+      },
     });
 
     if (!user) {
-      throw new Error("Email atau password salah");
+      throw new Error("NIM/email atau password salah");
     }
 
     if (!user.isActive) {
@@ -74,7 +78,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
 
     if (!isPasswordValid) {
-      throw new Error("Email atau password salah");
+      throw new Error("NIM/email atau password salah");
     }
 
     const token = this.generateToken(user.id, user.role);
@@ -99,6 +103,7 @@ export class AuthService {
         isKetuaKelas: true,
         avatar: true,
         isActive: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -129,6 +134,7 @@ export class AuthService {
         avatar: true,
         phone: true,
         isActive: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -151,10 +157,10 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, mustChangePassword: false },
     });
 
-    return { message: "Password berhasil diubah" };
+    return { message: "Password berhasil diubah", mustChangePassword: false };
   }
 
   private static generateToken(userId: string, role: string): string {

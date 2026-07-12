@@ -49,6 +49,21 @@ export class UserController {
     }
   }
 
+  static async importUsers(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({ success: false, message: "File import wajib diunggah" });
+        return;
+      }
+
+      const result = await UserService.importUsers(req.file);
+      res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal import user";
+      res.status(400).json({ success: false, message });
+    }
+  }
+
   static async updateUser(req: Request, res: Response): Promise<void> {
     try {
       const id = getParam(req, "id");
@@ -84,7 +99,7 @@ export class UserController {
     }
   }
 
-  static async getUserStats(req: Request, res: Response): Promise<void> {
+  static async getUserStats(_req: Request, res: Response): Promise<void> {
     try {
       const stats = await UserService.getUserStats();
       res.json({ success: true, data: stats });
