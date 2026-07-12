@@ -64,12 +64,12 @@ export class LabService {
   static async deleteLab(id: string) {
     const lab = await prisma.lab.findUnique({
       where: { id },
-      include: { _count: { select: { pcs: true, schedules: true } } },
+      include: { _count: { select: { pcs: true, schedules: true, shiftSchedules: true } } },
     });
 
     if (!lab) throw new Error("Lab tidak ditemukan");
-    if (lab._count.pcs > 0 || lab._count.schedules > 0) {
-      throw new Error("Lab masih memiliki PC atau jadwal aktif. Hapus terlebih dahulu.");
+    if (lab._count.pcs > 0 || lab._count.schedules > 0 || lab._count.shiftSchedules > 0) {
+      throw new Error("Lab masih memiliki PC atau jadwal terkait. Hapus terlebih dahulu.");
     }
 
     return prisma.lab.delete({ where: { id } });

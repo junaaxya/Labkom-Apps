@@ -6,6 +6,8 @@ export const createLabSchema = z.object({
   description: z.string().optional(),
   capacity: z.number().int().min(1, "Kapasitas minimal 1").default(0),
   status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]).default("ACTIVE"),
+  isPicketEnabled: z.boolean().default(false),
+  defaultPicketAssistantCount: z.number().int().min(1).max(50).default(2),
 });
 
 export const updateLabSchema = createLabSchema.partial();
