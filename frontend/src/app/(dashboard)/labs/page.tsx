@@ -37,6 +37,8 @@ type LabForm = {
   location: string;
   description: string;
   capacity: number;
+  isPicketEnabled: boolean;
+  defaultPicketAssistantCount: number;
 };
 
 type LabStatusFilter = "ALL" | Lab["status"];
@@ -59,6 +61,8 @@ export default function LabsPage() {
     location: "",
     description: "",
     capacity: 0,
+    isPicketEnabled: false,
+    defaultPicketAssistantCount: 1,
   });
   const [editingLabId, setEditingLabId] = useState<string | null>(null);
   const [editLab, setEditLab] = useState<LabForm & { status: Lab["status"] }>({
@@ -67,6 +71,8 @@ export default function LabsPage() {
     description: "",
     capacity: 0,
     status: "ACTIVE",
+    isPicketEnabled: false,
+    defaultPicketAssistantCount: 1,
   });
 
   const statusColor: Record<string, string> = {
@@ -107,6 +113,8 @@ export default function LabsPage() {
       location: "",
       description: "",
       capacity: 0,
+      isPicketEnabled: false,
+      defaultPicketAssistantCount: 1,
     });
   };
 
@@ -120,6 +128,8 @@ export default function LabsPage() {
         location: newLab.location.trim(),
         description: newLab.description.trim(),
         capacity: Number(newLab.capacity) || 0,
+        isPicketEnabled: newLab.isPicketEnabled,
+        defaultPicketAssistantCount: Math.min(50, Math.max(1, Number(newLab.defaultPicketAssistantCount) || 1)),
       });
 
       setShowCreateModal(false);
@@ -141,6 +151,8 @@ export default function LabsPage() {
       description: lab.description ?? "",
       capacity: lab.capacity,
       status: lab.status,
+      isPicketEnabled: lab.isPicketEnabled,
+      defaultPicketAssistantCount: lab.defaultPicketAssistantCount,
     });
     setShowEditModal(true);
   };
@@ -158,6 +170,8 @@ export default function LabsPage() {
         description: editLab.description.trim(),
         capacity: Number(editLab.capacity) || 0,
         status: editLab.status,
+        isPicketEnabled: editLab.isPicketEnabled,
+        defaultPicketAssistantCount: Math.min(50, Math.max(1, Number(editLab.defaultPicketAssistantCount) || 1)),
       });
 
       setShowEditModal(false);
@@ -405,9 +419,12 @@ export default function LabsPage() {
                     </div>
                     <TbChevronRight className="mt-1 h-5 w-5 shrink-0 text-[#5a5a5a]" />
                   </div>
-                  {lab.description && (
-                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#5a5a5a]">{lab.description}</p>
-                  )}
+                   {lab.description && (
+                     <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#5a5a5a]">{lab.description}</p>
+                   )}
+                   <p className={`mt-3 text-xs font-black ${lab.isPicketEnabled ? "text-[#4b607f]" : "text-[#5a5a5a]"}`}>
+                     {lab.isPicketEnabled ? `Piket aktif · ${lab.defaultPicketAssistantCount} Aslab` : "Piket tidak aktif"}
+                   </p>
 
                   <div className="mt-5 grid grid-cols-3 gap-2 border-t-2 border-[#e8d8c9] pt-3">
                     <div className="rounded-xl bg-[#f5ede6] p-2 text-center neo-border-sm">
@@ -509,6 +526,29 @@ export default function LabsPage() {
                     onChange={(e) => setNewLab({ ...newLab, capacity: parseInt(e.target.value) || 0 })}
                     className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                   />
+                </div>
+                <div className="rounded-xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-3">
+                  <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm font-black text-[#1a1a1a]">
+                    <input
+                      type="checkbox"
+                      checked={newLab.isPicketEnabled}
+                      onChange={(e) => setNewLab({ ...newLab, isPicketEnabled: e.target.checked })}
+                      className="h-5 w-5 accent-[#4b607f]"
+                    />
+                    Aktifkan Piket Aslab
+                  </label>
+                  <div className={`mt-3 ${newLab.isPicketEnabled ? "" : "opacity-45"}`}>
+                    <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jumlah Aslab Default</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      disabled={!newLab.isPicketEnabled}
+                      value={newLab.defaultPicketAssistantCount}
+                      onChange={(e) => setNewLab({ ...newLab, defaultPicketAssistantCount: parseInt(e.target.value) || 1 })}
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm disabled:cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
@@ -627,6 +667,29 @@ export default function LabsPage() {
                     <option value="INACTIVE">Tidak Aktif</option>
                     <option value="MAINTENANCE">Maintenance</option>
                   </select>
+                </div>
+                <div className="rounded-xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-3">
+                  <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm font-black text-[#1a1a1a]">
+                    <input
+                      type="checkbox"
+                      checked={editLab.isPicketEnabled}
+                      onChange={(e) => setEditLab({ ...editLab, isPicketEnabled: e.target.checked })}
+                      className="h-5 w-5 accent-[#4b607f]"
+                    />
+                    Aktifkan Piket Aslab
+                  </label>
+                  <div className={`mt-3 ${editLab.isPicketEnabled ? "" : "opacity-45"}`}>
+                    <label className="block text-sm font-bold text-[#1a1a1a] mb-1.5">Jumlah Aslab Default</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      disabled={!editLab.isPicketEnabled}
+                      value={editLab.defaultPicketAssistantCount}
+                      onChange={(e) => setEditLab({ ...editLab, defaultPicketAssistantCount: parseInt(e.target.value) || 1 })}
+                      className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm disabled:cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">

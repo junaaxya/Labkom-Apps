@@ -97,6 +97,10 @@ function destinationLabel(destination?: AsLabPicketDestination): string {
   return PICKET_DESTINATIONS.find((item) => item.value === destination)?.label ?? "-";
 }
 
+function scheduleLocationLabel(schedule: ShiftSchedule): string {
+  return schedule.lab?.name ?? destinationLabel(schedule.destination);
+}
+
 type ApiMaybeWrapped<T> = T | { data?: T; items?: T };
 
 type CategoryFormState = {
@@ -1308,7 +1312,7 @@ export default function AttendanceMonitoringPage() {
                               </span>
                             }
                             fields={[
-                    { label: "Tujuan", value: destinationLabel(schedule.destination) },
+                    { label: "Tujuan", value: scheduleLocationLabel(schedule) },
                               { label: "Shift", value: shiftLabel },
                             ]}
                             actions={[
@@ -1344,7 +1348,7 @@ export default function AttendanceMonitoringPage() {
                               <tr key={schedule.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
                                 <td className="p-3 text-sm text-[#1a1a1a]">{formatDate(schedule.scheduleDate)}</td>
                                 <td className="p-3 text-sm font-semibold text-[#1a1a1a]">{schedule.user?.name ?? "-"}</td>
-                                <td className="p-3 text-sm text-[#5a5a5a]">{destinationLabel(schedule.destination)}</td>
+                                <td className="p-3 text-sm text-[#5a5a5a]">{scheduleLocationLabel(schedule)}</td>
                                 <td className="p-3 text-sm text-[#5a5a5a]">{shiftLabel}</td>
                                 <td className="p-3">
                                   <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>

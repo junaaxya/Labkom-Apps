@@ -45,6 +45,15 @@ const DEFAULT_LOCATION_FORM: LocationPayload = {
   isActive: true,
 };
 
+const PICKET_WEEKDAYS = [
+  { value: 1, label: "Senin" },
+  { value: 2, label: "Selasa" },
+  { value: 3, label: "Rabu" },
+  { value: 4, label: "Kamis" },
+  { value: 5, label: "Jumat" },
+  { value: 6, label: "Sabtu" },
+];
+
 function isWrappedResponse<T>(value: unknown): value is ApiWrapped<T> {
   return typeof value === "object" && value !== null && "data" in value;
 }
@@ -153,7 +162,9 @@ export default function AttendanceSettingsPage() {
           lateToleranceMinutes: settingsForm.lateToleranceMinutes,
           checkoutGraceMinutes: settingsForm.checkoutGraceMinutes,
           forgotCheckoutAfterMinutes: settingsForm.forgotCheckoutAfterMinutes,
+          isTaskRequired: settingsForm.isTaskRequired,
           isVerificationRequired: settingsForm.isVerificationRequired,
+          activePicketWeekdays: settingsForm.activePicketWeekdays,
         }
       );
       globalToast.success("Pengaturan umum berhasil disimpan");
@@ -331,6 +342,33 @@ export default function AttendanceSettingsPage() {
                   )
                 }
               />
+            </div>
+          </div>
+
+          <div className="neo-border bg-[#eef2f7] p-4 space-y-3 md:col-span-2">
+            <div>
+              <p className="font-bold text-[#1a1a1a]">Hari Piket Aktif</p>
+              <p className="mt-1 text-sm text-[#5a5a5a]">Pilih hari yang dipakai untuk membuat roster piket. Default: Senin–Jumat.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {PICKET_WEEKDAYS.map((weekday) => {
+                const checked = settingsForm.activePicketWeekdays.includes(weekday.value);
+                return <label key={weekday.value} className={`neo-border flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-md px-3 text-sm font-black ${checked ? "bg-[#f3701e] text-white" : "bg-white text-[#1a1a1a]"}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => setSettingsForm((prev) => {
+                      if (!prev) return prev;
+                      const activePicketWeekdays = checked
+                        ? prev.activePicketWeekdays.filter((day) => day !== weekday.value)
+                        : [...prev.activePicketWeekdays, weekday.value].sort((left, right) => left - right);
+                      return activePicketWeekdays.length > 0 ? { ...prev, activePicketWeekdays } : prev;
+                    })}
+                    className="h-4 w-4 accent-[#1a1a1a]"
+                  />
+                  {weekday.label}
+                </label>;
+              })}
             </div>
           </div>
         </div>
