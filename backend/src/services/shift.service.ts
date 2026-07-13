@@ -1,5 +1,14 @@
 import prisma from "../config/database";
 
+function assertValidTimeRange(startTime: string, endTime: string) {
+  if (!startTime || !endTime) {
+    throw new Error("Jam mulai dan jam selesai wajib diisi");
+  }
+  if (endTime <= startTime) {
+    throw new Error("Jam selesai harus lebih besar dari jam mulai");
+  }
+}
+
 export class ShiftService {
   static async getAllShifts(filters?: { labId?: string; aslebId?: string; day?: string }) {
     const where: any = { isActive: true };
@@ -13,7 +22,7 @@ export class ShiftService {
         lab: { select: { id: true, name: true, location: true } },
         asleb: { select: { id: true, name: true, email: true, phone: true } },
       },
-      orderBy: [{ day: "asc" }, { startTime: "asc" }],
+      orderBy: [{ startTime: "asc" }, { name: "asc" }],
     });
   }
 
@@ -30,35 +39,45 @@ export class ShiftService {
   }
 
   static async createShift(data: {
-    labId: string;
-    aslebId: string;
-    day: string;
+    name?: string;
+    labId?: string | null;
+    aslebId?: string | null;
+    day?: string | null;
     startTime: string;
     endTime: string;
+    lateToleranceMinutes?: number;
+    checkoutGraceMinutes?: number;
+    isTaskRequired?: boolean;
     notes?: string;
   }) {
-    const conflict = await prisma.shift.findFirst({
-      where: {
-        aslebId: data.aslebId,
-        day: data.day as any,
-        isActive: true,
-        OR: [
-          { startTime: { lt: data.endTime }, endTime: { gt: data.startTime } },
-        ],
-      },
-    });
+    assertValidTimeRange(data.startTime, data.endTime);
 
-    if (conflict) {
-      throw new Error("Asleb sudah punya shift di waktu yang sama");
+    // Template mode: conflict only when the same named active time window already exists.
+    if (data.name?.trim()) {
+      const sameName = await prisma.shift.findFirst({
+        where: {
+          isActive: true,
+          name: data.name.trim(),
+          startTime: data.startTime,
+          endTime: data.endTime,
+        },
+      });
+      if (sameName) {
+        throw new Error("Shift dengan nama dan jam yang sama sudah ada");
+      }
     }
 
     return prisma.shift.create({
       data: {
-        labId: data.labId,
-        aslebId: data.aslebId,
-        day: data.day as any,
+        name: data.name?.trim() || null,
+        labId: data.labId || null,
+        aslebId: data.aslebId || null,
+        day: (data.day as any) || null,
         startTime: data.startTime,
         endTime: data.endTime,
+        lateToleranceMinutes: data.lateToleranceMinutes ?? 15,
+        checkoutGraceMinutes: data.checkoutGraceMinutes ?? 30,
+        isTaskRequired: data.isTaskRequired ?? true,
         notes: data.notes,
       },
       include: {
@@ -69,47 +88,36 @@ export class ShiftService {
   }
 
   static async updateShift(id: string, data: {
-    labId?: string;
-    aslebId?: string;
-    day?: string;
+    name?: string | null;
+    labId?: string | null;
+    aslebId?: string | null;
+    day?: string | null;
     startTime?: string;
     endTime?: string;
+    lateToleranceMinutes?: number;
+    checkoutGraceMinutes?: number;
+    isTaskRequired?: boolean;
     notes?: string;
   }) {
     const existing = await prisma.shift.findUnique({ where: { id } });
     if (!existing) throw new Error("Shift tidak ditemukan");
 
-    if (data.aslebId || data.day || data.startTime || data.endTime) {
-      const checkAslebId = data.aslebId || existing.aslebId;
-      const checkDay = data.day || existing.day;
-      const checkStart = data.startTime || existing.startTime;
-      const checkEnd = data.endTime || existing.endTime;
-
-      const conflict = await prisma.shift.findFirst({
-        where: {
-          id: { not: id },
-          aslebId: checkAslebId,
-          day: checkDay as any,
-          isActive: true,
-          OR: [
-            { startTime: { lt: checkEnd }, endTime: { gt: checkStart } },
-          ],
-        },
-      });
-
-      if (conflict) {
-        throw new Error("Asleb sudah punya shift di waktu yang sama");
-      }
-    }
+    const nextStart = data.startTime ?? existing.startTime;
+    const nextEnd = data.endTime ?? existing.endTime;
+    assertValidTimeRange(nextStart, nextEnd);
 
     return prisma.shift.update({
       where: { id },
       data: {
-        ...(data.labId && { labId: data.labId }),
-        ...(data.aslebId && { aslebId: data.aslebId }),
-        ...(data.day && { day: data.day as any }),
+        ...(data.name !== undefined && { name: data.name?.trim() || null }),
+        ...(data.labId !== undefined && { labId: data.labId || null }),
+        ...(data.aslebId !== undefined && { aslebId: data.aslebId || null }),
+        ...(data.day !== undefined && { day: (data.day as any) || null }),
         ...(data.startTime && { startTime: data.startTime }),
         ...(data.endTime && { endTime: data.endTime }),
+        ...(data.lateToleranceMinutes !== undefined && { lateToleranceMinutes: data.lateToleranceMinutes }),
+        ...(data.checkoutGraceMinutes !== undefined && { checkoutGraceMinutes: data.checkoutGraceMinutes }),
+        ...(data.isTaskRequired !== undefined && { isTaskRequired: data.isTaskRequired }),
         ...(data.notes !== undefined && { notes: data.notes }),
       },
       include: {
@@ -130,12 +138,13 @@ export class ShiftService {
   }
 
   static async getAslebWeeklySchedule(aslebId: string) {
+    // Legacy helper: prefer materialized picket schedules; keep shift rows that still bind aslebId.
     return prisma.shift.findMany({
       where: { aslebId, isActive: true },
       include: {
         lab: { select: { id: true, name: true } },
       },
-      orderBy: [{ day: "asc" }, { startTime: "asc" }],
+      orderBy: [{ startTime: "asc" }],
     });
   }
 
@@ -144,7 +153,10 @@ export class ShiftService {
     const today = days[new Date().getDay()] as any;
 
     return prisma.shift.findMany({
-      where: { day: today, isActive: true },
+      where: {
+        isActive: true,
+        OR: [{ day: today }, { day: null }],
+      },
       include: {
         lab: { select: { id: true, name: true } },
         asleb: { select: { id: true, name: true, phone: true } },
