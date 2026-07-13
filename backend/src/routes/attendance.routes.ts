@@ -38,14 +38,16 @@ router.get("/tasks/all", authenticate, authorize("KOORDINATOR_LAB"), AttendanceC
 router.patch("/tasks/:taskId/review", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.reviewTask);
 
 // Koordinator: Shift Schedule Management
-router.get("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getShiftSchedules);
-router.post("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.createShiftSchedule);
-router.post("/shift-schedules/weekly-preview", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.previewWeeklyShiftPlan);
-router.post("/shift-schedules/weekly-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveWeeklyShiftPlan);
-router.get("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getRecurringShiftPattern);
-router.post("/shift-schedules/recurring-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveRecurringShiftPlan);
-router.patch("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.updateShiftSchedule);
-router.delete("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteShiftSchedule);
+  router.get("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getShiftSchedules);
+  router.post("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.createShiftSchedule);
+  router.post("/shift-schedules/weekly-preview", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.previewWeeklyShiftPlan);
+  router.post("/shift-schedules/weekly-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveWeeklyShiftPlan);
+  router.get("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getRecurringShiftPattern);
+  router.post("/shift-schedules/recurring-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveRecurringShiftPlan);
+  router.delete("/shift-schedules/week", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteWeekShiftSchedules);
+  router.delete("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteRecurringShiftPattern);
+  router.patch("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.updateShiftSchedule);
+  router.delete("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteShiftSchedule);
 
 // Koordinator: Correction Review
 router.get("/corrections/pending", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getPendingCorrections);

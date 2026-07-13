@@ -491,6 +491,44 @@ export class AttendanceController {
     }
   }
 
+  static async deleteWeekShiftSchedules(req: Request, res: Response): Promise<void> {
+    try {
+      const weekStart = typeof req.query.weekStart === "string" ? req.query.weekStart : "";
+      if (!weekStart) {
+        res.status(400).json({ success: false, message: "Query weekStart wajib diisi (Senin YYYY-MM-DD)" });
+        return;
+      }
+      const data = await ShiftScheduleService.deleteWeek(weekStart);
+      res.json({
+        success: true,
+        message: `${data.deletedCount} jadwal piket minggu ${data.weekStart} berhasil dihapus`,
+        data,
+      });
+    } catch (error: unknown) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Gagal menghapus jadwal minggu",
+      });
+    }
+  }
+
+  static async deleteRecurringShiftPattern(req: Request, res: Response): Promise<void> {
+    try {
+      const patternId = typeof req.query.patternId === "string" ? req.query.patternId : undefined;
+      const data = await ShiftScheduleService.deleteRecurringPattern(patternId);
+      res.json({
+        success: true,
+        message: `Pola piket berulang dihapus (${data.deletedFutureCount} jadwal mendatang dibersihkan)`,
+        data,
+      });
+    } catch (error: unknown) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Gagal menghapus pola piket berulang",
+      });
+    }
+  }
+
   // Correction Requests
   static async createCorrectionRequest(req: Request, res: Response): Promise<void> {
     try {

@@ -813,6 +813,69 @@ export class ShiftScheduleService {
   static async delete(id: string) {
     return prisma.asLabShiftSchedule.delete({ where: { id } });
   }
+
+  static async deleteWeek(weekStart: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+      throw new Error("weekStart harus format YYYY-MM-DD");
+    }
+    const monday = new Date(`${weekStart}T00:00:00.000Z`);
+    if (Number.isNaN(monday.getTime()) || monday.getUTCDay() !== 1) {
+      throw new Error("weekStart harus hari Senin");
+    }
+    const sunday = new Date(monday);
+    sunday.setUTCDate(sunday.getUTCDate() + 6);
+
+    const result = await prisma.asLabShiftSchedule.deleteMany({
+      where: {
+        status: "SCHEDULED",
+        scheduleDate: { gte: monday, lte: sunday },
+      },
+    });
+
+    return {
+      deletedCount: result.count,
+      weekStart,
+      weekEnd: sunday.toISOString().slice(0, 10),
+    };
+  }
+
+  static async deleteRecurringPattern(patternId?: string) {
+    const pattern = patternId
+      ? await prisma.asLabPicketPattern.findUnique({ where: { id: patternId } })
+      : await prisma.asLabPicketPattern.findFirst({
+          orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+        });
+    if (!pattern) throw new Error("Pola piket berulang tidak ditemukan");
+
+    const today = new Date();
+    const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+    const result = await prisma.$transaction(async (tx) => {
+      const deletedFuture = await tx.asLabShiftSchedule.deleteMany({
+        where: {
+          patternId: pattern.id,
+          status: "SCHEDULED",
+          scheduleDate: { gte: todayDate },
+        },
+      });
+
+      await tx.asLabShiftSchedule.updateMany({
+        where: { patternId: pattern.id },
+        data: { patternId: null },
+      });
+
+      await tx.asLabPicketPatternAssignment.deleteMany({ where: { patternId: pattern.id } });
+      await tx.asLabPicketPattern.delete({ where: { id: pattern.id } });
+
+      return { deletedFutureCount: deletedFuture.count };
+    });
+
+    return {
+      patternId: pattern.id,
+      effectiveFrom: pattern.effectiveFrom.toISOString().slice(0, 10),
+      deletedFutureCount: result.deletedFutureCount,
+    };
+  }
 }
 
 // ============================================
