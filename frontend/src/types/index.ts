@@ -195,16 +195,19 @@ export type AsLabPicketDestination = "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_D
 
 export interface Shift {
   id: string;
-  name?: string;
-  labId: string;
-  day: DayOfWeek;
+  name?: string | null;
+  labId?: string | null;
+  aslebId?: string | null;
+  day?: DayOfWeek | null;
   startTime: string;
   endTime: string;
   lateToleranceMinutes: number;
   checkoutGraceMinutes: number;
   isTaskRequired: boolean;
   isActive: boolean;
-  lab?: Lab;
+  notes?: string | null;
+  lab?: Lab | null;
+  asleb?: (Pick<User, "id" | "name" | "email"> & { phone?: string }) | null;
 }
 
 export interface AttendanceSettings {

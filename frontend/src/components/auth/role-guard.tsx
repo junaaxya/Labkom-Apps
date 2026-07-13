@@ -26,6 +26,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/settings": ["KOORDINATOR_LAB"],
   "/attendance/monitoring": ["KOORDINATOR_LAB"],
+  "/shifts": ["KOORDINATOR_LAB"],
   "/task-history": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
 
   "/missions": ["KOORDINATOR_LAB", "ASISTEN_LAB"],

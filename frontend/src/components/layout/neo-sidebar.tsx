@@ -37,6 +37,7 @@ import {
   TbArrowsExchange,
   TbSpeakerphone,
   TbClock,
+  TbClockCog,
   TbX,
 } from "react-icons/tb";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -58,6 +59,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Manajemen User", href: "/users", icon: TbUsers, group: "Management" },
     { label: "Daftar Asleb", href: "/assistants", icon: TbUserCode, group: "Management" },
     { label: "Monitoring Absensi", href: "/attendance/monitoring", icon: TbChecklist, group: "Operations" },
+    { label: "Manajemen Shift", href: "/shifts", icon: TbClockCog, group: "Operations" },
     { label: "Jadwal Piket Aslab", href: "/attendance/shifts", icon: TbClock, group: "Operations" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Operations" },
     { label: "Monitoring Logbook", href: "/logbook", icon: TbBook2, group: "Operations" },
