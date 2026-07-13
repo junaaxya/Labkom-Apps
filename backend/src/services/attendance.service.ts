@@ -732,8 +732,8 @@ export class ShiftScheduleService {
     const today = new Date();
     const currentMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     currentMonday.setUTCDate(currentMonday.getUTCDate() - ((currentMonday.getUTCDay() + 6) % 7));
-    if (dateOnly(data.effectiveFrom) <= currentMonday) {
-      throw new WeeklyPlannerError("effectiveFrom harus minggu mendatang", [{ field: "effectiveFrom" }]);
+    if (dateOnly(data.effectiveFrom) < currentMonday) {
+      throw new WeeklyPlannerError("effectiveFrom tidak boleh minggu lalu", [{ field: "effectiveFrom" }]);
     }
     const activePicketWeekdays = await AttendanceSettingsService.getActivePicketWeekdays();
     const labIds = [...new Set(data.assignments.map(({ labId }) => labId))];
