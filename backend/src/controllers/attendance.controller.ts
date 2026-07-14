@@ -362,7 +362,9 @@ export class AttendanceController {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
       const month = req.query.month as string | undefined;
-      const data = await ShiftScheduleService.getMySchedules(req.user.userId, month);
+      const from = req.query.from as string | undefined;
+      const to = req.query.to as string | undefined;
+      const data = await ShiftScheduleService.getMySchedules(req.user.userId, { month, from, to });
       res.json({ success: true, data });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });

@@ -25,6 +25,13 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+function getPicketDestinationLabel(destination: string | null | undefined): string {
+  if (destination === "RUANGAN_ASLAB") return "Ruangan Aslab";
+  if (destination === "LAB_MULTIMEDIA") return "Lab Multimedia";
+  if (destination === "LAB_DASAR") return "Lab Dasar";
+  return "Lokasi piket";
+}
+
 async function checkScheduleReminders() {
   const now = new Date();
   const currentDay = getCurrentDayEnum();
@@ -58,6 +65,21 @@ async function checkScheduleReminders() {
         );
       }
     }
+  }
+}
+
+async function checkPicketReminders() {
+  const schedules = await ShiftScheduleService.getUpcomingPicketReminders(new Date(), 60);
+  for (const schedule of schedules) {
+    await notificationService.notifyPicketReminder({
+      userId: schedule.userId,
+      scheduleId: schedule.id,
+      scheduleDate: schedule.scheduleDate.toISOString().slice(0, 10),
+      destinationLabel: schedule.lab?.name ?? getPicketDestinationLabel(schedule.destination),
+      shiftName: schedule.shift.name ?? `${schedule.shift.startTime} - ${schedule.shift.endTime}`,
+      startTime: schedule.shift.startTime,
+      reminderKind: "60M",
+    });
   }
 }
 
@@ -204,6 +226,7 @@ export function startCronJobs() {
   // Every 5 minutes: check schedule reminders
   cron.schedule("*/5 * * * *", () => {
     checkScheduleReminders().catch(console.error);
+    checkPicketReminders().catch(console.error);
   });
 
   // Every 15 minutes: mark stale check-ins as forgot checkout and notify

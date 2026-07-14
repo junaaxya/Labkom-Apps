@@ -10,6 +10,7 @@ interface CreateNotificationInput {
   title: string;
   message: string;
   metadata?: Record<string, unknown>;
+  reminderKey?: string;
 }
 
 interface CreateBulkNotificationInput {
@@ -32,6 +33,7 @@ class NotificationService {
         title: input.title,
         message: input.message,
         metadata: (input.metadata as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+        reminderKey: input.reminderKey,
       },
     });
 
@@ -103,6 +105,37 @@ class NotificationService {
         count: input.count ?? 1,
       },
     });
+  }
+
+  async notifyPicketReminder(input: {
+    userId: string;
+    scheduleId: string;
+    scheduleDate: string;
+    destinationLabel: string;
+    shiftName: string;
+    startTime: string;
+    reminderKind: "60M";
+  }) {
+    const reminderKey = `picket:${input.scheduleId}:${input.reminderKind}`;
+    try {
+      return await this.create({
+        userId: input.userId,
+        type: "ATTENDANCE_REMINDER",
+        title: "Piket Dimulai 60 Menit Lagi",
+        message: `Piket ${input.destinationLabel} shift ${input.shiftName} dimulai pukul ${input.startTime}.`,
+        reminderKey,
+        metadata: {
+          source: "picket-reminder",
+          scheduleId: input.scheduleId,
+          scheduleDate: input.scheduleDate,
+          reminderKind: input.reminderKind,
+          link: "/attendance/shifts",
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+      throw error;
+    }
   }
 
   /**

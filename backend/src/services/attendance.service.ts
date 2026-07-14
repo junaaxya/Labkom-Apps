@@ -30,11 +30,73 @@ function getMonthRange(month: string): { start: Date; end: Date } {
 }
 
 function getTodayRange(): { start: Date; end: Date } {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
+  const { date } = getJakartaDateParts(new Date());
+  const start = new Date(`${date}T00:00:00+07:00`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
   return { start, end };
+}
+
+const JAKARTA_TIME_ZONE = "Asia/Jakarta";
+
+function getJakartaDateParts(now: Date): { date: string; hours: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: JAKARTA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+  return {
+    date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    hours: value("hour"),
+    minutes: value("minute"),
+  };
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function resolveLateTolerance(shiftTolerance: number | null | undefined, defaultTolerance: number): number {
+  return typeof shiftTolerance === "number" ? shiftTolerance : defaultTolerance;
+}
+
+export function isLateCheckin(checkinAt: Date, startTime: string, toleranceMinutes: number): boolean {
+  const { hours, minutes } = getJakartaDateParts(checkinAt);
+  return hours * 60 + minutes > timeToMinutes(startTime) + toleranceMinutes;
+}
+
+type TodayScheduleCandidate = {
+  id: string;
+  shift: {
+    startTime: string;
+  };
+};
+
+export function pickTodaySchedule<T extends TodayScheduleCandidate>(
+  schedules: T[],
+  now: Date,
+): T | null {
+  if (schedules.length === 0) return null;
+  const currentMinutes = (() => {
+    const { hours, minutes } = getJakartaDateParts(now);
+    return hours * 60 + minutes;
+  })();
+  const sorted = [...schedules].sort((left, right) => {
+    const minuteDiff = timeToMinutes(left.shift.startTime) - timeToMinutes(right.shift.startTime);
+    return minuteDiff !== 0 ? minuteDiff : left.id.localeCompare(right.id);
+  });
+  const started = sorted.filter((schedule) => timeToMinutes(schedule.shift.startTime) <= currentMinutes);
+  return started.length > 0 ? started[started.length - 1] : sorted[0];
 }
 
 const picketDestinationLabels: Record<AsLabPicketDestination, string> = {
@@ -352,10 +414,12 @@ export class ShiftScheduleService {
     });
   }
 
-  static async getMySchedules(userId: string, month?: string) {
+  static async getMySchedules(userId: string, filters?: { month?: string; from?: string; to?: string }) {
     const where: any = { userId };
-    if (month) {
-      const { start, end } = getMonthRange(month);
+    if (filters?.from && filters?.to) {
+      where.scheduleDate = { gte: dateOnly(filters.from), lte: dateOnly(filters.to) };
+    } else if (filters?.month) {
+      const { start, end } = getMonthRange(filters.month);
       where.scheduleDate = { gte: start, lte: end };
     }
     return prisma.asLabShiftSchedule.findMany({
@@ -368,10 +432,9 @@ export class ShiftScheduleService {
     });
   }
 
-  static async getTodaySchedule(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return prisma.asLabShiftSchedule.findFirst({
+  static async getTodaySchedule(userId: string, now = new Date()) {
+    const today = dateOnly(getJakartaDateParts(now).date);
+    const schedules = await prisma.asLabShiftSchedule.findMany({
       where: {
         userId,
         scheduleDate: today,
@@ -381,6 +444,38 @@ export class ShiftScheduleService {
         shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true, checkoutGraceMinutes: true } },
         lab: { select: { id: true, name: true } },
       },
+      orderBy: [{ id: "asc" }],
+    });
+    return pickTodaySchedule(schedules, now);
+  }
+
+  static async getUpcomingPicketReminders(now: Date, leadMinutes: number) {
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const targetMinutes = currentMinutes + leadMinutes;
+
+    const schedules = await prisma.asLabShiftSchedule.findMany({
+      where: { scheduleDate: { gte: dayStart, lt: dayEnd }, status: "SCHEDULED" },
+      include: {
+        shift: { select: { id: true, name: true, startTime: true, endTime: true } },
+        lab: { select: { id: true, name: true } },
+      },
+    });
+
+    const attendances = await prisma.attendance.findMany({
+      where: { createdAt: { gte: dayStart, lt: dayEnd }, shiftScheduleId: { not: null } },
+      select: { shiftScheduleId: true },
+    });
+    const checkedInScheduleIds = new Set(attendances.flatMap((attendance) => attendance.shiftScheduleId ? [attendance.shiftScheduleId] : []));
+
+    return schedules.filter((schedule) => {
+      if (checkedInScheduleIds.has(schedule.id)) return false;
+      const [hour, minute] = schedule.shift.startTime.split(":").map(Number);
+      const startMinutes = hour * 60 + minute;
+      return startMinutes >= targetMinutes - 1 && startMinutes <= targetMinutes + 1;
     });
   }
 
@@ -656,7 +751,6 @@ export class ShiftScheduleService {
 
     const materialized = materializeRecurringAssignments(horizon.start, activePicketWeekdays, templateAssignments)
       .filter((assignment) => assignment.date <= cappedEnd);
-    const dates = [...new Set(materialized.map((assignment) => assignment.date))];
     const labIds = [...new Set(materialized.map((assignment) => assignment.labId))];
     const userIds = [...new Set(materialized.flatMap((assignment) => assignment.userIds))];
     const expectedByDate = new Map<string, WeeklyAssignment[]>();
@@ -909,27 +1003,19 @@ export class AttendanceService {
     }
 
     // Find today's shift schedule
-    const todaySchedule = await ShiftScheduleService.getTodaySchedule(userId);
+    const now = new Date();
+    const todaySchedule = await ShiftScheduleService.getTodaySchedule(userId, now);
 
     // Determine status (CHECKED_IN or LATE)
     let status: "CHECKED_IN" | "LATE" = "CHECKED_IN";
     if (todaySchedule?.shift) {
-      const [shiftHour, shiftMin] = todaySchedule.shift.startTime.split(":").map(Number);
-      const tolerance = todaySchedule.shift.lateToleranceMinutes || settings.lateToleranceMinutes;
-      const now = new Date();
-      const shiftStart = new Date();
-      shiftStart.setHours(shiftHour, shiftMin, 0, 0);
-      const lateThreshold = new Date(shiftStart.getTime() + tolerance * 60000);
-      if (now > lateThreshold) {
+      const tolerance = resolveLateTolerance(todaySchedule.shift.lateToleranceMinutes, settings.lateToleranceMinutes);
+      if (isLateCheckin(now, todaySchedule.shift.startTime, tolerance)) {
         status = "LATE";
       }
     } else {
       // No shift assigned — use default 08:00 + tolerance
-      const now = new Date();
-      const defaultStart = new Date();
-      defaultStart.setHours(8, 0, 0, 0);
-      const lateThreshold = new Date(defaultStart.getTime() + settings.lateToleranceMinutes * 60000);
-      if (now > lateThreshold) {
+      if (isLateCheckin(now, "08:00", settings.lateToleranceMinutes)) {
         status = "LATE";
       }
     }
@@ -938,7 +1024,7 @@ export class AttendanceService {
       data: {
         userId,
         shiftScheduleId: todaySchedule?.id,
-        checkinAt: new Date(),
+        checkinAt: now,
         checkinLatitude: latitude,
         checkinLongitude: longitude,
         checkinLocationId,
@@ -1262,7 +1348,7 @@ export class AttendanceService {
       prisma.attendance.findMany({
         where,
         include: {
-          shiftSchedule: { include: { shift: true } },
+          shiftSchedule: { include: { shift: true, lab: { select: { id: true, name: true } } } },
           dailyTasks: true,
         },
         orderBy: { createdAt: "desc" },
