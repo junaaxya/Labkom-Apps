@@ -253,7 +253,6 @@ export class UserService {
       where: { id },
       select: {
         ...userSelect,
-        schedulesAsLecturer: { select: { id: true, title: true } },
         schedulesAsAssistant: { select: { id: true, title: true } },
       },
     });
