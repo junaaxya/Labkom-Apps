@@ -47,6 +47,7 @@ interface AttendanceRecord {
   shiftSchedule?: {
     shift?: { name: string; startTime: string; endTime: string };
     lab?: { name: string };
+    destination?: "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_DASAR" | null;
   };
   dailyTasks?: DailyTask[];
 }
@@ -81,6 +82,14 @@ const taskStatusConfig: Record<string, { label: string; color: string; bg: strin
   NEED_REVISION: { label: "Revisi", color: "text-orange-700", bg: "bg-orange-50" },
 };
 
+function picketLocationLabel(schedule: NonNullable<AttendanceRecord["shiftSchedule"]>) {
+  if (schedule.lab?.name) return schedule.lab.name;
+  if (schedule.destination === "RUANGAN_ASLAB") return "Ruangan Aslab";
+  if (schedule.destination === "LAB_MULTIMEDIA") return "Lab Multimedia";
+  if (schedule.destination === "LAB_DASAR") return "Lab Dasar";
+  return "-";
+}
+
 export default function AssistantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -90,6 +99,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -97,6 +107,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
 
   const fetchData = async () => {
     setLoading(true);
+    setProfileError(null);
     try {
       const [userRes, detailRes] = await Promise.allSettled([
         api.get<{ data: AslebUser }>(`/users/${id}`),
@@ -112,6 +123,9 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
             ? (raw as { data?: unknown }).data
             : raw;
         setUser((detail as AslebUser) ?? null);
+      } else {
+        setUser(null);
+        setProfileError(userRes.reason instanceof Error ? userRes.reason.message : "Profil Asisten Lab tidak dapat dimuat");
       }
 
       if (detailRes.status === "fulfilled") {
@@ -191,16 +205,23 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
                 {user.phone}
               </span>
             )}
-            <span
-              className={`neo-badge px-3 py-1.5 text-xs font-bold neo-border ${
-                user?.isActive ? "bg-[#e8f5e9] text-green-800" : "bg-red-50 text-red-700"
-              }`}
-            >
-              {user?.isActive ? "Aktif" : "Nonaktif"}
-            </span>
+            {user && (
+              <span
+                className={`neo-badge px-3 py-1.5 text-xs font-bold neo-border ${
+                  user.isActive ? "bg-[#e8f5e9] text-green-800" : "bg-red-50 text-red-700"
+                }`}
+              >
+                {user.isActive ? "Aktif" : "Nonaktif"}
+              </span>
+            )}
           </div>
         </div>
       </div>
+      {profileError && (
+        <div className="neo-card border-red-700 bg-red-50 p-4 text-sm font-bold text-red-800">
+          {profileError}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <label className="text-sm font-bold text-[#1a1a1a]">Bulan:</label>
@@ -277,7 +298,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
                     {att.shiftSchedule && (
                       <p className="text-xs text-[#5a5a5a] mt-1">
                         <TbMapPin className="inline w-3 h-3 mr-1" />
-                        {att.shiftSchedule.lab?.name || "-"} • {att.shiftSchedule.shift?.name || "Shift"}
+                        {picketLocationLabel(att.shiftSchedule)} • {att.shiftSchedule.shift?.name || "Shift"}
                       </p>
                     )}
                   </div>

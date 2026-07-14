@@ -40,6 +40,11 @@ export default function AssistantsPage() {
         const obj = data as Record<string, unknown>;
         const maybeItems = obj.items ?? obj.users;
         if (Array.isArray(maybeItems)) return maybeItems;
+        if (obj.data && typeof obj.data === "object") {
+          const nested = obj.data as Record<string, unknown>;
+          const nestedItems = nested.items ?? nested.users;
+          if (Array.isArray(nestedItems)) return nestedItems;
+        }
       }
       return [];
     })();
