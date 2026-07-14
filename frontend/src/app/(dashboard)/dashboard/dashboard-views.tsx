@@ -86,6 +86,23 @@ export interface ShiftItem {
   lab?: { name?: string };
 }
 
+export interface PicketScheduleItem {
+  id: string;
+  scheduleDate: string;
+  status: string;
+  lab?: { name?: string | null } | null;
+  destination?: "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_DASAR" | null;
+  shift?: { name?: string | null; startTime?: string; endTime?: string } | null;
+}
+
+function picketLocationLabel(schedule: PicketScheduleItem) {
+  if (schedule.lab?.name) return schedule.lab.name;
+  if (schedule.destination === "RUANGAN_ASLAB") return "Ruangan Aslab";
+  if (schedule.destination === "LAB_MULTIMEDIA") return "Lab Multimedia";
+  if (schedule.destination === "LAB_DASAR") return "Lab Dasar";
+  return "Lokasi piket";
+}
+
 export interface KeyItem {
   id: string;
   keyCode: string;
@@ -762,14 +779,14 @@ export function KoordinatorDashboard({
 }
 
 export function AsistenDashboard({
-  shifts,
+  picketSchedules,
   myMissions,
   assignedTickets,
   myRank,
   myPoints,
   attendanceMonthCount,
 }: {
-  shifts: ShiftItem[];
+  picketSchedules: PicketScheduleItem[];
   myMissions: MissionItem[];
   assignedTickets: TicketItem[];
   myRank: number;
@@ -777,7 +794,7 @@ export function AsistenDashboard({
   attendanceMonthCount: number;
 }) {
   const activeMissionCount = myMissions.filter((m) => m.status === "TAKEN").length;
-  const tasksToday = shifts.length + assignedTickets.filter((t) => ["OPEN", "IN_PROGRESS"].includes(t.status)).length;
+  const tasksToday = picketSchedules.filter((schedule) => new Date(schedule.scheduleDate).toDateString() === new Date().toDateString()).length + assignedTickets.filter((t) => ["OPEN", "IN_PROGRESS"].includes(t.status)).length;
   const stats: StatCardItem[] = [
     { label: "Misi Aktif", value: activeMissionCount, icon: TbTargetArrow, tone: "text-[#f3701e]", variant: "orange", href: "/missions" },
     { label: "Poin Saya", value: myPoints, icon: TbSparkles, tone: "text-[#4b607f]", variant: "violet", href: "/leaderboard" },
@@ -793,25 +810,25 @@ export function AsistenDashboard({
       <QuickActions items={[{ label: "Absen Masuk", href: "/attendance", icon: TbCircleCheck }, { label: "Ambil Misi", href: "/missions", icon: TbTargetArrow }, { label: "Lihat Ticket", href: "/tickets", icon: TbTicket }]} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
-        <Section title="Jadwal Shift Saya Hari Ini" icon={TbCalendarEvent} delay={0.1}>
+        <Section title="Jadwal Piket Saya" icon={TbCalendarEvent} delay={0.1}>
           <div className="space-y-3">
-            {shifts.map((shift) => (
-              <Link key={shift.id} href="/schedules" prefetch={true} aria-label={`Shift di ${shift.lab?.name || "Lab"}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+            {picketSchedules.map((schedule) => (
+ <Link key={schedule.id} href="/attendance/shifts" prefetch={true} aria-label={`Piket di ${picketLocationLabel(schedule)}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-[#fcf8f4] sm:hover:bg-[#f5ede6] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
                   <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{shift.lab?.name || "Lab"}</p>
-                  <p className="text-[11px] text-[#5a5a5a] font-medium">{shift.startTime || "-"} – {shift.endTime || "-"}</p>
+ <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{picketLocationLabel(schedule)}</p>
+                  <p className="text-[11px] text-[#5a5a5a] font-medium">{new Date(schedule.scheduleDate).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })} · {schedule.shift?.startTime || "-"} – {schedule.shift?.endTime || "-"}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(shift.status)}`}>{shift.status || "-"}</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(schedule.status)}`}>{schedule.status || "-"}</span>
                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
                 </div>
               </Link>
             ))}
-            {shifts.length === 0 && (
-              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada shift hari ini.</p>
+            {picketSchedules.length === 0 && (
+              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal piket dalam 7 hari ke depan.</p>
             )}
           </div>
         </Section>

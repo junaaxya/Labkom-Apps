@@ -19,7 +19,7 @@ import {
   type MissionItem,
   type PCAgentStats,
   type ScheduleItem,
-  type ShiftItem,
+  type PicketScheduleItem,
   type TicketItem,
 } from "./dashboard-views";
 import { DashboardSkeleton } from "./dashboard-skeleton";
@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const [activeLogbooks, setActiveLogbooks] = useState<LogbookItem[]>([]);
   const [myMissions, setMyMissions] = useState<MissionItem[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [shifts, setShifts] = useState<ShiftItem[]>([]);
+  const [picketSchedules, setPicketSchedules] = useState<PicketScheduleItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pcAgentStats, setPcAgentStats] = useState<PCAgentStats | null>(null);
 
@@ -108,13 +108,12 @@ export default function DashboardPage() {
       const [missionRes, ticketRes, shiftRes, leaderboardRes, attendanceRes] = await Promise.all([
         api.get<{ data: MissionItem[] }>("/missions/my").catch(() => ({ data: [] })),
         api.get<{ data: TicketItem[] }>(`/tickets?assignedTo=${uid}`).catch(() => ({ data: [] })),
-        api.get<{ data: ShiftItem[] }>("/shifts/today").catch(() => ({ data: [] })),
+        api.get<{ data: PicketScheduleItem[] }>(`/attendance/shift-schedules/me?from=${dayjs().format("YYYY-MM-DD")}&to=${dayjs().add(7, "day").format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
         api.get<{ data: LeaderboardEntry[] }>("/leaderboard").catch(() => ({ data: [] })),
         api.get<{ data: { createdAt?: string }[] }>("/attendance/me").catch(() => ({ data: [] })),
       ]);
 
-      const allShifts = asArray<ShiftItem>(shiftRes.data);
-      const myShifts = allShifts.filter((shift) => (shift.userId || shift.assistantId) === uid);
+      const myPicketSchedules = asArray<PicketScheduleItem>(shiftRes.data);
       const attendanceThisMonth = asArray<{ createdAt?: string }>(attendanceRes.data).filter((item) => {
         if (!item.createdAt) return false;
         return dayjs(item.createdAt).month() === dayjs().month() && dayjs(item.createdAt).year() === dayjs().year();
@@ -122,7 +121,7 @@ export default function DashboardPage() {
 
       setMyMissions(asArray<MissionItem>(missionRes.data));
       setTickets(asArray<TicketItem>(ticketRes.data));
-      setShifts(myShifts);
+      setPicketSchedules(myPicketSchedules);
       setLeaderboard(asArray<LeaderboardEntry>(leaderboardRes.data));
       setAttendanceMonthCount(attendanceThisMonth.length);
     }
@@ -207,7 +206,7 @@ export default function DashboardPage() {
         />
       ) : role === "ASISTEN_LAB" ? (
         <AsistenDashboard
-          shifts={shifts}
+          picketSchedules={picketSchedules}
           myMissions={myMissions}
           assignedTickets={tickets}
           myRank={myRankEntry?.rank || 0}
