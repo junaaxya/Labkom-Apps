@@ -1184,6 +1184,7 @@ model Notification {
   message   String
   isRead    Boolean          @default(false)
   metadata  Json? // Extra data (link, referenceId, etc)
+  reminderKey String? @unique
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
