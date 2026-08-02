@@ -7,9 +7,17 @@
     "prebuild": "node scripts/stamp-sw.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:capacitor-config": "bun test scripts/check-capacitor-config.test.mjs",
+    "cap:check": "node scripts/check-capacitor-config.mjs",
+    "cap:sync:android": "npm run cap:check && npx cap sync android",
+    "cap:open:android": "npx cap open android",
+    "cap:assets:android": "npm run cap:check && npx @capacitor/assets generate --android",
+    "cap:prepare:android": "npm run cap:check && npx cap sync android && npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "@base-ui/react": "^1.4.1",
     "@fontsource/space-grotesk": "^5.2.10",
     "@react-three/drei": "^10.7.7",
@@ -38,6 +46,8 @@
     "zod": "^4.4.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
