@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 import {
+  TbBrandAndroid,
   TbBook2,
   TbQrcode,
   TbTicket,
@@ -94,6 +95,9 @@ export default function Home() {
             <Link href="/register" className="px-5 py-2 bg-white text-[#1a1a1a] neo-btn hidden sm:block">
               Daftar Sekarang
             </Link>
+            <Link href="/download" className="hidden px-5 py-2 font-bold hover:bg-[#d4c4b5] transition-colors rounded-lg lg:block">
+              Download APK
+            </Link>
           </div>
         </nav>
 
@@ -146,6 +150,9 @@ export default function Home() {
             </Link>
             <Link href="/layanan-hosting" className="w-full sm:w-auto text-center px-8 py-4 bg-[#4b607f] text-white neo-btn text-lg">
               Paket Hosting
+            </Link>
+            <Link href="/download" className="w-full sm:w-auto text-center px-8 py-4 bg-[#1a1a1a] text-white neo-btn text-lg flex items-center justify-center gap-2">
+              <TbBrandAndroid className="h-5 w-5" /> Download APK
             </Link>
           </motion.div>
         </section>
@@ -220,6 +227,11 @@ export default function Home() {
               <Link href="/register" className="inline-flex items-center gap-2 px-8 py-4 bg-[#f3701e] text-white neo-btn text-lg neo-glow">
                 Daftar Gratis <TbArrowRight />
               </Link>
+              <div className="mt-4">
+                <Link href="/download" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#1a1a1a] neo-btn text-base font-black">
+                  <TbBrandAndroid className="h-5 w-5 text-[#f3701e]" /> Download APK Android
+                </Link>
+              </div>
             </div>
           </div>
         </section>
