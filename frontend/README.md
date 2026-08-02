@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## LabKom Frontend
 
-## Getting Started
+Frontend LabKom tetap memakai Next.js SSR + PWA. Android APK internal dibuat dengan **Capacitor remote wrapper**, jadi aplikasi Android akan memuat frontend HTTPS produksi, bukan static export.
 
-First, run the development server:
+Folder `capacitor-web/` hanya shell statis kecil agar `cap sync` stabil. Aplikasi sebenarnya tetap dimuat dari `CAPACITOR_SERVER_URL`.
+
+## Web Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Butuh env web lokal:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Android APK Internal
 
-## Learn More
+### Prinsip
 
-To learn more about Next.js, take a look at the following resources:
+- APK **wajib** memakai `CAPACITOR_SERVER_URL` HTTPS produksi.
+- `localhost`, IP private, HTTP, query string, hash, dan placeholder akan ditolak oleh guard.
+- Wrapper ini butuh internet aktif untuk memuat aplikasi produksi.
+- PWA/web tetap dipakai sebagai fallback browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Siapkan env release
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+export CAPACITOR_SERVER_URL="https://app.kampus-anda.ac.id"
+```
 
-## Deploy on Vercel
+### Validasi config release
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run test:capacitor-config
+npm run cap:check
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Sync Android shell
+
+```bash
+npm run cap:sync:android
+```
+
+### Generate icon / splash Android
+
+Source file ada di `frontend/resources/`.
+
+```bash
+npm run cap:assets:android
+```
+
+### Buka project Android
+
+```bash
+npm run cap:open:android
+```
+
+### Siapkan project Android untuk build release
+
+Project ini **tidak** menyimpan keystore di repo. Simpan di mesin release / CI secret store.
+
+Flow aman:
+
+1. buka Android Studio
+2. pastikan `Build Variants` ke release
+3. `Build > Generate Signed Bundle / APK`
+4. pilih APK
+5. isi keystore lokal
+6. build signed APK
+
+Atau jalankan helper:
+
+```bash
+npm run cap:prepare:android
+```
+
+Catatan: helper hanya validasi, sync, lalu buka project Android. Signing dan build APK release tetap dilakukan di Android Studio / Gradle release config rahasia.
+
+### Permission native yang dipakai
+
+- `INTERNET`
+- `CAMERA`
+- `ACCESS_COARSE_LOCATION`
+- `ACCESS_FINE_LOCATION`
+- `POST_NOTIFICATIONS`
+
+Tidak ada `ACCESS_BACKGROUND_LOCATION`. Tidak ada cleartext traffic.
+
+## Catatan release
+
+- jangan commit file signing: `*.jks`, `*.keystore`, `key.properties`
+- jangan commit `android/local.properties`
+- verifikasi APK final dan checksum sebelum dibagikan ke mahasiswa
+- distribusi bisa lewat sideload APK internal kampus, tidak perlu Play Store
