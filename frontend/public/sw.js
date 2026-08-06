@@ -1,18 +1,17 @@
-const CACHE_NAME = "labkom-video-splash-20260708";
+const CACHE_NAME = "labkom-8ef92dc7d427";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
   "/",
   "/offline",
   "/manifest.json",
-  "/manifest-labkom-20260708.webmanifest",
-  "/icons/labkom-app-icon-192.png",
-  "/icons/labkom-app-icon-512.png",
-  "/icons/labkom-maskable-icon-192.png",
-  "/icons/labkom-maskable-icon-512.png",
-  "/icons/labkom-logo-1024.png",
-  "/labkom-splash.mp4",
-  "/labkom-apple-touch-icon.png",
+  "/manifest-labkom-8ef92dc7d427.webmanifest",
+  "/icons/labkom-8ef92dc7d427.png",
+  "/icons/labkom-8ef92dc7d427.png",
+  "/icons/labkom-8ef92dc7d427.png",
+  "/icons/labkom-8ef92dc7d427.png",
+  "/icons/labkom-8ef92dc7d427.png",
+  "/labkom-8ef92dc7d427.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -59,8 +58,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "LabKom";
   const options = {
     body: payload.body || payload.message || "Notifikasi baru",
-    icon: "/icons/labkom-logo-1024.png",
-    badge: "/icons/labkom-app-icon-192.png",
+    icon: "/icons/labkom-8ef92dc7d427.png",
+    badge: "/icons/labkom-8ef92dc7d427.png",
     data: payload.data || { link: "/notifications" },
   };
 
@@ -114,9 +113,9 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname === "/manifest.json" ||
-    url.pathname === "/manifest-labkom-20260708.webmanifest" ||
+    url.pathname === "/manifest-labkom-8ef92dc7d427.webmanifest" ||
     url.pathname === "/apple-touch-icon.png" ||
-    url.pathname === "/labkom-apple-touch-icon.png";
+    url.pathname === "/labkom-8ef92dc7d427.png";
 
   if (!isStaticAsset) return;
 

@@ -151,10 +151,11 @@ export default function Home() {
             <Link href="/layanan-hosting" className="w-full sm:w-auto text-center px-8 py-4 bg-[#4b607f] text-white neo-btn text-lg">
               Paket Hosting
             </Link>
-            <Link href="/download" className="w-full sm:w-auto text-center px-8 py-4 bg-[#1a1a1a] text-white neo-btn text-lg flex items-center justify-center gap-2">
-              <TbBrandAndroid className="h-5 w-5" /> Download APK
-            </Link>
-          </motion.div>
+              <Link href="/download" className="w-full sm:w-auto text-center px-8 py-4 bg-[#1a1a1a] text-white neo-btn text-lg flex items-center justify-center gap-2">
+                <TbBrandAndroid className="h-5 w-5" /> Download APK
+              </Link>
+            </motion.div>
+
         </section>
 
         <section className="border-y-4 border-[#1a1a1a] bg-white py-12 mb-32 overflow-hidden relative">
