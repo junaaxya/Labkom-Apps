@@ -222,10 +222,9 @@ export default function LoginPage() {
               </div>
             </form>
 
-            <div className="mt-8 pt-6 border-t-2 border-dashed border-[#1a1a1a] text-center">
-              <p className="text-sm font-medium text-[#5a5a5a]">
-                Belum punya akun? Hubungi Koordinator Lab untuk pendaftaran.
-              </p>
+            <div className="mt-8 pt-6 border-t-2 border-dashed border-[#1a1a1a] text-center space-y-3">
+              <p className="text-sm font-medium text-[#5a5a5a]">Akun internal dibuat admin atau impor data.</p>
+              <Link href="/register" className="inline-flex items-center justify-center min-h-[44px] rounded-lg bg-[#f5ede6] px-4 py-2 text-sm font-bold text-[#1a1a1a] neo-border-sm shadow-[2px_2px_0px_#1a1a1a]">Ajukan Akses / Peminjaman Lab</Link>
             </div>
           </div>
           

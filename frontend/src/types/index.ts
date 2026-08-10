@@ -1,4 +1,4 @@
-export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA";
+export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
 
 export type LabStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
@@ -13,6 +13,9 @@ export type ScheduleStatus = "SCHEDULED" | "ONGOING" | "FINISHED" | "CANCELLED";
 export type ScheduleType = "PRAKTIKUM" | "PEMINJAMAN" | "KEGIATAN";
 
 export type BookingStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+export type AccessRequestType = "PEMINJAMAN_LAB" | "MAGANG" | "AKSES_SEMENTARA";
+export type AccessRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "REVISION";
 
 export type ScheduleChangeType = "RESCHEDULE" | "CANCEL_SESSION" | "EXTRA_SLOT";
 
@@ -210,6 +213,32 @@ export interface Shift {
   asleb?: (Pick<User, "id" | "name" | "email"> & { phone?: string }) | null;
 }
 
+export interface AccessRequest {
+  id: string;
+  requestCode: string;
+  type: AccessRequestType;
+  status: AccessRequestStatus;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone?: string;
+  institution?: string;
+  title: string;
+  description?: string;
+  purpose?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  participants?: number;
+  requestedRole?: Role;
+  reviewerNotes?: string;
+  reviewedAt?: string;
+  labId?: string;
+  bookingId?: string;
+  createdAt: string;
+  updatedAt: string;
+  lab?: Lab;
+}
+
 export interface AttendanceSettings {
   id: string;
   isGeofencingEnabled: boolean;
@@ -398,8 +427,12 @@ export interface Schedule {
 export interface LabBooking {
   id: string;
   labId: string;
-  requestedBy: string;
+  requestedBy?: string;
   approvedBy?: string;
+  externalRequesterName?: string;
+  externalRequesterEmail?: string;
+  externalRequesterPhone?: string;
+  externalInstitution?: string;
   title: string;
   description?: string;
   purpose: "UKM" | "Lomba" | "Kerja Kelompok" | "Riset" | "Pelatihan" | "Lainnya";

@@ -50,6 +50,12 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Lapor", href: "/tickets/new", icon: TbAlertTriangle, match: (p) => p === "/tickets/new" },
     { label: "AI", href: "/ai-assistant", icon: TbRobot },
   ],
+  MAGANG: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
+    { label: "Booking", href: "/lab-booking", icon: TbCalendarEvent, match: (p) => p.startsWith("/lab-booking") },
+    { label: "FAQ", href: "/faq", icon: TbRobot, match: (p) => p.startsWith("/faq") },
+    { label: "Guide", href: "/guide", icon: TbBook2, match: (p) => p.startsWith("/guide") },
+  ],
 };
 
 const FALLBACK: NavItem[] = [
