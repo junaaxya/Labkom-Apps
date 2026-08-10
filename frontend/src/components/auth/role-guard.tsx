@@ -6,8 +6,6 @@ import type { Role } from "@/types";
 import { TbShieldX } from "react-icons/tb";
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/announcements/manage": ["KOORDINATOR_LAB"],
   "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
@@ -47,12 +45,10 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/predictive": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/smart-scheduling": ["KOORDINATOR_LAB"],
 
-  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/access-requests": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/download": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/layanan-hosting": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/offline": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
 };
 
 function hasAccess(pathname: string, role: Role): boolean {

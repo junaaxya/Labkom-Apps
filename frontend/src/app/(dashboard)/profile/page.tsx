@@ -151,12 +151,14 @@ export default function ProfilePage() {
     KOORDINATOR_LAB: "Koordinator Lab",
     ASISTEN_LAB: "Asisten Lab",
     MAHASISWA: "Mahasiswa",
+    MAGANG: "Magang",
   };
 
   const roleBg: Record<string, string> = {
     KOORDINATOR_LAB: "bg-[#4b607f]",
     ASISTEN_LAB: "bg-[#f3701e]",
     MAHASISWA: "bg-emerald-500",
+    MAGANG: "bg-violet-500",
   };
 
   if (loading) {

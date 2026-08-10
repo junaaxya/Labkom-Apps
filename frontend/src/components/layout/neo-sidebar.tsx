@@ -66,6 +66,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Peminjaman Kunci", href: "/keys", icon: TbKey, group: "Operations" },
     { label: "Ticketing", href: "/tickets", icon: TbTicket, group: "Operations" },
     { label: "Approval Peminjaman", href: "/lab-booking", icon: TbCalendarClock, group: "Operations" },
+    { label: "Pengajuan Akses", href: "/access-requests", icon: TbChecklist, group: "Operations" },
     { label: "Manajemen Pengumuman", href: "/announcements/manage", icon: TbSpeakerphone, group: "Operations" },
     { label: "Misi & Verifikasi", href: "/missions", icon: TbTargetArrow, group: "Gamification" },
     { label: "Leaderboard", href: "/leaderboard", icon: TbTrophy, group: "Gamification" },
@@ -94,6 +95,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Kunci Lab", href: "/keys", icon: TbKey, group: "Operations" },
     { label: "Ticketing", href: "/tickets", icon: TbTicket, group: "Operations" },
     { label: "Approval Peminjaman", href: "/lab-booking", icon: TbCalendarClock, group: "Operations" },
+    { label: "Pengajuan Akses", href: "/access-requests", icon: TbChecklist, group: "Operations" },
     { label: "Peta Lab", href: "/lab-map", icon: TbMap2, group: "Monitoring" },
     { label: "PC Monitoring", href: "/pc-monitoring", icon: TbDeviceDesktop, group: "Monitoring" },
     { label: "Inventory", href: "/inventory", icon: TbServer, group: "Monitoring" },
@@ -117,9 +119,9 @@ const menuByRole: Record<Role, MenuItem[]> = {
   MAGANG: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
-    { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
-    { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
-    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
+    { label: "Peminjaman Lab", href: "/lab-booking", icon: TbCalendarClock, group: "Support" },
+    { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Resources" },
+    { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
   ],
 };
 
