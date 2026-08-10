@@ -86,8 +86,8 @@ export class BookingService {
       select: { role: true, isKetuaKelas: true },
     });
 
-    if (!requester || (requester.role !== "MAHASISWA" && !requester.isKetuaKelas)) {
-      throw new Error("Hanya mahasiswa atau ketua kelas yang dapat mengajukan peminjaman lab");
+    if (!requester || (requester.role !== "MAHASISWA" && requester.role !== "MAGANG" && !requester.isKetuaKelas)) {
+      throw new Error("Hanya mahasiswa, magang, atau ketua kelas yang dapat mengajukan peminjaman lab");
     }
 
     const lab = await prisma.lab.findUnique({ where: { id: data.labId } });
@@ -101,10 +101,13 @@ export class BookingService {
       prisma.schedule.findFirst({
         where: {
           labId: data.labId,
-          day,
           isActive: true,
           startTime: { lt: data.endTime },
           endTime: { gt: data.startTime },
+          OR: [
+            { specificDate: date },
+            { specificDate: null, day },
+          ],
         },
       }),
       prisma.labBooking.findFirst({
@@ -161,10 +164,13 @@ export class BookingService {
       prisma.schedule.findFirst({
         where: {
           labId: booking.labId,
-          day,
           isActive: true,
           startTime: { lt: booking.endTime },
           endTime: { gt: booking.startTime },
+          OR: [
+            { specificDate: booking.date },
+            { specificDate: null, day },
+          ],
         },
       }),
       prisma.labBooking.findFirst({
@@ -208,6 +214,7 @@ export class BookingService {
         data: {
           labId: booking.labId,
           title: booking.title,
+          specificDate: booking.date,
           day,
           startTime: booking.startTime,
           endTime: booking.endTime,

@@ -52,7 +52,7 @@ export class BookingController {
       const canAccess =
         req.user.role === "KOORDINATOR_LAB" ||
         req.user.role === "ASISTEN_LAB" ||
-        booking.requestedBy === req.user.userId;
+        (booking.requestedBy != null && booking.requestedBy === req.user.userId);
 
       if (!canAccess) {
         res.status(403).json({ success: false, message: "Anda tidak memiliki akses ke data ini" });
