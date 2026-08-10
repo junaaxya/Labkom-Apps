@@ -17,7 +17,7 @@ export const registerSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
   nim: z.string().optional(),
   nip: z.string().optional(),
-  role: z.enum(["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"]).default("MAHASISWA"),
+  role: z.enum(["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"]).default("MAHASISWA"),
   semester: z.string().optional(),
   className: z.string().optional(),
 });

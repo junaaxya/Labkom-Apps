@@ -28,6 +28,7 @@ import leaveRoutes from "./leave.routes";
 import announcementRoutes from "./announcement.routes";
 import hostingRoutes from "./hosting.routes";
 import assetRoutes from "./asset.routes";
+import accessRequestRoutes from "./access-request.routes";
 
 
 const router = Router();
@@ -69,5 +70,6 @@ router.use("/leaves", leaveRoutes);
 router.use("/announcements", announcementRoutes);
 router.use("/hosting", hostingRoutes);
 router.use("/assets", assetRoutes);
+router.use("/access-requests", accessRequestRoutes);
 
 export default router;
