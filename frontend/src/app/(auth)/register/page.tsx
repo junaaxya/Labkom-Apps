@@ -67,7 +67,19 @@ export default function RegisterPage() {
       ? "Peminjaman Lab"
       : formData.type === "MAGANG"
         ? "Pengajuan Magang"
-        : "Akses Sementara";
+        : "Akses Tamu Sementara";
+  }, [formData.type]);
+
+  const approvalOutcomeText = useMemo(() => {
+    if (formData.type === "PEMINJAMAN_LAB") {
+      return "Jika disetujui, pengajuan akan masuk ke jadwal peminjaman lab dan Anda bisa mengikuti instruksi lanjutan dari Aslab atau Koordinator.";
+    }
+
+    if (formData.type === "MAGANG") {
+      return "Jika disetujui, admin/koordinator akan menindaklanjuti proses akun atau akses magang sesuai kebutuhan operasional.";
+    }
+
+    return "Jika disetujui, Anda akan mendapat akses sementara yang terbatas untuk kebutuhan tamu, kegiatan khusus, atau akses singkat lainnya.";
   }, [formData.type]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -169,6 +181,14 @@ export default function RegisterPage() {
         ? "bg-yellow-400 text-[#1a1a1a]"
         : "bg-[#4b607f] text-white";
 
+  const approvedStatusHint = checkedRequest?.status === "APPROVED"
+    ? checkedRequest.type === "PEMINJAMAN_LAB"
+      ? "Pengajuan sudah disetujui. Tim lab akan menindaklanjuti jadwal peminjaman Anda."
+      : checkedRequest.type === "MAGANG"
+        ? `Pengajuan disetujui. Silakan login memakai email pengajuan Anda dan password awal = kode pengajuan (${checkedRequest.requestCode}). Setelah berhasil masuk, segera ganti password.`
+        : `Pengajuan disetujui. Silakan login memakai email pengajuan Anda dan password awal = kode pengajuan (${checkedRequest.requestCode}). Akses ini bersifat sementara dan terbatas.`
+    : "";
+
   return (
     <div className="min-h-screen bg-[var(--color-cream)] flex flex-col md:flex-row overflow-hidden">
       <div className="hidden md:flex md:w-1/2 bg-[var(--color-steel-blue)] p-12 relative flex-col justify-between neo-border-r border-[#1a1a1a] border-r-4 z-10 overflow-hidden">
@@ -210,7 +230,7 @@ export default function RegisterPage() {
 
             <form onSubmit={submitRequest} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Jenis Pengajuan</span><select name="type" value={formData.type} onChange={handleChange} className="w-full px-4 py-3 min-h-[44px] neo-input"><option value="PEMINJAMAN_LAB">Peminjaman Lab</option><option value="MAGANG">Pengajuan Magang</option><option value="AKSES_SEMENTARA">Akses Sementara</option></select></label>
+                <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Jenis Pengajuan</span><select name="type" value={formData.type} onChange={handleChange} className="w-full px-4 py-3 min-h-[44px] neo-input"><option value="PEMINJAMAN_LAB">Peminjaman Lab</option><option value="MAGANG">Pengajuan Magang</option><option value="AKSES_SEMENTARA">Akses Tamu Sementara</option></select>{formData.type === "AKSES_SEMENTARA" && <p className="text-xs font-medium text-[#5a5a5a]">Untuk tamu, kegiatan khusus, workshop, kunjungan, atau akses singkat non-user tetap.</p>}</label>
                 <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Nama Lengkap</span><div className="relative"><TbUser className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5a5a5a]" /><input name="applicantName" value={formData.applicantName} onChange={handleChange} required className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input" /></div></label>
               </div>
 
@@ -233,15 +253,18 @@ export default function RegisterPage() {
               <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Tujuan / Keterangan</span><textarea name="purpose" value={formData.purpose} onChange={handleChange} rows={3} className="w-full px-4 py-3 neo-input" placeholder={formData.type === "MAGANG" ? "Ceritakan tujuan magang / divisi / periode" : `Jelaskan kebutuhan ${typeLabel.toLowerCase()}`} /></label>
               <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Deskripsi Tambahan</span><textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-4 py-3 neo-input" /></label>
 
+              <div className="rounded-lg bg-[#f5ede6] p-4 neo-border-sm"><p className="text-sm font-bold text-[#1a1a1a]">Kalau pengajuan disetujui</p><p className="mt-1 text-sm text-[#5a5a5a]">{approvalOutcomeText}</p></div>
+
               <button type="submit" disabled={isLoading} className="w-full py-3.5 min-h-[44px] bg-[var(--color-orange)] text-[#1a1a1a] neo-btn flex items-center justify-center gap-2 disabled:opacity-70"><span className="flex items-center gap-2">{isLoading ? <TbLoader2 className="animate-spin text-xl" /> : <TbSend className="text-xl" />}{isLoading ? "Mengirim..." : "Kirim Pengajuan"}</span></button>
             </form>
           </div>
 
           <div className="neo-card p-6 sm:p-8 bg-white">
-            <h3 className="font-heading text-xl font-bold text-[#1a1a1a] mb-4">Cek Status Pengajuan</h3>
+            <h3 className="font-heading text-xl font-bold text-[#1a1a1a] mb-2">Lacak Pengajuan Anda</h3>
+            <p className="mb-4 text-sm font-medium text-[#5a5a5a]">Sudah pernah mengajukan? Masukkan kode pengajuan untuk melihat apakah pengajuan Anda masih diproses, disetujui, ditolak, atau perlu revisi.</p>
             <div className="flex flex-col sm:flex-row gap-3"><input value={requestCode} onChange={(e) => setRequestCode(e.target.value.toUpperCase())} placeholder="Contoh: BOOK-AB12CD34" className="neo-input flex-1 px-4 py-3 min-h-[44px]" /><button type="button" onClick={() => void checkStatus()} disabled={isChecking} className="neo-btn min-h-[44px] bg-[#4b607f] px-5 py-3 text-white">{isChecking ? "Mengecek..." : "Cek Status"}</button></div>
 
-            {checkedRequest && <div className="mt-4 rounded-lg bg-[#f5ede6] p-4 neo-border"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-[#1a1a1a]">{checkedRequest.title}</p><span className={`rounded-full px-3 py-1 text-xs font-black ${statusBadge}`}>{checkedRequest.status}</span></div><p className="mt-2 text-sm font-medium text-[#5a5a5a]">Kode: {checkedRequest.requestCode}</p>{checkedRequest.reviewerNotes && <p className="mt-2 text-sm text-[#1a1a1a]">Catatan reviewer: {checkedRequest.reviewerNotes}</p>}</div>}
+            {checkedRequest && <div className="mt-4 rounded-lg bg-[#f5ede6] p-4 neo-border"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-[#1a1a1a]">{checkedRequest.title}</p><span className={`rounded-full px-3 py-1 text-xs font-black ${statusBadge}`}>{checkedRequest.status}</span></div><p className="mt-2 text-sm font-medium text-[#5a5a5a]">Kode: {checkedRequest.requestCode}</p>{approvedStatusHint && <p className="mt-2 text-sm font-bold text-[#1a1a1a]">{approvedStatusHint}</p>}{checkedRequest.reviewerNotes && <p className="mt-2 text-sm text-[#1a1a1a]">Catatan reviewer: {checkedRequest.reviewerNotes}</p>}</div>}
           </div>
 
           <div className="text-center text-sm font-medium text-[#5a5a5a]">

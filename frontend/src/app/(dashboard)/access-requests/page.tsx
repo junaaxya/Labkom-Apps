@@ -21,7 +21,13 @@ const statusStyles: Record<AccessRequestStatus, string> = {
 const typeLabels: Record<AccessRequestType, string> = {
   PEMINJAMAN_LAB: "Peminjaman Lab",
   MAGANG: "Magang",
-  AKSES_SEMENTARA: "Akses Sementara",
+  AKSES_SEMENTARA: "Akses Tamu Sementara",
+};
+
+const approvalHelpText: Record<AccessRequestType, string> = {
+  PEMINJAMAN_LAB: "Approve akan membuat booking dan jadwal peminjaman lab.",
+  MAGANG: "Approve akan langsung membuat akun MAGANG aktif dengan password awal = kode pengajuan.",
+  AKSES_SEMENTARA: "Approve akan langsung membuat akun akses sementara dengan password awal = kode pengajuan.",
 };
 
 export default function AccessRequestsPage() {
@@ -162,6 +168,7 @@ export default function AccessRequestsPage() {
 
               {item.status !== "APPROVED" && item.status !== "REJECTED" && (
                 <div className="space-y-3">
+                  <p className="text-xs font-bold text-[#5a5a5a]">{approvalHelpText[item.type]}</p>
                   <textarea
                     rows={3}
                     value={notesById[item.id] || ""}

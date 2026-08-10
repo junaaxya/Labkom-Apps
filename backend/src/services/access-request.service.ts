@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 import prisma from "../config/database";
 import type { Role } from "@prisma/client";
 import type {
@@ -59,6 +60,11 @@ function toPublicStatus(request: PublicAccessRequest | null) {
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,
   };
+}
+
+function buildApprovalNotes(reviewerNotes: string | undefined, followUpMessage: string) {
+  if (!reviewerNotes?.trim()) return followUpMessage;
+  return `${reviewerNotes.trim()}\n\n${followUpMessage}`;
 }
 
 export class AccessRequestService {
@@ -167,15 +173,48 @@ export class AccessRequestService {
     }
 
     if (request.type !== "PEMINJAMAN_LAB") {
-      return prisma.accessRequest.update({
-        where: { id },
-        data: {
-          status: "APPROVED",
-          reviewerNotes: input.reviewerNotes,
-          reviewedById: reviewerId,
-          reviewedAt: new Date(),
-        },
-        include: accessRequestInclude,
+      const normalizedEmail = request.applicantEmail.toLowerCase();
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+
+      if (existingUser) {
+        throw new Error("Email pengajuan sudah terdaftar. Gunakan email lain atau tindak lanjuti manual.");
+      }
+
+      const hashedPassword = await bcrypt.hash(request.requestCode, 12);
+      const temporaryRole: Role = "MAGANG";
+      const followUpMessage = request.type === "MAGANG"
+        ? `Akun MAGANG sudah dibuat. Masuk dengan email pengajuan dan password awal = kode pengajuan (${request.requestCode}). Setelah masuk, segera ganti password.`
+        : `Akun akses sementara sudah dibuat. Masuk dengan email pengajuan dan password awal = kode pengajuan (${request.requestCode}). Setelah kegiatan selesai, akses dapat dinonaktifkan admin.`;
+
+      return prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            password: hashedPassword,
+            name: request.applicantName,
+            phone: request.applicantPhone,
+            role: temporaryRole,
+            className: request.type === "MAGANG" ? "MAGANG" : "AKSES_SEMENTARA",
+            isActive: true,
+            mustChangePassword: true,
+          },
+          select: { id: true },
+        });
+
+        return tx.accessRequest.update({
+          where: { id },
+          data: {
+            status: "APPROVED",
+            reviewerNotes: buildApprovalNotes(input.reviewerNotes, followUpMessage),
+            reviewedById: reviewerId,
+            reviewedAt: new Date(),
+            userId: user.id,
+          },
+          include: accessRequestInclude,
+        });
       });
     }
 
