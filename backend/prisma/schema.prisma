@@ -19,7 +19,20 @@ enum Role {
   KOORDINATOR_LAB // Mengatur lab, jadwal, user, asleb, laporan, misi, verifikasi, audit, fallback check-in
   ASISTEN_LAB // Absensi, logbook, kunci, ticketing, misi, peta lab, check-in/out sesi
   MAHASISWA // Melihat jadwal, melapor kerusakan, validasi kondisi akhir (jika ketua kelas), peminjaman lab
-  MAGANG // Akses terbatas; data produksi sudah memiliki nilai enum ini
+  MAGANG // Akun internal magang dengan akses terbatas
+}
+
+enum AccessRequestType {
+  PEMINJAMAN_LAB
+  MAGANG
+  AKSES_SEMENTARA
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION
 }
 
 enum LabStatus {
@@ -296,6 +309,8 @@ model User {
   announcements            Announcement[]                 @relation("AnnouncementCreator")
   announcementReads        AnnouncementRead[]
   assetAuditLogs           AssetAuditLog[]
+  accessRequests           AccessRequest[]                 @relation("AccessRequestApplicant")
+  accessRequestsReviewed   AccessRequest[]                 @relation("AccessRequestReviewer")
 
   @@map("users")
 }
@@ -324,6 +339,7 @@ model Lab {
   dailyTaskLogs            DailyTaskLog[]
   shifts                   Shift[]
   bookings                 LabBooking[]
+  accessRequests           AccessRequest[]
   logbookConditions        LogbookCondition[]
   assets                   Asset[]
   shiftSchedules           AsLabShiftSchedule[]
@@ -557,6 +573,7 @@ model Schedule {
   id           String         @id @default(cuid())
   labId        String
   title        String
+  specificDate DateTime?      @db.Date
   semester     String?
   className    String?
   lecturerName String? // Nama dosen pengampu (teks biasa, bukan relasi — dosen tidak login ke sistem)
@@ -632,8 +649,12 @@ model Shift {
 model LabBooking {
   id              String        @id @default(cuid())
   labId           String
-  requestedBy     String
+  requestedBy     String?
   approvedBy      String?
+  externalRequesterName  String?
+  externalRequesterEmail String?
+  externalRequesterPhone String?
+  externalInstitution    String?
   title           String
   description     String?
   purpose         String
@@ -648,10 +669,48 @@ model LabBooking {
   updatedAt       DateTime      @updatedAt
 
   lab       Lab   @relation(fields: [labId], references: [id])
-  requester User  @relation("BookingRequester", fields: [requestedBy], references: [id])
+  requester User? @relation("BookingRequester", fields: [requestedBy], references: [id])
   approver  User? @relation("BookingApprover", fields: [approvedBy], references: [id])
+  accessRequest AccessRequest?
 
   @@map("lab_bookings")
+}
+
+model AccessRequest {
+  id               String              @id @default(cuid())
+  requestCode      String              @unique
+  type             AccessRequestType
+  status           AccessRequestStatus @default(PENDING)
+  applicantName    String
+  applicantEmail   String
+  applicantPhone   String?
+  institution      String?
+  title            String
+  description      String?
+  purpose          String?
+  date             DateTime?           @db.Date
+  startTime        String?
+  endTime          String?
+  participants     Int?
+  requestedRole    Role?
+  reviewerNotes    String?
+  reviewedAt       DateTime?
+  reviewedById     String?
+  labId            String?
+  bookingId        String?             @unique
+  userId           String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [id])
+  booking    LabBooking? @relation(fields: [bookingId], references: [id])
+  applicant  User?       @relation("AccessRequestApplicant", fields: [userId], references: [id])
+  reviewer   User?       @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([type, status])
+  @@index([labId, date])
+  @@map("access_requests")
 }
 
 // ============================================
