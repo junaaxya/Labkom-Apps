@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, lazy, Suspense } from "react";
+import Image from "next/image";
 import {
   TbBrandWhatsapp,
   TbCalendar,
@@ -20,6 +21,7 @@ const AttendanceSettingsPage = lazy(
 );
 
 type SettingsTab = "integrasi" | "absensi";
+type SettingsRole = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
 
 interface WAStatus {
   status: "disconnected" | "connecting" | "connected" | "qr_ready";
@@ -34,6 +36,7 @@ export default function SettingsPage() {
   const [testPhone, setTestPhone] = useState("");
   const [testMessage, setTestMessage] = useState("");
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<SettingsRole | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -52,11 +55,32 @@ export default function SettingsPage() {
       } catch {}
     };
 
-    fetchWAStatus();
-    fetchCalendarStatus();
+    let role: SettingsRole | null = null;
+    try {
+      const storedUser = localStorage.getItem("user");
+      role = storedUser ? JSON.parse(storedUser).role as SettingsRole : null;
+    } catch {}
+    queueMicrotask(() => {
+      if (mounted) setUserRole(role);
+    });
+
+    if (role === "KOORDINATOR_LAB") fetchWAStatus();
+    if (role === "KOORDINATOR_LAB" || role === "ASISTEN_LAB") fetchCalendarStatus();
+
+    const refreshCalendarOnFocus = () => {
+      fetchCalendarStatus();
+    };
+    const refreshCalendarWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchCalendarStatus();
+    };
+
+    window.addEventListener("focus", refreshCalendarOnFocus);
+    document.addEventListener("visibilitychange", refreshCalendarWhenVisible);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", refreshCalendarOnFocus);
+      document.removeEventListener("visibilitychange", refreshCalendarWhenVisible);
     };
   }, []);
 
@@ -150,10 +174,14 @@ export default function SettingsPage() {
     disconnected: "Terputus",
   };
 
-  const tabs: Array<{ key: SettingsTab; label: string; icon: typeof TbSettings }> = [
-    { key: "integrasi", label: "Integrasi", icon: TbPlugConnected },
-    { key: "absensi", label: "Absensi", icon: TbChecklist },
-  ];
+  const isCoordinator = userRole === "KOORDINATOR_LAB";
+  const canUseCalendar = isCoordinator || userRole === "ASISTEN_LAB";
+  const tabs: Array<{ key: SettingsTab; label: string; icon: typeof TbSettings }> = isCoordinator
+    ? [
+        { key: "integrasi", label: "Integrasi", icon: TbPlugConnected },
+        { key: "absensi", label: "Absensi", icon: TbChecklist },
+      ]
+    : [{ key: "integrasi", label: "Integrasi", icon: TbPlugConnected }];
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -190,7 +218,7 @@ export default function SettingsPage() {
       {activeTab === "integrasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* WhatsApp Bot Section */}
-          <div className="neo-card p-6 sm:p-8 space-y-6 bg-white neo-card-hover transition-all duration-200 flex flex-col shadow-[4px_4px_0px_#1a1a1a]">
+          {isCoordinator && <div className="neo-card p-6 sm:p-8 space-y-6 bg-white neo-card-hover transition-all duration-200 flex flex-col shadow-[4px_4px_0px_#1a1a1a]">
             <div className="flex items-start justify-between gap-4 border-b-2 border-[#1a1a1a] pb-6">
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-xl neo-border flex items-center justify-center bg-[#fcf8f4] text-[#25D366] shadow-[4px_4px_0px_#1a1a1a] shrink-0">
@@ -212,7 +240,7 @@ export default function SettingsPage() {
                 <div className="mb-6 p-4 neo-border rounded-xl bg-white flex flex-col items-center gap-3">
                   <TbQrcode size={24} className="text-[#4b607f]" strokeWidth={2.2} />
                   <p className="text-sm font-bold text-[#1a1a1a]">Scan QR Code dengan WhatsApp:</p>
-                  <img src={`data:image/png;base64,${waStatus.qrCode}`} alt="QR Code" className="w-48 h-48 neo-border rounded-lg" />
+                  <Image src={`data:image/png;base64,${waStatus.qrCode}`} alt="QR Code" width={192} height={192} unoptimized className="w-48 h-48 neo-border rounded-lg" />
                 </div>
               )}
 
@@ -264,10 +292,10 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* Google Calendar Section */}
-          <div className="neo-card p-6 sm:p-8 space-y-6 bg-white neo-card-hover transition-all duration-200 flex flex-col shadow-[4px_4px_0px_#1a1a1a]">
+          {canUseCalendar && <div className="neo-card p-6 sm:p-8 space-y-6 bg-white neo-card-hover transition-all duration-200 flex flex-col shadow-[4px_4px_0px_#1a1a1a]">
             <div className="flex items-start justify-between gap-4 border-b-2 border-[#1a1a1a] pb-6">
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-xl neo-border flex items-center justify-center bg-[#fcf8f4] text-[#4285F4] shadow-[4px_4px_0px_#1a1a1a] shrink-0">
@@ -333,11 +361,16 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-          </div>
+          </div>}
+          {userRole && !canUseCalendar && (
+            <div className="neo-card p-6 bg-white font-medium text-[#4b607f]">
+              Integrasi Google Calendar hanya tersedia untuk Asisten Lab dan Koordinator Lab.
+            </div>
+          )}
         </div>
       )}
 
-      {activeTab === "absensi" && (
+      {isCoordinator && activeTab === "absensi" && (
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[40vh]">

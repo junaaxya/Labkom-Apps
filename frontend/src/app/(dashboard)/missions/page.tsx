@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TbTarget, TbTrophy, TbClipboardList, TbUsers, TbChecklist, TbCheck, TbX, TbPlus, TbClock, TbInbox, TbUpload, TbSend } from "react-icons/tb";
 import api from "@/services/api";
@@ -101,7 +101,7 @@ export default function MissionsPage() {
     }
   };
 
-  const fetchMissions = async () => {
+  const fetchMissions = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get<{ data: { items?: MissionItem[] } | MissionItem[] }>("/missions");
@@ -114,7 +114,7 @@ export default function MissionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const fetchLeaderboard = async () => {
     try {
@@ -146,7 +146,7 @@ export default function MissionsPage() {
     };
     initData();
     return () => { mounted = false; };
-  }, []);
+  }, [fetchMissions]);
 
   const handleCreateMission = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, use, useEffect, useMemo, useState } from "react";
+import { FormEvent, use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   TbAlertTriangle,
@@ -106,7 +106,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
     });
   }, []);
 
-  const fetchPcData = async () => {
+  const fetchPcData = useCallback(async () => {
     setLoading(true);
     setNotFoundMessage("");
     try {
@@ -123,11 +123,11 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
     } finally {
       setLoading(false);
     }
-  };
+  }, [code]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchPcData());
-  }, [code]);
+  }, [fetchPcData]);
 
   const isCoordinatorOrAssistant = useMemo(() => {
     const role = (user.role || "").toUpperCase();

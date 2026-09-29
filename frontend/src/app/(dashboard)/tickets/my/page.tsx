@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   TbClipboardList,
   TbFilter,
@@ -51,26 +51,29 @@ export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("ALL");
 
-  const fetchMyTickets = async () => {
+  const fetchMyTickets = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get<{ data: Ticket[] }>("/tickets/my");
       setTickets(res.data ?? []);
     } catch (err) {
-      toast.error(errMsg(err, "Gagal memuat riwayat tiket."));
-      setTickets([]);
+      const message = errMsg(err, "Gagal memuat riwayat tiket.");
+      toast.error(message);
+      setLoadError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchMyTickets();
     });
-  }, []);
+  }, [fetchMyTickets]);
 
   const filteredTickets = useMemo(() => {
     if (filter === "ALL") return tickets;
@@ -113,13 +116,21 @@ export default function MyTicketsPage() {
 
       {loading && <div className="neo-card p-8 text-center bg-white text-[#5a5a5a]">Memuat laporan...</div>}
 
-      {!loading && filteredTickets.length === 0 && (
+      {!loading && loadError && (
+        <div className="neo-card p-8 text-center bg-white">
+          <p className="font-bold text-red-600">Riwayat tiket gagal dimuat</p>
+          <p className="text-sm text-[#5a5a5a] mt-1 mb-4">{loadError}</p>
+          <button onClick={() => void fetchMyTickets()} className="neo-btn bg-[#f3701e] text-white px-5 py-2.5">Coba Lagi</button>
+        </div>
+      )}
+
+      {!loading && !loadError && filteredTickets.length === 0 && (
         <div className="neo-card p-8 text-center bg-white text-[#5a5a5a]">
           Belum ada laporan untuk filter ini.
         </div>
       )}
 
-      {!loading && filteredTickets.length > 0 && (
+      {!loading && !loadError && filteredTickets.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredTickets.map((ticket) => (
             <button

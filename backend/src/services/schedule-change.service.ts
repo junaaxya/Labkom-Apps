@@ -1,5 +1,6 @@
 import prisma from "../config/database";
 import type { CreateScheduleChangeInput } from "../validators/schedule-change.validator";
+import { ScheduleService } from "./schedule.service";
 
 type ScheduleChangeFilters = {
   status?: string;
@@ -105,19 +106,32 @@ export class ScheduleChangeService {
   }
 
   static async approveRequest(requestId: string, approvedById: string, adminNotes?: string) {
-    const request = await prisma.scheduleChangeRequest.findUnique({
-      where: { id: requestId },
-      include: { schedule: true },
-    });
+    const outcome = await ScheduleService.withSerializableRetry(async (tx) => {
+      const affectedScheduleIds: string[] = [];
+      const request = await tx.scheduleChangeRequest.findUnique({
+        where: { id: requestId },
+        include: { schedule: true },
+      });
+      if (!request) throw new Error("Pengajuan perubahan jadwal tidak ditemukan");
+      if (request.status !== "PENDING") throw new Error("Hanya pengajuan berstatus PENDING yang dapat disetujui");
 
-    if (!request) throw new Error("Pengajuan perubahan jadwal tidak ditemukan");
-    if (request.status !== "PENDING") throw new Error("Hanya pengajuan berstatus PENDING yang dapat disetujui");
-
-    return prisma.$transaction(async (tx) => {
       if (request.requestType === "RESCHEDULE") {
-        if (!request.scheduleId) throw new Error("scheduleId wajib untuk RESCHEDULE");
+        if (!request.scheduleId || !request.schedule) throw new Error("Jadwal sumber wajib tersedia untuk RESCHEDULE");
         if (!request.newDay || !request.newStartTime || !request.newEndTime) {
           throw new Error("Data perubahan jadwal tidak lengkap untuk RESCHEDULE");
+        }
+
+        ScheduleService.assertValidTimeInterval(request.newStartTime, request.newEndTime);
+        const conflict = await ScheduleService.checkConflict(tx, {
+          labId: request.newLabId || request.schedule.labId,
+          day: request.newDay,
+          startTime: request.newStartTime,
+          endTime: request.newEndTime,
+          lecturerName: request.schedule.lecturerName || undefined,
+          assistantId: request.schedule.assistantId || undefined,
+        }, request.scheduleId);
+        if (conflict) {
+          throw new Error(ScheduleService.conflictMessage(conflict.type, conflict.schedule.title, conflict.schedule.startTime, conflict.schedule.endTime));
         }
 
         await tx.schedule.update({
@@ -129,15 +143,13 @@ export class ScheduleChangeService {
             ...(request.newLabId ? { labId: request.newLabId } : {}),
           },
         });
+        affectedScheduleIds.push(request.scheduleId);
       }
 
       if (request.requestType === "CANCEL_SESSION") {
         if (!request.scheduleId) throw new Error("scheduleId wajib untuk CANCEL_SESSION");
-
-        await tx.schedule.update({
-          where: { id: request.scheduleId },
-          data: { status: "CANCELLED" },
-        });
+        await tx.schedule.update({ where: { id: request.scheduleId }, data: { status: "CANCELLED" } });
+        affectedScheduleIds.push(request.scheduleId);
       }
 
       if (request.requestType === "EXTRA_SLOT") {
@@ -148,11 +160,23 @@ export class ScheduleChangeService {
         const sourceSchedule = request.scheduleId
           ? await tx.schedule.findUnique({ where: { id: request.scheduleId } })
           : null;
-
         const targetLabId = request.newLabId || sourceSchedule?.labId;
         if (!targetLabId) throw new Error("Lab tujuan tidak ditemukan untuk EXTRA_SLOT");
 
-        await tx.schedule.create({
+        ScheduleService.assertValidTimeInterval(request.newStartTime, request.newEndTime);
+        const conflict = await ScheduleService.checkConflict(tx, {
+          labId: targetLabId,
+          day: request.newDay,
+          startTime: request.newStartTime,
+          endTime: request.newEndTime,
+          lecturerName: sourceSchedule?.lecturerName || undefined,
+          assistantId: sourceSchedule?.assistantId || undefined,
+        });
+        if (conflict) {
+          throw new Error(ScheduleService.conflictMessage(conflict.type, conflict.schedule.title, conflict.schedule.startTime, conflict.schedule.endTime));
+        }
+
+        const extraSchedule = await tx.schedule.create({
           data: {
             labId: targetLabId,
             title: sourceSchedule?.title || "Extra Slot",
@@ -168,9 +192,10 @@ export class ScheduleChangeService {
             isActive: true,
           },
         });
+        affectedScheduleIds.push(extraSchedule.id);
       }
 
-      return tx.scheduleChangeRequest.update({
+      const approved = await tx.scheduleChangeRequest.update({
         where: { id: requestId },
         data: {
           status: "APPROVED",
@@ -184,7 +209,26 @@ export class ScheduleChangeService {
           approvedBy: { select: { id: true, name: true, email: true, role: true } },
         },
       });
+      await tx.auditLog.create({
+        data: {
+          userId: approvedById,
+          action: "SCHEDULE_CHANGE_APPROVED",
+          targetType: "ScheduleChangeRequest",
+          targetId: requestId,
+          description: `${request.requestType} disetujui${adminNotes ? `. Catatan: ${adminNotes}` : ""}`,
+        },
+      });
+      return { approved, affectedScheduleIds };
     });
+
+    const affectedSchedules = await prisma.schedule.findMany({
+      where: { id: { in: outcome.affectedScheduleIds } },
+      include: { lab: { select: { name: true } } },
+    });
+    for (const schedule of affectedSchedules) {
+      await ScheduleService.reconcileScheduleCalendar(schedule);
+    }
+    return outcome.approved;
   }
 
   static async rejectRequest(requestId: string, rejectedById: string, rejectionReason: string) {

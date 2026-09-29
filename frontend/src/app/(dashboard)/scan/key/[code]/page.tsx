@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   TbArrowLeft,
@@ -125,7 +126,7 @@ export default function ScanKeyActionPage({
     });
   }, []);
 
-  const fetchKeyData = async () => {
+  const fetchKeyData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get<{ data?: KeyScanData }>(`/qr/scan/key/${code}`);
@@ -141,11 +142,11 @@ export default function ScanKeyActionPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [code, toast]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchKeyData());
-  }, [code]);
+  }, [fetchKeyData]);
 
   const currentUserId = user.id || user.userId;
   const currentHolderId = keyData?.currentHolder?.id;
@@ -179,7 +180,7 @@ export default function ScanKeyActionPage({
         setReturnStatus(null);
       }
     })();
-  }, [canReturn, keyData?.id]);
+  }, [canReturn, keyData]);
 
   const handleTake = async () => {
     if (!keyData) return;
@@ -489,9 +490,12 @@ export default function ScanKeyActionPage({
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {previews.map((src, i) => (
                   <div key={i} className="relative group">
-                    <img
+                    <Image
                       src={src}
                       alt={`Foto ${i + 1}`}
+                      width={160}
+                      height={80}
+                      unoptimized
                       className="w-full h-20 object-cover rounded-lg border-2 border-[#1a1a1a]"
                     />
                     <button

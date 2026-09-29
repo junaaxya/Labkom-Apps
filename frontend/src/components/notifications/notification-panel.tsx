@@ -105,24 +105,39 @@ export function NotificationPanel() {
   }, [fetchUnreadCount]);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-    const es = new EventSource(`${apiBase}/notifications/stream?token=${encodeURIComponent(token)}`);
+    const connect = async () => {
+      try {
+        const response = await api.post<{ data: { ticket: string } }>("/notifications/sse-ticket", {});
+        if (cancelled) return;
 
-    es.addEventListener("notification", (event) => {
-      const data = JSON.parse(event.data);
-      setNotifications((prev) => [data, ...prev].slice(0, 15));
-      setUnreadCount((prev) => prev + 1);
-    });
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+        const es = new EventSource(`${apiBase}/notifications/stream?ticket=${encodeURIComponent(response.data.ticket)}`);
+        eventSourceRef.current = es;
 
-    es.onerror = () => {
-      es.close();
+        es.addEventListener("notification", (event) => {
+          const data = JSON.parse(event.data);
+          setNotifications((prev) => [data, ...prev].slice(0, 15));
+          setUnreadCount((prev) => prev + 1);
+        });
+
+        es.onerror = () => {
+          es.close();
+          if (!cancelled) retryTimer = setTimeout(() => void connect(), 5000);
+        };
+      } catch {
+        if (!cancelled) retryTimer = setTimeout(() => void connect(), 5000);
+      }
     };
 
-    eventSourceRef.current = es;
-    return () => es.close();
+    void connect();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      eventSourceRef.current?.close();
+    };
   }, []);
 
   useEffect(() => {

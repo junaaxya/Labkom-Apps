@@ -1,11 +1,14 @@
 import prisma from "../config/database";
 
 function assertValidTimeRange(startTime: string, endTime: string) {
-  if (!startTime || !endTime) {
-    throw new Error("Jam mulai dan jam selesai wajib diisi");
-  }
-  if (endTime <= startTime) {
-    throw new Error("Jam selesai harus lebih besar dari jam mulai");
+  const format = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (!format.test(startTime) || !format.test(endTime)) throw new Error("Format waktu shift harus HH:mm");
+  if (endTime === startTime) throw new Error("Jam mulai dan selesai shift tidak boleh sama");
+}
+
+function assertOptionalMinutes(value: unknown, field: string, max: number): void {
+  if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > max)) {
+    throw new Error(`${field} harus bilangan bulat 0-${max}`);
   }
 }
 
@@ -51,6 +54,8 @@ export class ShiftService {
     notes?: string;
   }) {
     assertValidTimeRange(data.startTime, data.endTime);
+    assertOptionalMinutes(data.lateToleranceMinutes, "lateToleranceMinutes", 180);
+    assertOptionalMinutes(data.checkoutGraceMinutes, "checkoutGraceMinutes", 360);
 
     // Template mode: conflict only when the same named active time window already exists.
     if (data.name?.trim()) {
@@ -105,6 +110,9 @@ export class ShiftService {
     const nextStart = data.startTime ?? existing.startTime;
     const nextEnd = data.endTime ?? existing.endTime;
     assertValidTimeRange(nextStart, nextEnd);
+    assertOptionalMinutes(data.lateToleranceMinutes, "lateToleranceMinutes", 180);
+    assertOptionalMinutes(data.checkoutGraceMinutes, "checkoutGraceMinutes", 360);
+    if (data.isTaskRequired !== undefined && typeof data.isTaskRequired !== "boolean") throw new Error("isTaskRequired harus boolean");
 
     return prisma.shift.update({
       where: { id },

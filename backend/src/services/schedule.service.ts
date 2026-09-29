@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import type { CreateScheduleInput, UpdateScheduleInput } from "../validators/schedule.validator";
 import { operationalScheduleWhere } from "./schedule-availability";
+import { googleCalendarService } from "./google-calendar.service";
 
 type ScheduleConflictType = "LAB" | "DOSEN" | "ASISTEN";
 
@@ -37,7 +38,7 @@ export class ScheduleService {
   }
 
   static async createSchedule(data: CreateScheduleInput) {
-    return this.withSerializableRetry(async (tx) => {
+    const schedule = await this.withSerializableRetry(async (tx) => {
       const lab = await tx.lab.findUnique({ where: { id: data.labId } });
       if (!lab) throw new Error("Lab tidak ditemukan");
 
@@ -54,10 +55,12 @@ export class ScheduleService {
         },
       });
     });
+    await this.reconcileScheduleCalendar(schedule);
+    return schedule;
   }
 
   static async updateSchedule(id: string, data: UpdateScheduleInput) {
-    return this.withSerializableRetry(async (tx) => {
+    const result = await this.withSerializableRetry(async (tx) => {
       const schedule = await tx.schedule.findUnique({ where: { id } });
       if (!schedule) throw new Error("Jadwal tidak ditemukan");
 
@@ -79,7 +82,7 @@ export class ScheduleService {
         }
       }
 
-      return tx.schedule.update({
+      const updated = await tx.schedule.update({
         where: { id },
         data,
         include: {
@@ -87,14 +90,21 @@ export class ScheduleService {
           assistant: { select: { id: true, name: true } },
         },
       });
+      return { updated, previousAssistantId: schedule.assistantId };
     });
+
+    if (result.previousAssistantId && result.previousAssistantId !== result.updated.assistantId) {
+      await googleCalendarService.removeScheduleFromCalendar(result.previousAssistantId, id);
+    }
+    await this.reconcileScheduleCalendar(result.updated);
+    return result.updated;
   }
 
   static async updateStatus(id: string, status: "SCHEDULED" | "ONGOING" | "FINISHED" | "CANCELLED") {
     const schedule = await prisma.schedule.findUnique({ where: { id } });
     if (!schedule) throw new Error("Jadwal tidak ditemukan");
 
-    return prisma.schedule.update({
+    const updated = await prisma.schedule.update({
       where: { id },
       data: { status },
       include: {
@@ -102,19 +112,26 @@ export class ScheduleService {
         assistant: { select: { id: true, name: true } },
       },
     });
+    await this.reconcileScheduleCalendar(updated);
+    return updated;
   }
 
   static async deleteSchedule(id: string) {
-    const schedule = await prisma.schedule.findUnique({ where: { id } });
+    const schedule = await prisma.schedule.findUnique({ where: { id }, include: { lab: true } });
     if (!schedule) throw new Error("Jadwal tidak ditemukan");
-    return prisma.schedule.update({ where: { id }, data: { isActive: false } });
+    const deleted = await prisma.schedule.update({ where: { id }, data: { isActive: false } });
+    await this.reconcileScheduleCalendar({ ...schedule, isActive: false });
+    return deleted;
   }
 
   static async bulkDeleteSchedules(ids: string[]) {
-    return prisma.schedule.updateMany({
+    const schedules = await prisma.schedule.findMany({ where: { id: { in: ids }, isActive: true }, include: { lab: true } });
+    const result = await prisma.schedule.updateMany({
       where: { id: { in: ids } },
       data: { isActive: false },
     });
+    for (const schedule of schedules) await this.reconcileScheduleCalendar({ ...schedule, isActive: false });
+    return result;
   }
 
   static async deleteAllSchedules(filters?: { labId?: string; day?: string }) {
@@ -122,10 +139,13 @@ export class ScheduleService {
     if (filters?.labId) where.labId = filters.labId;
     if (filters?.day) where.day = filters.day;
 
-    return prisma.schedule.updateMany({
+    const schedules = await prisma.schedule.findMany({ where, include: { lab: true } });
+    const result = await prisma.schedule.updateMany({
       where,
       data: { isActive: false },
     });
+    for (const schedule of schedules) await this.reconcileScheduleCalendar({ ...schedule, isActive: false });
+    return result;
   }
 
   static async getSchedulesByDay(labId: string, day: string) {
@@ -180,7 +200,37 @@ export class ScheduleService {
     };
   }
 
-  private static async checkConflict(
+  static async reconcileScheduleCalendar(schedule: {
+    id: string;
+    title: string;
+    semester: string | null;
+    assistantId: string | null;
+    day: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    isActive: boolean;
+    lab: { name: string };
+  }): Promise<void> {
+    if (!schedule.assistantId) return;
+    try {
+      await googleCalendarService.reconcileScheduleCalendar(schedule.assistantId, {
+        id: schedule.id,
+        title: schedule.title,
+        labName: schedule.lab.name,
+        day: schedule.day,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        semester: schedule.semester || undefined,
+        status: schedule.status,
+        isActive: schedule.isActive,
+      });
+    } catch (error) {
+      console.error(`[Schedule] Calendar reconciliation failed for ${schedule.id}:`, error);
+    }
+  }
+
+  static async checkConflict(
     client: Prisma.TransactionClient,
     candidate: Pick<CreateScheduleInput, "labId" | "day" | "startTime" | "endTime" | "lecturerName" | "assistantId">,
     excludeId?: string
@@ -214,7 +264,11 @@ export class ScheduleService {
     return normalized || undefined;
   }
 
-  private static assertValidTimeInterval(startTime: string, endTime: string): void {
+  static assertValidTimeInterval(startTime: string, endTime: string): void {
+    const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
+      throw new Error("Format waktu harus HH:mm");
+    }
     if (this.timeToMinutes(endTime) <= this.timeToMinutes(startTime)) {
       throw new Error("Jam selesai harus lebih besar dari jam mulai");
     }
@@ -225,12 +279,12 @@ export class ScheduleService {
     return Number(hours) * 60 + Number(minutes);
   }
 
-  private static conflictMessage(type: ScheduleConflictType, title: string, startTime: string, endTime: string): string {
+  static conflictMessage(type: ScheduleConflictType, title: string, startTime: string, endTime: string): string {
     const resource = type === "LAB" ? "lab" : type === "DOSEN" ? "dosen" : "asisten";
     return `Jadwal bentrok pada ${resource} dengan "${title}" (${startTime}-${endTime})`;
   }
 
-  private static async withSerializableRetry<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  static async withSerializableRetry<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     for (let attempt = 0; attempt <= this.SERIALIZABLE_RETRY_LIMIT; attempt++) {
       try {
         return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

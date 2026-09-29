@@ -80,7 +80,7 @@ pull_previous_images_if_needed() {
 
 echo "[INFO] Rolling back to $IMAGE_NAMESPACE:$IMAGE_TAG"
 pull_previous_images_if_needed
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d --no-deps backend frontend
 verify_running_service_image backend
 verify_running_service_image frontend
 sleep 5

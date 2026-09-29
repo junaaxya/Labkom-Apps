@@ -1,9 +1,13 @@
+import { Prisma } from "@prisma/client";
 import cron from "node-cron";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 import { PCService } from "./pc.service";
 import { MissionService } from "./mission.service";
-import { AttendanceService, ShiftScheduleService } from "./attendance.service";
+import { AttendanceService, AttendanceSettingsService, ShiftScheduleService } from "./attendance.service";
+import { evaluateShiftWindow, jakartaDate } from "./attendance-security";
+
+const CRON_OPTIONS = { timezone: "Asia/Jakarta" };
 
 const DAYS_MAP: Record<string, number> = {
   MINGGU: 0,
@@ -15,8 +19,20 @@ const DAYS_MAP: Record<string, number> = {
   SABTU: 6,
 };
 
-function getCurrentDayEnum(): string {
-  const dayIndex = new Date().getDay();
+function getJakartaClock(now: Date): { dayIndex: number; hours: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+  const dayIndex = new Date(`${jakartaDate(now)}T00:00:00.000Z`).getUTCDay();
+  return { dayIndex, hours: value("hour"), minutes: value("minute") };
+}
+
+function getCurrentDayEnum(now = new Date()): string {
+  const { dayIndex } = getJakartaClock(now);
   return Object.entries(DAYS_MAP).find(([, v]) => v === dayIndex)?.[0] || "SENIN";
 }
 
@@ -34,8 +50,9 @@ function getPicketDestinationLabel(destination: string | null | undefined): stri
 
 async function checkScheduleReminders() {
   const now = new Date();
-  const currentDay = getCurrentDayEnum();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentDay = getCurrentDayEnum(now);
+  const jakartaClock = getJakartaClock(now);
+  const currentMinutes = jakartaClock.hours * 60 + jakartaClock.minutes;
   const targetMinutes = currentMinutes + 15;
 
   const schedules = await prisma.schedule.findMany({
@@ -61,7 +78,9 @@ async function checkScheduleReminders() {
           userId,
           schedule.title,
           schedule.lab.name,
-          schedule.startTime
+          schedule.startTime,
+          schedule.id,
+          jakartaDate(now)
         );
       }
     }
@@ -120,37 +139,74 @@ async function checkKeyNotReturned() {
 }
 
 async function checkAttendanceReminder() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const businessDate = jakartaDate(now);
+  const scheduleDate = new Date(`${businessDate}T00:00:00.000Z`);
+  const nextScheduleDate = new Date(scheduleDate);
+  nextScheduleDate.setUTCDate(nextScheduleDate.getUTCDate() + 1);
 
-  const currentDay = getCurrentDayEnum();
-  if (currentDay === "MINGGU" || currentDay === "SABTU") return;
-
-  const assistants = await prisma.user.findMany({
-    where: { role: "ASISTEN_LAB", isActive: true },
-    select: { id: true },
+  const assignments = await prisma.asLabShiftSchedule.findMany({
+    where: {
+      scheduleDate: { in: [scheduleDate, nextScheduleDate] },
+      status: "SCHEDULED",
+      user: { role: "ASISTEN_LAB", isActive: true },
+    },
+    select: {
+      id: true,
+      userId: true,
+      scheduleDate: true,
+      shift: { select: { startTime: true, endTime: true } },
+      attendances: { select: { id: true }, take: 1 },
+    },
   });
 
-  for (const asleb of assistants) {
-    const todayAttendance = await prisma.attendance.findFirst({
-      where: {
-        userId: asleb.id,
-        createdAt: { gte: today },
-      },
-    });
+  for (const assignment of assignments) {
+    if (assignment.attendances.length > 0) continue;
+    const window = evaluateShiftWindow(now, assignment.shift.startTime, assignment.shift.endTime, 0, assignment.scheduleDate);
+    if (!window.canCheckin) continue;
+    try {
+      await notificationService.notifyAttendanceReminder(assignment.userId, assignment.id);
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+    }
+  }
+}
 
-    if (!todayAttendance) {
-      const alreadyNotified = await prisma.notification.findFirst({
-        where: {
-          userId: asleb.id,
+async function checkCheckoutReminders() {
+  const now = new Date();
+  const settings = await AttendanceSettingsService.get();
+  const openAttendances = await prisma.attendance.findMany({
+    where: { checkoutAt: null, status: { in: ["CHECKED_IN", "LATE"] }, shiftScheduleId: { not: null } },
+    include: { shiftSchedule: { include: { shift: true } } },
+  });
+
+  for (const attendance of openAttendances) {
+    const schedule = attendance.shiftSchedule;
+    if (!schedule) continue;
+    const graceMinutes = schedule.shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes;
+    const window = evaluateShiftWindow(now, schedule.shift.startTime, schedule.shift.endTime, graceMinutes, schedule.scheduleDate);
+    const beforeEndAt = new Date(window.endsAt.getTime() - 15 * 60_000);
+    const send = async (stage: "before-end" | "deadline-passed", title: string, message: string) => {
+      try {
+        await notificationService.create({
+          userId: attendance.userId,
           type: "ATTENDANCE_REMINDER",
-          createdAt: { gte: today },
-        },
-      });
-
-      if (!alreadyNotified) {
-        await notificationService.notifyAttendanceReminder(asleb.id);
+          title,
+          message,
+          reminderKey: `checkout:${attendance.id}:${stage}`,
+          metadata: { source: "checkout-reminder", attendanceId: attendance.id, shiftScheduleId: schedule.id, stage, link: "/attendance" },
+        });
+      } catch (error) {
+        // A second cron tick or future additional backend instance may race here.
+        // reminderKey is unique; duplicate delivery is intentionally ignored.
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
       }
+    };
+
+    if (now >= beforeEndAt && now < window.endsAt) {
+      await send("before-end", "Check-out 15 Menit Lagi", `Shift Anda berakhir pukul ${schedule.shift.endTime}. Selesaikan task dan lakukan check-out sebelum batas waktu.`);
+    } else if (now >= window.checkoutClosesAt && now < new Date(window.checkoutClosesAt.getTime() + 5 * 60_000)) {
+      await send("deadline-passed", "Batas Check-out Terlewati", "Batas check-out shift Anda telah berakhir. Ajukan koreksi kepada Koordinator bila diperlukan.");
     }
   }
 }
@@ -221,42 +277,40 @@ export function startCronJobs() {
   // Every minute: mark stale PC agents offline and notify operators once per offline transition
   cron.schedule("* * * * *", () => {
     checkPcAgentOffline().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
-  // Every 5 minutes: check schedule reminders
+  // Every 5 minutes: schedule, picket, and checkout reminders
   cron.schedule("*/5 * * * *", () => {
     checkScheduleReminders().catch(console.error);
     checkPicketReminders().catch(console.error);
-  });
+    checkAttendanceReminder().catch(console.error);
+    checkCheckoutReminders().catch(console.error);
+  }, CRON_OPTIONS);
 
   // Every 15 minutes: mark stale check-ins as forgot checkout and notify
   cron.schedule("*/15 * * * *", () => {
     checkForgotCheckout().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
   // Every 30 minutes: check keys not returned
   cron.schedule("*/30 * * * *", () => {
     checkKeyNotReturned().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
-  // Weekdays at 08:30: attendance reminder
-  cron.schedule("30 8 * * 1-5", () => {
-    checkAttendanceReminder().catch(console.error);
-  });
 
-  // Daily at 02:00: cleanup old notifications
+  // Daily at 02:00 WIB: cleanup old notifications
   cron.schedule("0 2 * * *", () => {
     cleanupOldNotifications().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
-  // Daily at 01:00: expire overdue missions
+  // Daily at 01:00 WIB: expire overdue missions
   cron.schedule("0 1 * * *", () => {
     MissionService.expireOverdueMissions().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
   cron.schedule("15 1 * * *", () => {
     maintainRecurringPicketHorizon().catch(console.error);
-  });
+  }, CRON_OPTIONS);
 
-  console.log("[CRON] Scheduled jobs started");
+  console.log("[CRON] Scheduled jobs started (Asia/Jakarta)");
 }

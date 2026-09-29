@@ -12,6 +12,7 @@ import {
   uploadLimits,
   type UploadCategory,
 } from "../config/upload";
+import { registerTemporaryUploadOwner } from "../services/protected-file-access.service";
 
 ensureUploadDirectories();
 
@@ -76,6 +77,10 @@ const conditionUpload = createImageUpload("conditions", 5);
 const genericUpload = createImageUpload("general", 5);
 const avatarUpload = createImageUpload("avatars", 1);
 
+async function rememberOwners(req: Request, category: UploadCategory, files: Express.Multer.File[]): Promise<void> {
+  await Promise.all(files.map((file) => registerTemporaryUploadOwner(req.user!.userId, category, file.filename)));
+}
+
 const router = Router();
 
 router.post(
@@ -83,15 +88,20 @@ router.post(
   authenticate,
   conditionUpload.array("photos", 5),
   handleMulterError,
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
 
-    const urls = files.map((file) => toUploadUrl("conditions", file.filename));
-    res.json({ success: true, data: { urls } });
+    try {
+      await rememberOwners(req, "conditions", files);
+      const urls = files.map((file) => toUploadUrl("conditions", file.filename));
+      res.json({ success: true, data: { urls } });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
@@ -100,7 +110,7 @@ router.post(
   authenticate,
   genericUpload.array("photos", 5),
   handleMulterError,
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const category = resolveCategory(req, "general");
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -108,8 +118,13 @@ router.post(
       return;
     }
 
-    const urls = files.map((file) => toUploadUrl(category, file.filename));
-    res.json({ success: true, data: { urls } });
+    try {
+      await rememberOwners(req, category, files);
+      const urls = files.map((file) => toUploadUrl(category, file.filename));
+      res.json({ success: true, data: { urls } });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 

@@ -100,7 +100,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, roleFilter]);
+  }, [page, roleFilter, search, toast]);
 
   const fetchStats = async () => {
     try {

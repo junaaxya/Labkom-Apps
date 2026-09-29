@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TbFileSpreadsheet, TbFileTypePdf, TbLoader2, TbChartBar, TbChartPie, TbTrendingUp } from "react-icons/tb";
 import api from "@/services/api";
@@ -57,12 +57,11 @@ export default function ReportsPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [report, setReport] = useState<ReportData>(emptyReport);
-  const [loading, setLoading] = useState(true);
+
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "charts">("charts");
 
-  const fetchReport = async () => {
-    setLoading(true);
+  const fetchReport = useCallback(async () => {
     try {
       const res = await api.get<{ data: ReportResponse }>(`/reports/monthly?month=${selectedMonth}`);
       if (res.data) {
@@ -79,15 +78,14 @@ export default function ReportsPage() {
     } catch {
       setReport(emptyReport);
     } finally {
-      setLoading(false);
     }
-  };
+  }, [selectedMonth]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchReport();
     });
-  }, [selectedMonth]);
+  }, [fetchReport]);
 
   const handleExport = async (format: "pdf" | "excel") => {
     setExporting(format);

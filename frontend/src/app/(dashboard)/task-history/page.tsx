@@ -155,7 +155,7 @@ export default function TaskHistoryPage() {
     queueMicrotask(() => {
       void fetchTasks();
     });
-  }, []);
+  }, [toast]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {

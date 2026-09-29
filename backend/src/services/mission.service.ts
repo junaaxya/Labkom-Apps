@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 
@@ -76,84 +77,73 @@ export class MissionService {
   }
 
   static async claimMission(missionId: string, aslebId: string) {
-    const mission = await prisma.mission.findUnique({ where: { id: missionId } });
-    if (!mission) throw new Error("Misi tidak ditemukan");
-    if (mission.status !== "OPEN") throw new Error("Misi tidak tersedia");
-    if (mission.deadline && mission.deadline < new Date()) throw new Error("Misi sudah kedaluwarsa");
+    const now = new Date();
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.mission.updateMany({
+        where: {
+          id: missionId,
+          status: "OPEN",
+          OR: [{ deadline: null }, { deadline: { gt: now } }],
+        },
+        data: { status: "TAKEN" },
+      });
+      if (updated.count !== 1) throw new Error("Misi tidak tersedia atau sudah kedaluwarsa");
 
-    const existingClaim = await prisma.missionClaim.findFirst({
-      where: { missionId, aslebId },
-    });
-    if (existingClaim) throw new Error("Anda sudah mengklaim misi ini");
-
-    await prisma.mission.update({ where: { id: missionId }, data: { status: "TAKEN" } });
-
-    return prisma.missionClaim.create({
-      data: { missionId, aslebId, status: "TAKEN" },
-    });
+      return tx.missionClaim.create({
+        data: { missionId, aslebId, status: "TAKEN" },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   static async submitMission(claimId: string, aslebId: string, proof: string) {
     if (!proof || !proof.trim()) throw new Error("Bukti wajib diisi");
 
-    const claim = await prisma.missionClaim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new Error("Claim tidak ditemukan");
-    if (claim.aslebId !== aslebId) throw new Error("Anda tidak memiliki claim ini");
-    if (claim.status !== "TAKEN") throw new Error("Claim sudah disubmit atau diverifikasi");
-
-    return prisma.missionClaim.update({
-      where: { id: claimId },
-      data: { status: "SUBMITTED", proof },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.missionClaim.updateMany({
+        where: { id: claimId, aslebId, status: "TAKEN" },
+        data: { status: "SUBMITTED", proof: proof.trim() },
+      });
+      if (updated.count !== 1) throw new Error("Claim bukan milik Anda, belum diambil, atau sudah disubmit");
+      return tx.missionClaim.findUniqueOrThrow({ where: { id: claimId } });
     });
   }
 
   static async verifyMission(claimId: string, verifiedById: string, approved: boolean, notes?: string) {
-    const claim = await prisma.missionClaim.findUnique({
-      where: { id: claimId },
-      include: { mission: true },
-    });
-    if (!claim) throw new Error("Claim tidak ditemukan");
-    if (claim.status !== "SUBMITTED") throw new Error("Claim belum disubmit atau sudah diverifikasi");
-
-    const status = approved ? "APPROVED" : "REJECTED";
-
-    await prisma.missionClaim.update({
-      where: { id: claimId },
-      data: {
-        status: status as any,
-        verifiedById,
-        verifiedAt: new Date(),
-        proof: notes ? [claim.proof, `Notes: ${notes}`].filter(Boolean).join("\n\n") : claim.proof,
-      },
-    });
-
-    if (approved) {
-      const existingPoint = await prisma.point.findFirst({
-        where: { referenceId: claim.missionId, userId: claim.aslebId },
+    const now = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+      // This conditional update is the idempotency gate: only one reviewer can
+      // move a submitted claim to a final state and therefore award its points.
+      const updated = await tx.missionClaim.updateMany({
+        where: { id: claimId, status: "SUBMITTED" },
+        data: { status: approved ? "APPROVED" : "REJECTED", verifiedById, verifiedAt: now },
       });
-      await prisma.mission.update({ where: { id: claim.missionId }, data: { status: "APPROVED" } });
-      if (!existingPoint) {
-        await prisma.point.create({
+      if (updated.count !== 1) throw new Error("Claim belum disubmit atau sudah diverifikasi");
+
+      const claim = await tx.missionClaim.findUniqueOrThrow({
+        where: { id: claimId },
+        include: { mission: true },
+      });
+      const proof = notes ? [claim.proof, `Notes: ${notes}`].filter(Boolean).join("\n\n") : claim.proof;
+      await tx.missionClaim.update({ where: { id: claimId }, data: { proof } });
+
+      if (approved) {
+        await tx.mission.update({ where: { id: claim.missionId }, data: { status: "APPROVED" } });
+        await tx.point.create({
           data: {
             userId: claim.aslebId,
             amount: claim.mission.points,
             reason: `Misi selesai: ${claim.mission.title}`,
-            referenceId: claim.missionId,
+            referenceId: `mission-claim:${claim.id}`,
           },
         });
+      } else {
+        await tx.mission.update({ where: { id: claim.missionId }, data: { status: "OPEN" } });
       }
-    } else {
-      await prisma.mission.update({ where: { id: claim.missionId }, data: { status: "OPEN" } });
-    }
+      return claim;
+    });
 
-    await notificationService.notifyMissionVerified(
-      claim.aslebId,
-      claim.mission.title,
-      approved,
-      claim.mission.points
-    );
-
-    return claim;
+    await notificationService.notifyMissionVerified(result.aslebId, result.mission.title, approved, result.mission.points);
+    return result;
   }
 
   static async getMyMissions(userId: string) {

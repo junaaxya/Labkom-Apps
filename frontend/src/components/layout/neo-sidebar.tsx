@@ -75,9 +75,10 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "PC Monitoring", href: "/pc-monitoring", icon: TbDeviceDesktop, group: "Analytics" },
     { label: "Inventory", href: "/inventory", icon: TbServer, group: "Analytics" },
     { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "AI Features" },
+    { label: "Kualitas AI", href: "/ai-quality", icon: TbChartBar, group: "AI Features" },
     { label: "Predictive", href: "/predictive", icon: TbBrain, group: "AI Features" },
     { label: "Smart Scheduling", href: "/smart-scheduling", icon: TbCalendarStats, group: "AI Features" },
-    { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "System" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "System" },
     { label: "Pengaturan", href: "/settings", icon: TbSettings, group: "System" },
   ],
   ASISTEN_LAB: [
@@ -98,7 +99,8 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Inventory", href: "/inventory", icon: TbServer, group: "Monitoring" },
     { label: "Leaderboard", href: "/leaderboard", icon: TbTrophy, group: "Gamification" },
     { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Tools" },
-    { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Tools" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Tools" },
+    { label: "Integrasi Calendar", href: "/settings", icon: TbSettings, group: "Tools" },
   ],
   MAHASISWA: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
@@ -108,8 +110,16 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbAlertTriangle, group: "Support" },
     { label: "Riwayat Laporan", href: "/tickets/my", icon: TbClipboardList, group: "Support" },
     { label: "Peminjaman Lab", href: "/lab-booking", icon: TbCalendarClock, group: "Support" },
-    { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Resources" },
+    { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
     { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
+  ],
+  MAGANG: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
+    { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
+    { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
+    { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
   ],
 };
 

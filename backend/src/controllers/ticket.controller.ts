@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { TicketService } from "../services/ticket.service";
+import { createTicketSchema } from "../validators/ticket.validator";
 
 const getParam = (p: string | string[]) => (Array.isArray(p) ? p[0] : p);
 
@@ -25,7 +26,16 @@ export class TicketController {
 
   static async getTicketById(req: Request, res: Response): Promise<void> {
     try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Unauthorized" });
+        return;
+      }
       const ticket = await TicketService.getTicketById(getParam(req.params.id));
+      const canAccessAll = req.user.role === "KOORDINATOR_LAB" || req.user.role === "ASISTEN_LAB";
+      if (!canAccessAll && ticket.reportedBy !== req.user.userId) {
+        res.status(403).json({ success: false, message: "Anda tidak memiliki akses ke tiket ini" });
+        return;
+      }
       res.json({ success: true, data: ticket });
     } catch (error: any) {
       res.status(404).json({ success: false, message: error.message });
@@ -35,7 +45,8 @@ export class TicketController {
   static async createTicket(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const ticket = await TicketService.createTicket({ ...req.body, reportedBy: req.user.userId });
+      const input = createTicketSchema.parse(req.body);
+      const ticket = await TicketService.createTicket({ ...input, reportedBy: req.user.userId });
       res.status(201).json({ success: true, message: "Ticket berhasil dibuat", data: ticket });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });

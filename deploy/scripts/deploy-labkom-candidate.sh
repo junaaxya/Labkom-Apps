@@ -87,7 +87,7 @@ echo "[INFO] Pulling candidate images"
 docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" pull backend-candidate frontend-candidate
 
 echo "[INFO] Starting candidate services"
-docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend-candidate frontend-candidate
+docker compose "${COMPOSE_CANDIDATE[@]}" --env-file "$ENV_IMAGE_FILE" up -d --no-deps backend-candidate frontend-candidate
 
 verify_running_service_image backend-candidate
 verify_running_service_image frontend-candidate
@@ -106,7 +106,7 @@ echo "[OK] Candidate verification passed"
 
 if [[ "$PROMOTE_ON_SUCCESS" == "true" ]]; then
   echo "[INFO] Promoting candidate image to live services"
-  docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend
+  docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" up -d --no-deps backend frontend
   promoted_backend_id="$(docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" ps -q backend)"
   promoted_frontend_id="$(docker compose "${COMPOSE_MAIN[@]}" --env-file "$ENV_IMAGE_FILE" ps -q frontend)"
   [[ -n "$promoted_backend_id" && -n "$promoted_frontend_id" ]] || { echo "[FAIL] Live promotion containers not running"; exit 1; }

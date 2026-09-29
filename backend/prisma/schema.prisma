@@ -19,6 +19,7 @@ enum Role {
   KOORDINATOR_LAB // Mengatur lab, jadwal, user, asleb, laporan, misi, verifikasi, audit, fallback check-in
   ASISTEN_LAB // Absensi, logbook, kunci, ticketing, misi, peta lab, check-in/out sesi
   MAHASISWA // Melihat jadwal, melapor kerusakan, validasi kondisi akhir (jika ketua kelas), peminjaman lab
+  MAGANG // Akses terbatas; data produksi sudah memiliki nilai enum ini
 }
 
 enum LabStatus {
@@ -830,7 +831,7 @@ model MissionClaim {
 model Attendance {
   id                  String           @id @default(cuid())
   userId              String
-  shiftScheduleId     String? // Link to assigned shift schedule
+  shiftScheduleId     String?          @unique // One attendance per assigned shift; legacy NULL rows stay valid
   checkinAt           DateTime?
   checkoutAt          DateTime?
   checkinLatitude     Float?
@@ -949,6 +950,7 @@ model DailyTaskLog {
 model AttendanceSettings {
   id                         String   @id @default(cuid())
   isGeofencingEnabled        Boolean  @default(true)
+  isQrRequired               Boolean  @default(false)
   defaultRadiusMeter         Int      @default(100)
   lateToleranceMinutes       Int      @default(15)
   checkoutGraceMinutes       Int      @default(30)

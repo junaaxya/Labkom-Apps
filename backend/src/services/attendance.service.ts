@@ -2,6 +2,18 @@ import prisma from "../config/database";
 import { AsLabPicketDestination, Prisma, ShiftScheduleStatus } from "@prisma/client";
 import { notificationService } from "./notification.service";
 import { RecurringShiftPlanInput, WeeklyShiftPlanInput, WeeklyShiftPreviewInput } from "../validators/attendance.validator";
+import {
+  assertCoordinates,
+  assertRadius,
+  buildAttendanceCorrection,
+  evaluateShiftWindow,
+  pickAttendanceLocationUpdate,
+  pickDailyTaskUpdate,
+  pickShiftScheduleUpdate,
+} from "./attendance-security";
+import { LeaveService } from "./leave.service";
+import { AttendanceQrService } from "./attendance-qr.service";
+import { attendancePointAwards } from "./attendance-gamification";
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -232,6 +244,7 @@ export class AttendanceSettingsService {
 
   static async update(data: {
     isGeofencingEnabled?: boolean;
+    isQrRequired?: boolean;
     defaultRadiusMeter?: number;
     lateToleranceMinutes?: number;
     checkoutGraceMinutes?: number;
@@ -241,9 +254,30 @@ export class AttendanceSettingsService {
     activePicketWeekdays?: unknown;
   }) {
     const existing = await this.get();
-    const { activePicketWeekdays, ...settingsData } = data;
-    const validatedWeekdays = activePicketWeekdays === undefined ? null : normalizeActivePicketWeekdays(activePicketWeekdays, []);
+    const validatedWeekdays = data.activePicketWeekdays === undefined ? null : normalizeActivePicketWeekdays(data.activePicketWeekdays, []);
     if (validatedWeekdays !== null && validatedWeekdays.length === 0) throw new Error("Hari piket aktif harus berisi hari Senin sampai Sabtu yang berbeda");
+
+    const settingsData: Prisma.AttendanceSettingsUpdateInput = {};
+    if (typeof data.isGeofencingEnabled === "boolean") settingsData.isGeofencingEnabled = data.isGeofencingEnabled;
+    if (typeof data.isQrRequired === "boolean") settingsData.isQrRequired = data.isQrRequired;
+    if (typeof data.isTaskRequired === "boolean") settingsData.isTaskRequired = data.isTaskRequired;
+    if (typeof data.isVerificationRequired === "boolean") settingsData.isVerificationRequired = data.isVerificationRequired;
+
+    const boundedNumbers: Array<[keyof typeof data, string, number, number]> = [
+      ["defaultRadiusMeter", "defaultRadiusMeter", 10, 2000],
+      ["lateToleranceMinutes", "lateToleranceMinutes", 0, 180],
+      ["checkoutGraceMinutes", "checkoutGraceMinutes", 0, 360],
+      ["forgotCheckoutAfterMinutes", "forgotCheckoutAfterMinutes", 0, 1440],
+    ];
+    for (const [source, target, min, max] of boundedNumbers) {
+      const value = data[source];
+      if (value === undefined) continue;
+      if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+        throw new Error(`Nilai ${String(source)} harus bilangan bulat ${min}-${max}`);
+      }
+      (settingsData as Record<string, unknown>)[target] = value;
+    }
+
     return prisma.attendanceSettings.update({
       where: { id: existing.id },
       data: {
@@ -271,11 +305,27 @@ export class AttendanceLocationService {
   }
 
   static async create(data: { name: string; latitude: number; longitude: number; radiusMeter?: number }) {
-    return prisma.attendanceLocation.create({ data });
+    const name = typeof data.name === "string" ? data.name.trim() : "";
+    if (!name || name.length > 100) throw new Error("Nama lokasi wajib diisi (maksimal 100 karakter)");
+    assertCoordinates(data.latitude, data.longitude);
+    const radiusMeter = data.radiusMeter ?? 100;
+    assertRadius(radiusMeter);
+    return prisma.attendanceLocation.create({ data: { name, latitude: data.latitude, longitude: data.longitude, radiusMeter } });
   }
 
   static async update(id: string, data: { name?: string; latitude?: number; longitude?: number; radiusMeter?: number; isActive?: boolean }) {
-    return prisma.attendanceLocation.update({ where: { id }, data });
+    const safe = pickAttendanceLocationUpdate(data as Record<string, unknown>) as typeof data;
+    const existing = await prisma.attendanceLocation.findUnique({ where: { id } });
+    if (!existing) throw new Error("Lokasi absensi tidak ditemukan");
+    const name = safe.name === undefined ? existing.name : safe.name.trim();
+    if (!name || name.length > 100) throw new Error("Nama lokasi wajib diisi (maksimal 100 karakter)");
+    const latitude = safe.latitude ?? existing.latitude;
+    const longitude = safe.longitude ?? existing.longitude;
+    assertCoordinates(latitude, longitude);
+    const radiusMeter = safe.radiusMeter ?? existing.radiusMeter;
+    assertRadius(radiusMeter);
+    if (safe.isActive !== undefined && typeof safe.isActive !== "boolean") throw new Error("isActive harus boolean");
+    return prisma.attendanceLocation.update({ where: { id }, data: { ...safe, name, latitude, longitude, radiusMeter } });
   }
 
   static async delete(id: string) {
@@ -332,7 +382,7 @@ export class ShiftScheduleService {
     const end = dateOnly(dates[dates.length - 1]);
     const [shift, rooms, assistants, existingSchedules, history] = await Promise.all([
       prisma.shift.findUnique({
-        where: { id: shiftId },
+        where: { id: shiftId, isActive: true },
         select: { id: true, name: true, startTime: true, endTime: true },
       }),
       prisma.lab.findMany({
@@ -450,15 +500,10 @@ export class ShiftScheduleService {
   }
 
   static async getUpcomingPicketReminders(now: Date, leadMinutes: number) {
-    const dayStart = new Date(now);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const targetMinutes = currentMinutes + leadMinutes;
+    const scheduleDate = dateOnly(getJakartaDateParts(now).date);
 
     const schedules = await prisma.asLabShiftSchedule.findMany({
-      where: { scheduleDate: { gte: dayStart, lt: dayEnd }, status: "SCHEDULED" },
+      where: { scheduleDate, status: "SCHEDULED" },
       include: {
         shift: { select: { id: true, name: true, startTime: true, endTime: true } },
         lab: { select: { id: true, name: true } },
@@ -466,20 +511,22 @@ export class ShiftScheduleService {
     });
 
     const attendances = await prisma.attendance.findMany({
-      where: { createdAt: { gte: dayStart, lt: dayEnd }, shiftScheduleId: { not: null } },
+      where: { shiftScheduleId: { in: schedules.map((schedule) => schedule.id) } },
       select: { shiftScheduleId: true },
     });
     const checkedInScheduleIds = new Set(attendances.flatMap((attendance) => attendance.shiftScheduleId ? [attendance.shiftScheduleId] : []));
 
     return schedules.filter((schedule) => {
       if (checkedInScheduleIds.has(schedule.id)) return false;
-      const [hour, minute] = schedule.shift.startTime.split(":").map(Number);
-      const startMinutes = hour * 60 + minute;
-      return startMinutes >= targetMinutes - 1 && startMinutes <= targetMinutes + 1;
+      const window = evaluateShiftWindow(now, schedule.shift.startTime, schedule.shift.endTime, 0, schedule.scheduleDate);
+      const minutesUntilStart = (window.startsAt.getTime() - now.getTime()) / 60_000;
+      return minutesUntilStart >= leadMinutes - 1 && minutesUntilStart <= leadMinutes + 1;
     });
   }
 
   static async create(data: { userId: string; destination: AsLabPicketDestination; shiftId: string; scheduleDate: string; assignedBy: string; notes?: string }) {
+    const activeShift = await prisma.shift.findUnique({ where: { id: data.shiftId, isActive: true }, select: { id: true } });
+    if (!activeShift) throw new Error("Shift tidak ditemukan atau sudah tidak aktif");
     const existing = await prisma.asLabShiftSchedule.findFirst({
       where: {
         userId: data.userId,
@@ -593,7 +640,7 @@ export class ShiftScheduleService {
 
     const schedules = await prisma.$transaction(async (tx) => {
       const [shift, labs, activeUsers, conflicts] = await Promise.all([
-        tx.shift.findUnique({ where: { id: data.shiftId }, select: { id: true } }),
+        tx.shift.findUnique({ where: { id: data.shiftId, isActive: true }, select: { id: true } }),
         tx.lab.findMany({
           where: { id: { in: labIds }, status: "ACTIVE", isPicketEnabled: true },
           select: { id: true, name: true },
@@ -704,7 +751,7 @@ export class ShiftScheduleService {
 
     const [pattern, nextPattern] = await Promise.all([
       prisma.asLabPicketPattern.findFirst({
-        where: { effectiveFrom: { lte: currentMonday } },
+        where: { effectiveFrom: { lte: currentMonday }, shift: { isActive: true } },
         orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
         include: {
           shift: { select: { id: true, name: true, startTime: true, endTime: true } },
@@ -839,7 +886,7 @@ export class ShiftScheduleService {
 
     const result = await prisma.$transaction(async (tx) => {
       const [shift, labs, activeUsers, conflicts] = await Promise.all([
-        tx.shift.findUnique({ where: { id: data.shiftId }, select: { id: true, name: true, startTime: true, endTime: true } }),
+        tx.shift.findUnique({ where: { id: data.shiftId, isActive: true }, select: { id: true, name: true, startTime: true, endTime: true } }),
         tx.lab.findMany({ where: { id: { in: labIds }, status: "ACTIVE", isPicketEnabled: true }, select: { id: true, name: true } }),
         tx.user.findMany({ where: { id: { in: userIds }, role: "ASISTEN_LAB", isActive: true }, select: { id: true } }),
         tx.asLabShiftSchedule.findMany({
@@ -860,9 +907,10 @@ export class ShiftScheduleService {
       );
       if (matchingConflicts.length) throw new WeeklyPlannerError("Satu atau lebih Aslab memiliki jadwal yang tidak dapat diganti", matchingConflicts.map((row) => ({ date: row.scheduleDate.toISOString().slice(0, 10), userIds: [row.userId] })));
 
-      await tx.asLabShiftSchedule.deleteMany({
-        where: { patternId: { not: null }, status: "SCHEDULED", scheduleDate: { gte: dateOnly(data.effectiveFrom), lte: dateOnly(horizon.end) } },
-      });
+      const replaceWhere = { patternId: { not: null }, status: "SCHEDULED" as const, scheduleDate: { gte: dateOnly(data.effectiveFrom), lte: dateOnly(horizon.end) } };
+      const linkedSchedules = await tx.attendance.count({ where: { shiftSchedule: { is: replaceWhere } } });
+      if (linkedSchedules > 0) throw new WeeklyPlannerError("Pola tidak dapat diganti karena jadwal sudah memiliki data absensi", [{ field: "effectiveFrom" }]);
+      await tx.asLabShiftSchedule.deleteMany({ where: replaceWhere });
       const pattern = await tx.asLabPicketPattern.create({
         data: {
           effectiveFrom: dateOnly(data.effectiveFrom), horizonStart: dateOnly(horizon.start), horizonEnd: dateOnly(horizon.end),
@@ -901,11 +949,19 @@ export class ShiftScheduleService {
   }
 
   static async update(id: string, data: { status?: ShiftScheduleStatus; notes?: string; destination?: AsLabPicketDestination }) {
-    return prisma.asLabShiftSchedule.update({ where: { id }, data });
+    const safe = pickShiftScheduleUpdate(data as Record<string, unknown>) as typeof data;
+    if (safe.status !== undefined && !Object.values(ShiftScheduleStatus).includes(safe.status)) throw new Error("Status jadwal tidak valid");
+    if (safe.destination !== undefined && !Object.values(AsLabPicketDestination).includes(safe.destination)) throw new Error("Tujuan piket tidak valid");
+    if (safe.notes !== undefined && (typeof safe.notes !== "string" || safe.notes.length > 1000)) throw new Error("Catatan jadwal maksimal 1000 karakter");
+    return prisma.asLabShiftSchedule.update({ where: { id }, data: safe });
   }
 
   static async delete(id: string) {
-    return prisma.asLabShiftSchedule.delete({ where: { id } });
+    return prisma.$transaction(async (tx) => {
+      const linked = await tx.attendance.count({ where: { shiftScheduleId: id } });
+      if (linked > 0) throw new Error("Jadwal tidak dapat dihapus karena sudah memiliki data absensi");
+      return tx.asLabShiftSchedule.delete({ where: { id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   static async deleteWeek(weekStart: string) {
@@ -919,12 +975,12 @@ export class ShiftScheduleService {
     const sunday = new Date(monday);
     sunday.setUTCDate(sunday.getUTCDate() + 6);
 
-    const result = await prisma.asLabShiftSchedule.deleteMany({
-      where: {
-        status: "SCHEDULED",
-        scheduleDate: { gte: monday, lte: sunday },
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const where = { status: "SCHEDULED" as const, scheduleDate: { gte: monday, lte: sunday } };
+      const linked = await tx.attendance.count({ where: { shiftSchedule: { is: where } } });
+      if (linked > 0) throw new Error("Jadwal minggu tidak dapat dihapus karena sudah memiliki data absensi");
+      return tx.asLabShiftSchedule.deleteMany({ where });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return {
       deletedCount: result.count,
@@ -945,13 +1001,14 @@ export class ShiftScheduleService {
     const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 
     const result = await prisma.$transaction(async (tx) => {
-      const deletedFuture = await tx.asLabShiftSchedule.deleteMany({
-        where: {
-          patternId: pattern.id,
-          status: "SCHEDULED",
-          scheduleDate: { gte: todayDate },
-        },
-      });
+      const futureWhere = {
+        patternId: pattern.id,
+        status: "SCHEDULED" as const,
+        scheduleDate: { gte: todayDate },
+      };
+      const linked = await tx.attendance.count({ where: { shiftSchedule: { is: futureWhere } } });
+      if (linked > 0) throw new Error("Pola tidak dapat dihapus karena jadwal mendatang sudah memiliki data absensi");
+      const deletedFuture = await tx.asLabShiftSchedule.deleteMany({ where: futureWhere });
 
       await tx.asLabShiftSchedule.updateMany({
         where: { patternId: pattern.id },
@@ -977,116 +1034,192 @@ export class ShiftScheduleService {
 // ============================================
 
 export class AttendanceService {
-  static async checkin(userId: string, latitude?: number, longitude?: number) {
-    const { start } = getTodayRange();
-
-    // Check if already checked in today
-    const existing = await prisma.attendance.findFirst({
-      where: { userId, createdAt: { gte: start }, checkoutAt: null },
-    });
-    if (existing) throw new Error("Sudah melakukan check-in hari ini");
-
+  static async checkin(userId: string, latitude?: number, longitude?: number, qrToken?: string) {
     const settings = await AttendanceSettingsService.get();
+    if (settings.isGeofencingEnabled) assertCoordinates(latitude, longitude);
+    else if (latitude !== undefined || longitude !== undefined) assertCoordinates(latitude, longitude);
 
-    if (latitude === undefined || longitude === undefined) {
-      throw new Error("GPS wajib aktif untuk check-in");
-    }
-
-    // GPS validation
+    const qrPayload = settings.isQrRequired ? AttendanceQrService.verify(qrToken || "") : undefined;
     let checkinLocationId: string | undefined;
     if (settings.isGeofencingEnabled) {
-      const result = await AttendanceLocationService.findNearestValid(latitude, longitude);
-      if (!result) {
-        throw new Error("Lokasi Anda di luar jangkauan area lab yang terdaftar");
-      }
+      const result = await AttendanceLocationService.findNearestValid(latitude as number, longitude as number);
+      if (!result) throw new Error("Lokasi check-in di luar jangkauan area lab");
       checkinLocationId = result.location.id;
+      if (qrPayload && qrPayload.locationId !== checkinLocationId) {
+        throw new Error("QR absensi tidak sesuai dengan lokasi GPS saat ini");
+      }
     }
+    if (qrPayload) await AttendanceQrService.markUsed(qrPayload, userId);
 
-    // Find today's shift schedule
     const now = new Date();
-    const todaySchedule = await ShiftScheduleService.getTodaySchedule(userId, now);
-
-    // Determine status (CHECKED_IN or LATE)
-    let status: "CHECKED_IN" | "LATE" = "CHECKED_IN";
-    if (todaySchedule?.shift) {
-      const tolerance = resolveLateTolerance(todaySchedule.shift.lateToleranceMinutes, settings.lateToleranceMinutes);
-      if (isLateCheckin(now, todaySchedule.shift.startTime, tolerance)) {
-        status = "LATE";
-      }
-    } else {
-      // No shift assigned — use default 08:00 + tolerance
-      if (isLateCheckin(now, "08:00", settings.lateToleranceMinutes)) {
-        status = "LATE";
-      }
-    }
-
-    return prisma.attendance.create({
-      data: {
-        userId,
-        shiftScheduleId: todaySchedule?.id,
-        checkinAt: now,
-        checkinLatitude: latitude,
-        checkinLongitude: longitude,
-        checkinLocationId,
-        status,
-      },
-      include: {
-        shiftSchedule: {
-          include: {
-            shift: { select: { name: true, startTime: true, endTime: true } },
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const scheduleDate = dateOnly(getJakartaDateParts(now).date);
+        const previousDate = new Date(scheduleDate);
+        previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+        const schedules = await tx.asLabShiftSchedule.findMany({
+          where: {
+            userId,
+            scheduleDate: { in: [previousDate, scheduleDate] },
+            status: "SCHEDULED",
+            shift: { isActive: true },
           },
-        },
-      },
-    });
+          include: {
+            shift: { select: { id: true, name: true, startTime: true, endTime: true, lateToleranceMinutes: true, checkoutGraceMinutes: true } },
+            lab: { select: { id: true, name: true } },
+          },
+        });
+        const eligible = schedules
+          .map((schedule) => ({
+            schedule,
+            window: evaluateShiftWindow(
+              now,
+              schedule.shift.startTime,
+              schedule.shift.endTime,
+              schedule.shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes,
+              schedule.scheduleDate,
+            ),
+          }))
+          .filter(({ window }) => window.canCheckin)
+          .sort((left, right) => right.window.startsAt.getTime() - left.window.startsAt.getTime());
+        const selected = eligible[0];
+        if (!selected) {
+          const future = schedules.some((schedule) => evaluateShiftWindow(
+            now,
+            schedule.shift.startTime,
+            schedule.shift.endTime,
+            schedule.shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes,
+            schedule.scheduleDate,
+          ).reason === "CHECKIN_NOT_OPEN");
+          if (future) throw new Error("Check-in belum dibuka. Check-in tersedia maksimal 60 menit sebelum shift");
+          throw new Error("Anda tidak memiliki jadwal piket aktif pada waktu ini");
+        }
+        const todaySchedule = selected.schedule;
+        const window = selected.window;
+        const existing = await tx.attendance.findFirst({ where: { shiftScheduleId: todaySchedule.id } });
+        if (existing) throw new Error("Absensi untuk shift ini sudah tercatat");
+
+        const tolerance = resolveLateTolerance(todaySchedule.shift.lateToleranceMinutes, settings.lateToleranceMinutes);
+        const status: "CHECKED_IN" | "LATE" = now.getTime() > window.startsAt.getTime() + tolerance * 60_000 ? "LATE" : "CHECKED_IN";
+
+        const created = await tx.attendance.create({
+          data: {
+            userId,
+            shiftScheduleId: todaySchedule.id,
+            checkinAt: now,
+            checkinLatitude: latitude,
+            checkinLongitude: longitude,
+            checkinLocationId,
+            status,
+          },
+          include: {
+            shiftSchedule: { include: { shift: { select: { name: true, startTime: true, endTime: true } } } },
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId,
+            action: "ATTENDANCE_CHECKIN",
+            targetType: "Attendance",
+            targetId: created.id,
+            description: `Check-in shift ${todaySchedule.shift.name}`,
+          },
+        });
+        return created;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new Error("Absensi untuk shift ini sudah tercatat");
+      }
+      throw error;
+    }
   }
 
-  static async checkout(userId: string, latitude?: number, longitude?: number) {
-    const { start } = getTodayRange();
-
+  static async checkout(userId: string, latitude?: number, longitude?: number, qrToken?: string) {
     const attendance = await prisma.attendance.findFirst({
-      where: { userId, createdAt: { gte: start }, checkoutAt: null },
+      where: { userId, checkoutAt: null, checkinAt: { not: null }, status: { in: ["CHECKED_IN", "LATE"] } },
+      include: { shiftSchedule: { include: { shift: true } } },
+      orderBy: { checkinAt: "desc" },
     });
     if (!attendance) throw new Error("Belum check-in atau sudah check-out");
 
     const settings = await AttendanceSettingsService.get();
+    if (settings.isGeofencingEnabled) assertCoordinates(latitude, longitude);
+    else if (latitude !== undefined || longitude !== undefined) assertCoordinates(latitude, longitude);
 
-    if (latitude === undefined || longitude === undefined) {
-      throw new Error("GPS wajib aktif untuk check-out");
-    }
-
-    // GPS validation for checkout
+    const qrPayload = settings.isQrRequired ? AttendanceQrService.verify(qrToken || "") : undefined;
     let checkoutLocationId: string | undefined;
     if (settings.isGeofencingEnabled) {
-      const result = await AttendanceLocationService.findNearestValid(latitude, longitude);
-      if (!result) {
-        throw new Error("Lokasi checkout di luar jangkauan area lab");
-      }
+      const result = await AttendanceLocationService.findNearestValid(latitude as number, longitude as number);
+      if (!result) throw new Error("Lokasi checkout di luar jangkauan area lab");
       checkoutLocationId = result.location.id;
+      if (qrPayload && qrPayload.locationId !== checkoutLocationId) {
+        throw new Error("QR absensi tidak sesuai dengan lokasi GPS saat ini");
+      }
     }
-
-    // Calculate work duration
     const checkoutAt = new Date();
-    const workDurationMinutes = attendance.checkinAt
-      ? Math.round((checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000)
-      : 0;
+    const shiftSchedule = attendance.shiftSchedule;
+    const shift = shiftSchedule?.shift;
+    if (!shift || !shiftSchedule) throw new Error("Jadwal shift untuk absensi ini tidak ditemukan. Hubungi koordinator");
+    const checkoutGrace = shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes;
+    const window = evaluateShiftWindow(checkoutAt, shift.startTime, shift.endTime, checkoutGrace, shiftSchedule.scheduleDate);
+    if (!window.canCheckout) {
+      throw new Error("Batas waktu check-out untuk shift ini sudah berakhir. Ajukan koreksi kepada koordinator");
+    }
+    if (settings.isTaskRequired && shift.isTaskRequired) {
+      const taskCount = await prisma.dailyTaskLog.count({ where: { attendanceId: attendance.id } });
+      if (taskCount === 0) throw new Error("Minimal satu task harian wajib diisi sebelum check-out");
+    }
+    if (qrPayload) await AttendanceQrService.markUsed(qrPayload, userId);
 
-    // Determine final status
+    const workDurationMinutes = attendance.checkinAt
+      ? Math.max(0, Math.round((checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000))
+      : 0;
     const finalStatus = settings.isVerificationRequired ? "WAITING_VERIFICATION" : "CHECKED_OUT";
 
-    return prisma.attendance.update({
-      where: { id: attendance.id },
-      data: {
-        checkoutAt,
-        checkoutLatitude: latitude,
-        checkoutLongitude: longitude,
-        checkoutLocationId,
-        workDurationMinutes,
-        status: finalStatus as any,
-      },
-    });
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.attendance.updateMany({
+        where: { id: attendance.id, checkoutAt: null },
+        data: {
+          checkoutAt,
+          checkoutLatitude: latitude,
+          checkoutLongitude: longitude,
+          checkoutLocationId,
+          workDurationMinutes,
+          status: finalStatus as any,
+        },
+      });
+      if (updated.count !== 1) throw new Error("Absensi sudah di-check-out dari perangkat lain");
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "ATTENDANCE_CHECKOUT",
+          targetType: "Attendance",
+          targetId: attendance.id,
+          description: `Check-out shift ${shift.name}`,
+        },
+      });
+      // The guarded update above means this transaction is the sole successful
+      // checkout transition. Award only after completion, never at check-in.
+      if (finalStatus === "CHECKED_OUT") {
+        const awards = attendancePointAwards({
+          attendanceId: attendance.id,
+          status: finalStatus,
+          checkedInStatus: attendance.status,
+        });
+        for (const award of awards) {
+          await tx.point.create({
+            data: { userId, amount: award.amount, reason: award.reason, referenceId: award.referenceId },
+          });
+        }
+      }
+      return tx.attendance.findUniqueOrThrow({ where: { id: attendance.id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   static async getMyAttendance(userId: string, month?: string, page = 1, limit = 20) {
+    page = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    limit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 20;
     const where: any = { userId };
     if (month) {
       const { start, end } = getMonthRange(month);
@@ -1128,7 +1261,7 @@ export class AttendanceService {
     if (filters?.userId) where.userId = filters.userId;
 
     const page = filters?.page && filters.page > 0 ? filters.page : 1;
-    const limit = filters?.limit && filters.limit > 0 ? filters.limit : 20;
+    const limit = filters?.limit && filters.limit > 0 ? Math.min(Math.floor(filters.limit), 100) : 20;
     const skip = (page - 1) * limit;
 
     const [items, total] = await prisma.$transaction([
@@ -1203,19 +1336,34 @@ export class AttendanceService {
   }
 
   static async verifyAttendance(attendanceId: string, verifierId: string, action: "APPROVED" | "REJECTED", notes?: string) {
-    const attendance = await prisma.attendance.findUnique({ where: { id: attendanceId } });
-    if (!attendance) throw new Error("Attendance tidak ditemukan");
-    if (attendance.status !== "WAITING_VERIFICATION") throw new Error("Attendance tidak dalam status menunggu verifikasi");
-
-    return prisma.attendance.update({
-      where: { id: attendanceId },
-      data: {
-        status: action,
-        verifiedBy: verifierId,
-        verifiedAt: new Date(),
-        notes: notes || attendance.notes,
-      },
-    });
+    const cleanNotes = notes?.trim();
+    if (action === "REJECTED" && !cleanNotes) throw new Error("Catatan wajib diisi saat menolak absensi");
+    return prisma.$transaction(async (tx) => {
+      const verifiedAt = new Date();
+      const updated = await tx.attendance.updateMany({
+        where: { id: attendanceId, status: "WAITING_VERIFICATION" },
+        data: {
+          status: action,
+          verifiedBy: verifierId,
+          verifiedAt,
+          ...(cleanNotes ? { notes: cleanNotes } : {}),
+        },
+      });
+      if (updated.count !== 1) {
+        const exists = await tx.attendance.count({ where: { id: attendanceId } });
+        throw new Error(exists ? "Attendance tidak dalam status menunggu verifikasi" : "Attendance tidak ditemukan");
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: verifierId,
+          action: action === "APPROVED" ? "ATTENDANCE_APPROVED" : "ATTENDANCE_REJECTED",
+          targetType: "Attendance",
+          targetId: attendanceId,
+          description: cleanNotes || `Absensi ${action === "APPROVED" ? "disetujui" : "ditolak"}`,
+        },
+      });
+      return tx.attendance.findUniqueOrThrow({ where: { id: attendanceId } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   static async getAttendanceStats(userId?: string, month?: string) {
@@ -1303,38 +1451,68 @@ export class AttendanceService {
 
   static async markForgotCheckout() {
     const settings = await AttendanceSettingsService.get();
-    const threshold = new Date(Date.now() - settings.forgotCheckoutAfterMinutes * 60000);
-
-    const stale = await prisma.attendance.findMany({
+    const now = new Date();
+    const candidates = await prisma.attendance.findMany({
       where: {
         checkoutAt: null,
         status: { in: ["CHECKED_IN", "LATE"] },
-        checkinAt: { lt: threshold },
+        shiftScheduleId: { not: null },
       },
+      include: { shiftSchedule: { include: { shift: true } } },
     });
-
-    if (stale.length === 0) return [];
+    const staleIds = candidates.flatMap((attendance) => {
+      const schedule = attendance.shiftSchedule;
+      if (!schedule) return [];
+      const window = evaluateShiftWindow(now, schedule.shift.startTime, schedule.shift.endTime, 0, schedule.scheduleDate);
+      const forgotAt = window.endsAt.getTime() + settings.forgotCheckoutAfterMinutes * 60_000;
+      return now.getTime() >= forgotAt ? [attendance.id] : [];
+    });
+    if (staleIds.length === 0) return [];
 
     await prisma.attendance.updateMany({
-      where: { id: { in: stale.map((s) => s.id) } },
+      where: { id: { in: staleIds }, checkoutAt: null, status: { in: ["CHECKED_IN", "LATE"] } },
       data: { status: "FORGOT_CHECKOUT" },
     });
-
-    return stale;
+    return candidates.filter((attendance) => staleIds.includes(attendance.id));
   }
 
   static async markAbsent(userId: string, reason: string, date?: string) {
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const cleanUserId = typeof userId === "string" ? userId.trim() : "";
+    const cleanReason = typeof reason === "string" ? reason.trim() : "";
+    if (!cleanUserId || cleanUserId.length > 100) throw new Error("Target aslab tidak valid");
+    if (cleanReason.length < 5 || cleanReason.length > 1000) throw new Error("Alasan absen harus 5-1000 karakter");
+    const target = date ?? getJakartaDateParts(new Date()).date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(target)) throw new Error("Tanggal harus berformat YYYY-MM-DD");
+    const targetDate = dateOnly(target);
+    if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== target) throw new Error("Tanggal tidak valid");
+    if (target > getJakartaDateParts(new Date()).date) throw new Error("Tidak dapat menandai absen untuk tanggal mendatang");
 
-    return prisma.attendance.create({
-      data: {
-        userId,
-        status: "ABSENT",
-        notes: reason,
-        createdAt: targetDate,
-      },
-    });
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const schedule = await tx.asLabShiftSchedule.findFirst({
+          where: { userId: cleanUserId, scheduleDate: targetDate, status: "SCHEDULED" },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+        if (!schedule) throw new Error("Aslab tidak memiliki jadwal piket aktif pada tanggal tersebut");
+        const existing = await tx.attendance.findFirst({ where: { shiftScheduleId: schedule.id } });
+        if (existing) throw new Error("Absensi untuk jadwal tersebut sudah tercatat");
+        return tx.attendance.create({
+          data: {
+            userId: cleanUserId,
+            shiftScheduleId: schedule.id,
+            status: "ABSENT",
+            notes: cleanReason,
+            createdAt: targetDate,
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new Error("Absensi untuk jadwal tersebut sudah tercatat");
+      }
+      throw error;
+    }
   }
 
   static async getAslebDetail(userId: string, month?: string) {
@@ -1350,6 +1528,21 @@ export class AttendanceService {
         include: {
           shiftSchedule: { include: { shift: true, lab: { select: { id: true, name: true } } } },
           dailyTasks: true,
+          checkinLocation: { select: { id: true, name: true } },
+          checkoutLocation: { select: { id: true, name: true } },
+          verifier: { select: { id: true, name: true, role: true } },
+          corrections: {
+            select: {
+              id: true,
+              requestType: true,
+              status: true,
+              reason: true,
+              reviewNote: true,
+              reviewedAt: true,
+              reviewer: { select: { id: true, name: true, role: true } },
+            },
+            orderBy: { createdAt: "desc" },
+          },
         },
         orderBy: { createdAt: "desc" },
         take: 30,
@@ -1384,10 +1577,10 @@ export class DailyTaskService {
     relatedMissionId?: string;
     relatedScheduleId?: string;
   }) {
-    // Find active attendance
-    const { start } = getTodayRange();
+    // Link the task to the latest still-open attendance, including overnight shifts.
     const attendance = await prisma.attendance.findFirst({
-      where: { userId, createdAt: { gte: start }, checkoutAt: null },
+      where: { userId, checkoutAt: null, checkinAt: { not: null }, status: { in: ["CHECKED_IN", "LATE"] } },
+      orderBy: { checkinAt: "desc" },
     });
 
     // Check if evidence is required for this category config
@@ -1524,11 +1717,13 @@ export class DailyTaskService {
       throw new Error("Task yang sudah di-approve/reject tidak bisa diedit");
     }
 
+    const safeData = pickDailyTaskUpdate(data as Record<string, unknown>) as typeof data;
+
     return prisma.dailyTaskLog.update({
       where: { id: taskId },
       data: {
-        ...data,
-        category: data.category as any,
+        ...safeData,
+        category: safeData.category as any,
         status: "SUBMITTED", // Re-submit after edit
       },
       include: { lab: { select: { id: true, name: true } } },
@@ -1575,14 +1770,34 @@ export class CorrectionRequestService {
     if (!attendance) throw new Error("Attendance tidak ditemukan");
     if (attendance.userId !== userId) throw new Error("Tidak bisa mengajukan koreksi untuk absensi orang lain");
 
+    const requestTypes = new Set(["CHECKIN_TIME", "CHECKOUT_TIME", "FORGOT_CHECKOUT", "LOCATION_ERROR", "STATUS_CORRECTION"]);
+    if (!requestTypes.has(data.requestType)) throw new Error("Tipe koreksi tidak valid");
+    const reason = data.reason?.trim();
+    if (!reason || reason.length < 10 || reason.length > 1000) throw new Error("Alasan koreksi harus 10-1000 karakter");
+    if (data.evidenceUrl && !data.evidenceUrl.startsWith("/uploads/") && !/^https:\/\//i.test(data.evidenceUrl)) {
+      throw new Error("URL bukti koreksi tidak valid");
+    }
+    buildAttendanceCorrection({
+      requestType: data.requestType,
+      newValue: data.newValue,
+      checkinAt: attendance.checkinAt,
+      checkoutAt: attendance.checkoutAt,
+      createdAt: attendance.createdAt,
+    });
+    const duplicate = await prisma.attendanceCorrectionRequest.findFirst({
+      where: { attendanceId: data.attendanceId, requestType: data.requestType as any, status: "PENDING" },
+      select: { id: true },
+    });
+    if (duplicate) throw new Error("Koreksi sejenis untuk absensi ini masih menunggu review");
+
     return prisma.attendanceCorrectionRequest.create({
       data: {
         attendanceId: data.attendanceId,
         userId,
         requestType: data.requestType as any,
-        oldValue: data.oldValue,
-        newValue: data.newValue,
-        reason: data.reason,
+        oldValue: data.oldValue?.slice(0, 500),
+        newValue: data.newValue?.slice(0, 500),
+        reason,
         evidenceUrl: data.evidenceUrl,
       },
     });
@@ -1608,81 +1823,49 @@ export class CorrectionRequestService {
   }
 
   static async review(requestId: string, reviewerId: string, action: "APPROVED" | "REJECTED", reviewNote?: string) {
-    const request = await prisma.attendanceCorrectionRequest.findUnique({ where: { id: requestId } });
-    if (!request) throw new Error("Request tidak ditemukan");
-    if (request.status !== "PENDING") throw new Error("Request sudah di-review");
+    return prisma.$transaction(async (tx) => {
+      const request = await tx.attendanceCorrectionRequest.findUnique({ where: { id: requestId } });
+      if (!request) throw new Error("Request tidak ditemukan");
+      if (request.status !== "PENDING") throw new Error("Request sudah di-review");
+      if (action === "REJECTED" && !reviewNote?.trim()) throw new Error("Catatan wajib diisi saat menolak koreksi");
 
-    const updated = await prisma.attendanceCorrectionRequest.update({
-      where: { id: requestId },
-      data: {
-        status: action,
-        reviewedBy: reviewerId,
-        reviewedAt: new Date(),
-        reviewNote,
-      },
-    });
+      const attendance = await tx.attendance.findUnique({ where: { id: request.attendanceId } });
+      if (!attendance) throw new Error("Attendance tidak ditemukan");
 
-    // If approved, apply correction to attendance
-    if (action === "APPROVED") {
-      const attendance = await prisma.attendance.findUnique({ where: { id: request.attendanceId } });
-      const updateData: any = {};
-
-      // Helper: parse time value — supports "HH:mm" or full ISO datetime
-      const parseTimeValue = (value: string, referenceDate: Date): Date => {
-        // If it's a full ISO date, use directly
-        const fullDate = new Date(value);
-        if (!isNaN(fullDate.getTime()) && value.length > 10) return fullDate;
-        // Otherwise treat as HH:mm on the reference date
-        const [hours, minutes] = value.split(":").map(Number);
-        const result = new Date(referenceDate);
-        result.setHours(hours || 0, minutes || 0, 0, 0);
-        return result;
-      };
-
-      if (request.requestType === "CHECKIN_TIME" && request.newValue) {
-        const refDate = attendance?.checkinAt || new Date();
-        updateData.checkinAt = parseTimeValue(request.newValue, refDate);
-      } else if (request.requestType === "CHECKOUT_TIME" && request.newValue) {
-        const refDate = attendance?.checkoutAt || attendance?.checkinAt || new Date();
-        updateData.checkoutAt = parseTimeValue(request.newValue, refDate);
-        // Recalculate duration
-        if (attendance?.checkinAt) {
-          updateData.workDurationMinutes = Math.round(
-            (updateData.checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000
-          );
+      if (action === "APPROVED") {
+        const updateData = buildAttendanceCorrection({
+          requestType: request.requestType,
+          newValue: request.newValue,
+          checkinAt: attendance.checkinAt,
+          checkoutAt: attendance.checkoutAt,
+          createdAt: attendance.createdAt,
+        });
+        if (Object.keys(updateData).length > 0) {
+          await tx.attendance.update({ where: { id: request.attendanceId }, data: updateData });
         }
-      } else if (request.requestType === "FORGOT_CHECKOUT") {
-        updateData.status = "CHECKED_OUT";
-        if (request.newValue) {
-          const refDate = attendance?.checkinAt || new Date();
-          updateData.checkoutAt = parseTimeValue(request.newValue, refDate);
-          if (attendance?.checkinAt) {
-            updateData.workDurationMinutes = Math.round(
-              (updateData.checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000
-            );
-          }
-        }
-      } else if (request.requestType === "STATUS_CORRECTION" && request.newValue) {
-        updateData.status = request.newValue;
       }
 
-      if (Object.keys(updateData).length > 0) {
-        await prisma.attendance.update({ where: { id: request.attendanceId }, data: updateData });
-      }
-
-      // Create audit log
-      await prisma.auditLog.create({
+      const updated = await tx.attendanceCorrectionRequest.update({
+        where: { id: requestId },
         data: {
-          userId: reviewerId,
-          action: "CORRECTION_APPROVED",
-          targetType: "Attendance",
-          targetId: request.attendanceId,
-          description: `Koreksi ${request.requestType} disetujui. Alasan: ${request.reason}`,
+          status: action,
+          reviewedBy: reviewerId,
+          reviewedAt: new Date(),
+          reviewNote: reviewNote?.trim() || null,
         },
       });
-    }
 
-    return updated;
+      await tx.auditLog.create({
+        data: {
+          userId: reviewerId,
+          action: action === "APPROVED" ? "CORRECTION_APPROVED" : "CORRECTION_REJECTED",
+          targetType: "Attendance",
+          targetId: request.attendanceId,
+          description: `Koreksi ${request.requestType} ${action === "APPROVED" ? "disetujui" : "ditolak"}. Alasan: ${request.reason}`,
+        },
+      });
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 }
 
@@ -1692,28 +1875,8 @@ export class CorrectionRequestService {
 
 export class LeaveRequestService {
   static async submit(userId: string, data: { type: string; date: string; reason: string; evidenceUrl?: string }) {
-    const existing = await prisma.leaveRequest.findFirst({
-      where: {
-        userId,
-        date: new Date(data.date),
-        status: { not: "REJECTED" },
-      },
-    });
-
-    if (existing) {
-      throw new Error("Sudah ada pengajuan izin untuk tanggal tersebut");
-    }
-
-    return prisma.leaveRequest.create({
-      data: {
-        userId,
-        type: data.type as any,
-        date: new Date(data.date),
-        reason: data.reason,
-        evidenceUrl: data.evidenceUrl || null,
-      },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
+    if (data.type !== "SICK" && data.type !== "PERMISSION") throw new Error("Tipe izin tidak valid");
+    return LeaveService.createRequest(userId, data.type, data.date, data.reason, data.evidenceUrl);
   }
 
   static async getMyRequests(userId: string, month?: string) {
@@ -1768,67 +1931,8 @@ export class LeaveRequestService {
   }
 
   static async review(requestId: string, reviewerId: string, action: "APPROVED" | "REJECTED", note?: string) {
-    const request = await prisma.leaveRequest.findUnique({ where: { id: requestId } });
-    if (!request) throw new Error("Leave request tidak ditemukan");
-    if (request.status !== "PENDING") throw new Error("Leave request sudah direview");
-
-    const updated = await prisma.leaveRequest.update({
-      where: { id: requestId },
-      data: {
-        status: action,
-        reviewedBy: reviewerId,
-        reviewedAt: new Date(),
-        reviewNote: note || null,
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        reviewer: { select: { id: true, name: true } },
-      },
-    });
-
-    if (action === "APPROVED") {
-      const leaveDate = request.date;
-      const startOfDay = new Date(leaveDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(leaveDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const attendanceStatus = request.type === "SICK" ? "SICK" : "PERMISSION";
-
-      const existingAttendance = await prisma.attendance.findFirst({
-        where: {
-          userId: request.userId,
-          checkinAt: { gte: startOfDay, lte: endOfDay },
-        },
-      });
-
-      if (existingAttendance) {
-        await prisma.attendance.update({
-          where: { id: existingAttendance.id },
-          data: { status: attendanceStatus as any },
-        });
-      } else {
-        await prisma.attendance.create({
-          data: {
-            userId: request.userId,
-            checkinAt: startOfDay,
-            status: attendanceStatus as any,
-            notes: `${request.type === "SICK" ? "Sakit" : "Izin"}: ${request.reason}`,
-          },
-        });
-      }
-
-      await prisma.auditLog.create({
-        data: {
-          userId: reviewerId,
-          action: "LEAVE_APPROVED",
-          targetType: "LeaveRequest",
-          targetId: requestId,
-          description: `Pengajuan ${request.type === "SICK" ? "sakit" : "izin"} disetujui untuk ${request.date.toISOString().split("T")[0]}`,
-        },
-      });
-    }
-
-    return updated;
+    return action === "APPROVED"
+      ? LeaveService.approveRequest(requestId, reviewerId, note)
+      : LeaveService.rejectRequest(requestId, reviewerId, note);
   }
 }

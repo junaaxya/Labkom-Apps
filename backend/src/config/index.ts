@@ -24,6 +24,10 @@ export const config = {
   uploadDir: process.env.UPLOAD_DIR || defaultUploadDir,
   databaseUrl: requireEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/lab_management?schema=public"),
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
+  aiSharedEnabled: process.env.AI_SHARED_ENABLED === "true",
+  aiSharedUrl: process.env.AI_SHARED_URL || "",
+  aiSharedModel: process.env.AI_SHARED_MODEL || "qwen2.5:7b",
+  aiSharedTimeoutMs: parseInt(process.env.AI_SHARED_TIMEOUT_MS || "60000", 10),
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/v1/calendar/callback",
@@ -43,7 +47,12 @@ export const config = {
 export function validateConfig(): void {
   const warnings: string[] = [];
 
-  if (!process.env.OPENAI_API_KEY) warnings.push("OPENAI_API_KEY not set — AI features disabled");
+  if (!process.env.AI_SHARED_ENABLED && !process.env.OPENAI_API_KEY) {
+    warnings.push("AI provider not configured — AI Assistant uses rule-based fallback");
+  }
+  if (process.env.AI_SHARED_ENABLED === "true" && !process.env.AI_SHARED_URL) {
+    warnings.push("AI_SHARED_ENABLED is true but AI_SHARED_URL is not set");
+  }
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push("GOOGLE_CLIENT_ID not set — Calendar sync disabled");
   if (!process.env.REDIS_URL) warnings.push("REDIS_URL not set — using default localhost");
   if (!process.env.MIDTRANS_SERVER_KEY) warnings.push("MIDTRANS_SERVER_KEY not set — hosting checkout disabled");

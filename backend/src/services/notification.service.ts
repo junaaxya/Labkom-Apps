@@ -326,14 +326,20 @@ class NotificationService {
   /**
    * Schedule reminder: notify user about upcoming schedule
    */
-  async notifyScheduleReminder(userId: string, scheduleTitle: string, labName: string, time: string) {
-    return this.create({
-      userId,
-      type: "SCHEDULE_REMINDER",
-      title: "Jadwal Segera Dimulai",
-      message: `"${scheduleTitle}" di ${labName} akan dimulai pukul ${time}`,
-      metadata: { link: `/schedules` },
-    });
+  async notifyScheduleReminder(userId: string, scheduleTitle: string, labName: string, time: string, scheduleId: string, businessDate: string) {
+    try {
+      return await this.create({
+        userId,
+        type: "SCHEDULE_REMINDER",
+        title: "Jadwal Segera Dimulai",
+        message: `"${scheduleTitle}" di ${labName} akan dimulai pukul ${time}`,
+        reminderKey: `schedule:${scheduleId}:${businessDate}:15m`,
+        metadata: { link: `/schedules`, scheduleId, businessDate },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+      throw error;
+    }
   }
 
   /**
@@ -352,13 +358,14 @@ class NotificationService {
   /**
    * Attendance reminder for assistant
    */
-  async notifyAttendanceReminder(aslebId: string) {
+  async notifyAttendanceReminder(aslebId: string, shiftScheduleId: string) {
     return this.create({
       userId: aslebId,
       type: "ATTENDANCE_REMINDER",
       title: "Reminder Absensi",
       message: "Anda belum melakukan check-in hari ini. Segera absen!",
-      metadata: { link: `/attendance` },
+      reminderKey: `attendance:${shiftScheduleId}:checkin`,
+      metadata: { link: `/attendance`, shiftScheduleId },
     });
   }
 }

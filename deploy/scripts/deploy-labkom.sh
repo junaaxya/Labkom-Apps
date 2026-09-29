@@ -10,6 +10,7 @@ HISTORY_DIR="$HISTORY_ROOT"
 VERIFY_SCRIPT="$DEPLOY_DIR/scripts/verify-labkom.sh"
 DIAGNOSE_SCRIPT="$DEPLOY_DIR/scripts/diagnose-labkom.sh"
 COMPOSE_FILES=(-f "$SERVER_DEPLOY_ROOT/docker-compose.yml" -f "$COMPOSE_OVERRIDE_FILE")
+MIGRATION_ENV_FILE="${MIGRATION_ENV_FILE:-$SERVER_DEPLOY_ROOT/.env.migration}"
 IMAGE_NAMESPACE_DEFAULT="ghcr.io/junaaxya/labkom-apps"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-$IMAGE_NAMESPACE_DEFAULT}"
 IMAGE_TAG="${IMAGE_TAG:-}"
@@ -123,17 +124,31 @@ echo "[INFO] Pulling images: $IMAGE_NAMESPACE/*:$IMAGE_TAG" | tee -a "$history_f
 pull_images_with_retry
 
 echo "[INFO] Running prisma migrate deploy" | tee -a "$history_file"
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" run --rm backend sh -lc 'npx prisma migrate deploy' | tee -a "$history_file"
+if [[ ! -f "$MIGRATION_ENV_FILE" ]]; then
+  echo "[FAIL] Migration credential file not found: $MIGRATION_ENV_FILE" | tee -a "$history_file"
+  exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+source "$MIGRATION_ENV_FILE"
+set +a
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" run --rm --no-deps -e DATABASE_URL backend sh -lc 'npx prisma migrate deploy' | tee -a "$history_file"
+unset DATABASE_URL
 
 echo "[INFO] Updating backend/frontend services" | tee -a "$history_file"
-docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d backend frontend | tee -a "$history_file"
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_IMAGE_FILE" up -d --no-deps backend frontend | tee -a "$history_file"
 
 verify_running_service_image backend
 verify_running_service_image frontend
 
 restart_proxy_if_needed() {
-  local attempts="${PROXY_RESTART_ATTEMPTS:-1}"
+  local attempts="${PROXY_RESTART_ATTEMPTS:-0}"
   local proxy_name="${PROXY_CONTAINER_NAME:-monitor-nginx}"
+
+  if (( attempts <= 0 )); then
+    echo "[INFO] Automatic proxy restart disabled" | tee -a "$history_file"
+    return 1
+  fi
 
   if ! docker ps --format '{{.Names}}' | grep -Fxq "$proxy_name"; then
     echo "[WARN] Proxy container not running or not found: $proxy_name" | tee -a "$history_file"

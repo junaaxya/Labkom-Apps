@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   TbSend,
   TbCheck,
@@ -42,11 +43,7 @@ export default function LogbookConditionPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    queueMicrotask(() => void fetchData());
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [logbookRes, labsRes] = await Promise.all([
@@ -69,7 +66,11 @@ export default function LogbookConditionPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    queueMicrotask(() => void fetchData());
+  }, [fetchData]);
 
   function handlePhotos(files: FileList | null) {
     if (!files) return;
@@ -227,7 +228,7 @@ export default function LogbookConditionPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {previews.map((p, i) => (
                       <div key={i} className="relative border-2 border-[#1a1a1a] rounded-lg overflow-hidden">
-                        <img src={p} alt={`Foto ${i + 1}`} className="w-full h-24 object-cover" />
+                        <Image src={p} alt={`Foto ${i + 1}`} width={240} height={96} unoptimized className="w-full h-24 object-cover" />
                         <button type="button" onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center">
                           <TbX className="w-4 h-4" />
                         </button>

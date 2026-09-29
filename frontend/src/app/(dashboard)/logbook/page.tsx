@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
@@ -255,9 +256,12 @@ function ConditionCard({
                 onClick={() => onOpenPhoto(toPhotoUrl(photo))}
                 className="overflow-hidden rounded-lg border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]"
               >
-                <img
+                <Image
                   src={toPhotoUrl(photo)}
                   alt={`Foto kondisi ${index + 1}`}
+                  width={600}
+                  height={400}
+                  unoptimized
                   className="max-h-32 w-full object-cover"
                 />
               </button>
@@ -343,7 +347,7 @@ export default function LogbookPage() {
   const isAsleb = role === "ASISTEN_LAB";
   const isKoordinator = role === "KOORDINATOR_LAB";
 
-  const fetchTodayLogbook = async () => {
+  const fetchTodayLogbook = useCallback(async () => {
     try {
       const response = await api.get<{ data?: Logbook }>("/logbooks/today");
       const payload = (response?.data as unknown as { data?: Logbook })?.data || response?.data;
@@ -356,16 +360,16 @@ export default function LogbookPage() {
       }
       throw err;
     }
-  };
+  }, []);
 
-  const fetchLogbookList = async (page = 1) => {
+  const fetchLogbookList = useCallback(async (page = 1) => {
     const response = await api.get<PaginatedLogbookResponse>(`/logbooks?page=${page}&limit=10`);
     const payload = response?.data as unknown as PaginatedLogbookResponse;
     const items = asArray<Logbook>(payload);
     setLogbooks(items);
     setListPage(payload.page || page);
     setListTotalPages(payload.totalPages || 1);
-  };
+  }, []);
 
   const fetchLogbookDetail = async (id: string) => {
     setDetailLoading(true);
@@ -380,7 +384,7 @@ export default function LogbookPage() {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!role) return;
     setLoading(true);
     try {
@@ -394,11 +398,11 @@ export default function LogbookPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchLogbookList, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
 
   useEffect(() => {
     queueMicrotask(() => void loadData());
-  }, [role]);
+  }, [loadData]);
 
   const activeDetail = isAsleb ? todayLogbook : selectedLogbook;
   const allConditionsVerified = useMemo(
@@ -858,7 +862,7 @@ export default function LogbookPage() {
             >
               <TbX className="w-5 h-5" />
             </button>
-            <img src={photoPreview} alt="Preview foto kondisi" className="max-h-[80vh] w-full object-contain" />
+            <Image src={photoPreview} alt="Preview foto kondisi" width={1200} height={900} unoptimized className="max-h-[80vh] w-full object-contain" />
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -120,7 +120,7 @@ export default function TicketsPage() {
     }
   };
 
-  const fetchTickets = async (nextPage: number, nextStatus: TicketStatus | "ALL") => {
+  const fetchTickets = useCallback(async (nextPage: number, nextStatus: TicketStatus | "ALL") => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -148,7 +148,7 @@ export default function TicketsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     let mounted = true;
@@ -167,7 +167,7 @@ export default function TicketsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchTickets]);
 
   const handleChangeStatus = (status: TicketStatus | "ALL") => {
     setSelectedStatus(status);

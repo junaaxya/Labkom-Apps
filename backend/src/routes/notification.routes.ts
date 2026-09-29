@@ -1,5 +1,6 @@
-import { Router, Request, Response } from "express";
-import { authenticate, authenticateQueryToken } from "../middlewares/auth.middleware";
+import { Router, Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
+import { authenticate } from "../middlewares/auth.middleware";
 import {
   getMyNotifications,
   getUnreadCount,
@@ -11,10 +12,40 @@ import {
   unsubscribePush,
 } from "../controllers/notification.controller";
 import { sseManager } from "../services/sse.service";
+import { consumeSseTicket, createSseTicket } from "../services/sse-ticket.service";
 
 const router = Router();
+const sseTicketLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user!.userId,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-router.get("/stream", authenticateQueryToken, (req: Request, res: Response) => {
+router.post("/sse-ticket", authenticate, sseTicketLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ticket = await createSseTicket(req.user!);
+    res.json({ success: true, data: { ticket, expiresIn: 60 } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/stream", async (req: Request, res: Response, next: NextFunction) => {
+  const ticket = typeof req.query.ticket === "string" ? req.query.ticket : "";
+  try {
+    const identity = await consumeSseTicket(ticket);
+    if (!identity) {
+      res.status(401).json({ success: false, message: "Tiket notifikasi tidak valid atau kedaluwarsa" });
+      return;
+    }
+    req.user = identity;
+  } catch (error) {
+    next(error);
+    return;
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

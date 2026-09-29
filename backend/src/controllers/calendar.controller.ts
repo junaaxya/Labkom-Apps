@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { googleCalendarService } from "../services/google-calendar.service";
 import prisma from "../config/database";
+import { config } from "../config";
+
+function calendarOAuthResultUrl(status: "connected" | "error"): string {
+  const resultUrl = new URL("/oauth/google-calendar/result", config.appUrl);
+  resultUrl.searchParams.set("status", status);
+  return resultUrl.toString();
+}
 
 export const getAuthUrl = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -13,18 +20,23 @@ export const getAuthUrl = async (req: Request, res: Response, next: NextFunction
 };
 
 export const handleCallback = async (req: Request, res: Response, next: NextFunction) => {
-  const { code, state: userId } = req.query as { code: string; state: string };
+  const { code, state, error } = req.query as {
+    code?: string;
+    state?: string;
+    error?: string;
+  };
 
-  if (!code || !userId) {
-    res.status(400).json({ success: false, message: "Missing code or state" });
+  if (error || !code || !state) {
+    res.redirect(calendarOAuthResultUrl("error"));
     return;
   }
 
   try {
+    const userId = await googleCalendarService.consumeCalendarOAuthState(state);
     await googleCalendarService.handleCallback(code, userId);
-    res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard/settings?calendar=connected`);
+    res.redirect(calendarOAuthResultUrl("connected"));
   } catch (error) {
-    res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard/settings?calendar=error`);
+    res.redirect(calendarOAuthResultUrl("error"));
   }
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   TbQrcode,
   TbKey,
@@ -55,7 +55,7 @@ export default function ScanKeysPage() {
     });
   }, []);
 
-  const fetchKeys = async () => {
+  const fetchKeys = useCallback(async () => {
     setLoadingList(true);
     try {
       const res = await api.get<{ data: Key[] }>("/keys");
@@ -66,11 +66,11 @@ export default function ScanKeysPage() {
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchKeys());
-  }, []);
+  }, [fetchKeys]);
 
   const scanQrCode = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

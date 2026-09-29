@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -8,13 +8,13 @@ import {
   TbCalendarEvent,
   TbChecklist,
   TbClipboardList,
-  TbTargetArrow,
+
   TbLoader2,
   TbClock,
   TbMapPin,
-  TbAlertTriangle,
+
   TbCircleCheck,
-  TbCircleX,
+
 } from "react-icons/tb";
 import api from "@/services/api";
 
@@ -50,6 +50,18 @@ interface AttendanceRecord {
     destination?: "RUANGAN_ASLAB" | "LAB_MULTIMEDIA" | "LAB_DASAR" | null;
   };
   dailyTasks?: DailyTask[];
+  checkinLocation?: { name: string } | null;
+  checkoutLocation?: { name: string } | null;
+  verifier?: { name: string; role: string } | null;
+  corrections?: Array<{
+    id: string;
+    requestType: string;
+    status: string;
+    reason: string;
+    reviewNote?: string | null;
+    reviewedAt?: string | null;
+    reviewer?: { name: string; role: string } | null;
+  }>;
 }
 
 interface DailyTask {
@@ -105,7 +117,7 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setProfileError(null);
     try {
@@ -147,21 +159,21 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, selectedMonth]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchData();
     });
-  }, [id, selectedMonth]);
+  }, [fetchData]);
 
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    return `${new Date(dateStr).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" })} WIB`;
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    return new Date(dateStr).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric" });
   };
 
   if (loading) {
@@ -295,12 +307,24 @@ export default function AssistantDetailPage({ params }: { params: Promise<{ id: 
                         {cfg.label}
                       </span>
                     </div>
-                    {att.shiftSchedule && (
-                      <p className="text-xs text-[#5a5a5a] mt-1">
-                        <TbMapPin className="inline w-3 h-3 mr-1" />
-                        {picketLocationLabel(att.shiftSchedule)} • {att.shiftSchedule.shift?.name || "Shift"}
-                      </p>
-                    )}
+                    <div className="space-y-1 text-xs text-[#5a5a5a] mt-1">
+                      {att.shiftSchedule && (
+                        <p>
+                          <TbMapPin className="inline w-3 h-3 mr-1" />
+                          {picketLocationLabel(att.shiftSchedule)} • {att.shiftSchedule.shift?.name || "Shift"}
+                          {att.shiftSchedule.shift && ` (${att.shiftSchedule.shift.startTime}–${att.shiftSchedule.shift.endTime} WIB)`}
+                        </p>
+                      )}
+                      {(att.checkinLocation || att.checkoutLocation) && (
+                        <p>
+                          Lokasi tervalidasi: masuk {att.checkinLocation?.name || "—"} · keluar {att.checkoutLocation?.name || "—"}
+                        </p>
+                      )}
+                      {att.verifier && <p>Diverifikasi oleh {att.verifier.name}</p>}
+                      {(att.corrections?.length ?? 0) > 0 && (
+                        <p className="text-orange-700">Koreksi terbaru: {att.corrections?.[0].status === "APPROVED" ? "disetujui" : att.corrections?.[0].status === "REJECTED" ? "ditolak" : "menunggu review"}{att.corrections?.[0].reviewer ? ` oleh ${att.corrections[0].reviewer.name}` : ""}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="font-bold text-[#4b607f]">

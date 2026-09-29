@@ -12,6 +12,7 @@ import {
   WeeklyPlannerError,
 } from "../services/attendance.service";
 import { recurringShiftPlanSchema, weeklyShiftPlanSchema, weeklyShiftPreviewSchema } from "../validators/attendance.validator";
+import { AttendanceQrService } from "../services/attendance-qr.service";
 
 const picketDestinations = new Set<string>(Object.values(AsLabPicketDestination));
 const shiftScheduleStatuses = new Set<string>(Object.values(ShiftScheduleStatus));
@@ -25,11 +26,36 @@ function parseShiftScheduleStatus(value: unknown): ShiftScheduleStatus | undefin
 }
 
 export class AttendanceController {
+  static async getPublicConfig(_req: Request, res: Response): Promise<void> {
+    try {
+      const settings = await AttendanceSettingsService.get();
+      res.json({ success: true, data: {
+        isGeofencingEnabled: settings.isGeofencingEnabled,
+        isQrRequired: settings.isQrRequired,
+      } });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async createQrChallenge(req: Request, res: Response): Promise<void> {
+    try {
+      const locationId = typeof req.body?.locationId === "string" ? req.body.locationId.trim() : "";
+      if (!locationId) { res.status(400).json({ success: false, message: "Lokasi QR wajib dipilih" }); return; }
+      const data = await AttendanceQrService.createChallenge(locationId);
+      res.status(201).json({ success: true, data });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   static async checkin(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const { latitude, longitude } = req.body;
-      const attendance = await AttendanceService.checkin(req.user.userId, latitude, longitude);
+      const latitude = req.body?.latitude === undefined ? undefined : Number(req.body.latitude);
+      const longitude = req.body?.longitude === undefined ? undefined : Number(req.body.longitude);
+      const qrToken = typeof req.body?.qrToken === "string" ? req.body.qrToken : undefined;
+      const attendance = await AttendanceService.checkin(req.user.userId, latitude, longitude, qrToken);
       res.status(201).json({ success: true, message: "Check-in berhasil", data: attendance });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
@@ -39,8 +65,10 @@ export class AttendanceController {
   static async checkout(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const { latitude, longitude } = req.body;
-      const attendance = await AttendanceService.checkout(req.user.userId, latitude, longitude);
+      const latitude = req.body?.latitude === undefined ? undefined : Number(req.body.latitude);
+      const longitude = req.body?.longitude === undefined ? undefined : Number(req.body.longitude);
+      const qrToken = typeof req.body?.qrToken === "string" ? req.body.qrToken : undefined;
+      const attendance = await AttendanceService.checkout(req.user.userId, latitude, longitude, qrToken);
       res.json({ success: true, message: "Check-out berhasil", data: attendance });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });

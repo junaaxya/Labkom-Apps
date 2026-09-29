@@ -12,44 +12,29 @@ This runbook is for the campus-deployed LabKom server (Docker Compose stack with
 | TLS certs and `nginx.conf` | `./ssl/` and `./nginx.conf` | Needed to bring nginx back up. |
 | `.env.backend` and `.env.frontend` | `/srv/apps/labkom-apps/deploy/` on the runner host | Secrets and connection strings. |
 
-## Daily backup script
+## Daily database backup
 
-Place this on the deploy host as `/srv/apps/labkom-apps/scripts/labkom-backup.sh`:
+The version-controlled script is:
+
+```text
+/srv/apps/labkom-apps/repo/deploy/scripts/backup-labkom.py
+```
+
+It creates a PostgreSQL custom-format dump under `/mnt/data/backups/labkom`, verifies it with `pg_restore --list`, sets mode `600`, and only then atomically promotes the `.partial` file. It does not delete old backups.
+
+Run and report a manual backup:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR=/srv/apps/labkom-apps/backups
-DEPLOY_DIR=/srv/apps/labkom-apps/deploy
-UPLOAD_DIR=/mnt/data/apps/labkom-apps/uploads
-
-mkdir -p "$BACKUP_DIR/db" "$BACKUP_DIR/uploads"
-
-# Postgres logical dump (compressed, custom format = restorable with pg_restore)
-docker compose -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.images.yml" \
-  exec -T postgres pg_dump -U postgres -F c lab_management \
-  > "$BACKUP_DIR/db/lab_management_${STAMP}.dump"
-
-# Uploads snapshot (incremental rsync to today's stamped dir, then tar)
-rsync -a --delete "$UPLOAD_DIR/" "$BACKUP_DIR/uploads/current/"
-tar -C "$BACKUP_DIR/uploads" -czf "$BACKUP_DIR/uploads/uploads_${STAMP}.tar.gz" current
-
-# Retention: keep last 14 daily dumps + last 14 daily upload tars
-find "$BACKUP_DIR/db" -name '*.dump' -mtime +14 -delete
-find "$BACKUP_DIR/uploads" -maxdepth 1 -name 'uploads_*.tar.gz' -mtime +14 -delete
-
-echo "[$(date -Is)] backup complete: ${STAMP}"
+python3 /srv/apps/labkom-apps/repo/deploy/scripts/backup-labkom.py --report
 ```
 
-Make it executable: `chmod +x /srv/apps/labkom-apps/scripts/labkom-backup.sh`.
-
-Schedule via cron on the host (not inside a container) at 02:30 every day:
+Host user cron runs it every day at 02:10 WIB:
 
 ```cron
-30 2 * * * /srv/apps/labkom-apps/scripts/labkom-backup.sh >> /srv/apps/labkom-apps/backups/backup.log 2>&1
+10 2 * * * /usr/bin/python3 /srv/apps/labkom-apps/repo/deploy/scripts/backup-labkom.py >/dev/null 2>>/mnt/data/backups/labkom/backup-error.log
 ```
+
+Uploads are not yet part of the automated job. Add a filesystem snapshot and off-host target only after retention and remote-storage policy are explicitly approved; do not silently delete historical evidence.
 
 ## Off-host copy
 

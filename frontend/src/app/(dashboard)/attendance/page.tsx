@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TbClock,
@@ -14,10 +14,12 @@ import {
   TbMapPin,
   TbHourglass,
   TbSend,
+  TbQrcode,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { PhotoUpload } from "@/components/ui/photo-upload";
+import { QRScanner } from "@/components/qr/qr-scanner";
 import type {
   AttendanceEntry,
   DailyTaskLog,
@@ -26,9 +28,19 @@ import type {
   ShiftSchedule,
   TaskCategoryConfig,
   AttendanceCorrectionRequest,
+
   Lab,
   AsLabPicketDestination,
 } from "@/types";
+
+type DataSection = "shifts" | "attendance" | "stats" | "tasks" | "categories" | "labs" | "corrections" | "leaves" | "settings";
+type AttendanceClientConfig = { isGeofencingEnabled: boolean; isQrRequired: boolean };
+type SectionErrors = Record<DataSection, string | null>;
+
+const emptySectionErrors: SectionErrors = {
+  shifts: null, attendance: null, stats: null, tasks: null, categories: null,
+  labs: null, corrections: null, leaves: null, settings: null,
+};
 
 const attendanceStatusConfig: Record<string, { label: string; color: string }> = {
   CHECKED_IN: { label: "Hadir", color: "bg-green-100 text-green-800" },
@@ -142,6 +154,22 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function jakartaBusinessDate(value: Date | string = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(date);
+}
+
+function SectionFeedback({ loading, error, onRetry, label }: { loading: boolean; error?: string | null; onRetry: () => void; label: string }) {
+  if (loading) return <div className="neo-card p-8 text-center font-bold text-[#5a5a5a]">Memuat {label}...</div>;
+  if (!error) return null;
+  return <div className="neo-card border-red-600 bg-red-50 p-5 text-center" role="alert">
+    <p className="font-bold text-red-800">{error}</p>
+    <button type="button" onClick={onRetry} className="neo-btn mt-3 min-h-[44px] bg-white px-4 py-2 text-sm font-bold text-red-700">Coba lagi</button>
+  </div>;
+}
+
 async function getRequiredCoordinates(actionLabel: "check-in" | "check-out"): Promise<{
   latitude: number;
   longitude: number;
@@ -155,11 +183,12 @@ async function getRequiredCoordinates(actionLabel: "check-in" | "check-out"): Pr
       timeout: 10000,
       enableHighAccuracy: true,
     })
-  ).catch(() => null);
-
-  if (!position) {
-    throw new Error(`GPS wajib aktif untuk ${actionLabel}`);
-  }
+  ).catch((error: GeolocationPositionError) => {
+    if (error.code === error.PERMISSION_DENIED) throw new Error(`Izin lokasi ditolak. Buka pengaturan browser, izinkan akses lokasi, lalu tekan “Coba lagi” untuk ${actionLabel}.`);
+    if (error.code === error.POSITION_UNAVAILABLE) throw new Error("Lokasi tidak tersedia. Aktifkan GPS, pindah ke area dengan sinyal lebih baik, lalu tekan “Coba lagi”.");
+    if (error.code === error.TIMEOUT) throw new Error("Pencarian lokasi melewati batas waktu. Pastikan GPS dan koneksi aktif, lalu tekan “Coba lagi”.");
+    throw new Error(`Lokasi gagal dibaca untuk ${actionLabel}. Periksa GPS lalu tekan “Coba lagi”.`);
+  });
 
   const { latitude, longitude } = position.coords;
   if (latitude === undefined || longitude === undefined) {
@@ -180,11 +209,18 @@ export default function AttendancePage() {
   const [categories, setCategories] = useState<TaskCategoryConfig[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
   const [corrections, setCorrections] = useState<AttendanceCorrectionRequest[]>([]);
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceClientConfig | null>(null);
+  const [sectionErrors, setSectionErrors] = useState<SectionErrors>(emptySectionErrors);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [lastLocationAction, setLastLocationAction] = useState<"checkin" | "checkout" | null>(null);
 
   // Modals
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [showLeaveRequest, setShowLeaveRequest] = useState(false);
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const qrCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const [pendingAttendanceAction, setPendingAttendanceAction] = useState<"checkin" | "checkout">("checkin");
   const [activeTab, setActiveTab] = useState<"today" | "tasks" | "history" | "corrections" | "leaves">("today");
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestItem[]>([]);
   const [leaveForm, setLeaveForm] = useState({ type: "SICK", date: "", reason: "", evidenceUrl: "" });
@@ -207,14 +243,14 @@ export default function AttendancePage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return jakartaBusinessDate().slice(0, 7);
   });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shiftRes, attendanceRes, statsRes, tasksRes, catsRes, labsRes, correctionsRes, leavesRes] =
+      setSectionErrors(emptySectionErrors);
+      const [shiftRes, attendanceRes, statsRes, tasksRes, catsRes, labsRes, correctionsRes, leavesRes, settingsRes] =
         await Promise.allSettled([
           api.get<{ data: ShiftSchedule[] }>("/attendance/shift-schedules/me"),
           api.get<{ data: AttendanceEntry[] }>(`/attendance/me?month=${selectedMonth}`),
@@ -224,13 +260,28 @@ export default function AttendancePage() {
           api.get<{ data: Lab[] }>("/labs"),
           api.get<{ data: AttendanceCorrectionRequest[] }>("/attendance/corrections/me"),
           api.get<{ data: LeaveRequestItem[] }>(`/attendance/leaves/me?month=${selectedMonth}`),
+          api.get<{ data: AttendanceClientConfig }>("/attendance/config"),
         ]);
+
+      const nextErrors = { ...emptySectionErrors };
+      const captureFailure = (section: DataSection, result: PromiseSettledResult<unknown>, fallback: string) => {
+        if (result.status === "rejected") nextErrors[section] = errorMessage(result.reason, fallback);
+      };
+      captureFailure("shifts", shiftRes, "Gagal memuat shift hari ini.");
+      captureFailure("attendance", attendanceRes, "Gagal memuat absensi dan riwayat.");
+      captureFailure("stats", statsRes, "Gagal memuat statistik absensi.");
+      captureFailure("tasks", tasksRes, "Gagal memuat daily task.");
+      captureFailure("categories", catsRes, "Gagal memuat kategori task.");
+      captureFailure("labs", labsRes, "Gagal memuat daftar lab.");
+      captureFailure("corrections", correctionsRes, "Gagal memuat pengajuan koreksi.");
+      captureFailure("leaves", leavesRes, "Gagal memuat pengajuan izin/sakit.");
+      captureFailure("settings", settingsRes, "Status geofencing tidak dapat dimuat; GPS tetap diwajibkan demi keamanan.");
 
       if (shiftRes.status === "fulfilled") {
         const schedules = extractListData<ShiftSchedule>(shiftRes.value);
-        const today = new Date().toISOString().split("T")[0];
+        const today = jakartaBusinessDate();
         const todaySchedule = schedules.find(
-          (s) => s.scheduleDate?.split("T")[0] === today && s.status === "SCHEDULED"
+          (s) => s.scheduleDate && jakartaBusinessDate(s.scheduleDate) === today && s.status === "SCHEDULED"
         );
         setTodayShift(todaySchedule || null);
       }
@@ -238,9 +289,9 @@ export default function AttendancePage() {
       if (attendanceRes.status === "fulfilled") {
         const entries = extractListData<AttendanceEntry>(attendanceRes.value);
         setHistory(entries);
-        const today = new Date().toDateString();
+        const today = jakartaBusinessDate();
         const todayEntry = entries.find(
-          (a) => new Date(a.checkinAt || a.createdAt).toDateString() === today
+          (a) => jakartaBusinessDate(a.checkinAt || a.createdAt) === today
         );
         setTodayAttendance(todayEntry || null);
       }
@@ -263,8 +314,25 @@ export default function AttendancePage() {
       if (leavesRes.status === "fulfilled") {
         setLeaveRequests(extractListData<LeaveRequestItem>(leavesRes.value));
       }
-    } catch {
-      // silent
+      if (settingsRes.status === "fulfilled") {
+        const config = extractData<AttendanceClientConfig>(settingsRes.value);
+        if (
+          config &&
+          typeof config.isGeofencingEnabled === "boolean" &&
+          typeof config.isQrRequired === "boolean"
+        ) {
+          setAttendanceSettings(config);
+        } else {
+          setAttendanceSettings(null);
+          nextErrors.settings = "Konfigurasi absensi dari server tidak valid.";
+        }
+      } else {
+        setAttendanceSettings(null);
+      }
+      setSectionErrors(nextErrors);
+    } catch (error) {
+      const message = errorMessage(error, "Gagal memuat data absensi.");
+      setSectionErrors(Object.fromEntries(Object.keys(emptySectionErrors).map((key) => [key, message])) as SectionErrors);
     } finally {
       setLoading(false);
     }
@@ -274,31 +342,70 @@ export default function AttendancePage() {
     queueMicrotask(() => void fetchData());
   }, [fetchData]);
 
-  const handleCheckin = async () => {
+  const closeQrScanner = useCallback(() => setShowQrScanner(false), []);
+
+  useEffect(() => {
+    if (!showQrScanner) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => qrCloseButtonRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeQrScanner();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeQrScanner, showQrScanner]);
+
+  const executeAttendance = async (action: "checkin" | "checkout", qrToken?: string) => {
+    if (!attendanceSettings) {
+      setGpsError("Konfigurasi absensi belum tersedia. Muat ulang konfigurasi sebelum melanjutkan.");
+      return;
+    }
+    const actionLabel = action === "checkin" ? "check-in" : "check-out";
     setSubmitting(true);
+    setGpsError(null);
+    setLastLocationAction(action);
     try {
-      const { latitude, longitude } = await getRequiredCoordinates("check-in");
-      await api.post("/attendance/checkin", { latitude, longitude });
-      fetchData();
+      const coordinates = attendanceSettings?.isGeofencingEnabled === false
+        ? undefined
+        : await getRequiredCoordinates(actionLabel);
+      await api.post(`/attendance/${action}`, { ...(coordinates ?? {}), ...(qrToken ? { qrToken } : {}) });
+      await fetchData();
     } catch (err) {
-      toast.error(errorMessage(err, "Gagal check-in. Pastikan GPS aktif dan Anda berada di lokasi yang valid."));
+      const message = errorMessage(err, `Gagal ${actionLabel}. Periksa QR, GPS, dan lokasi, lalu coba lagi.`);
+      setGpsError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCheckout = async () => {
-    setSubmitting(true);
-    try {
-      const { latitude, longitude } = await getRequiredCoordinates("check-out");
-      await api.post("/attendance/checkout", { latitude, longitude });
-      fetchData();
-    } catch (err) {
-      toast.error(errorMessage(err, "Gagal check-out. Pastikan GPS aktif dan Anda berada di lokasi yang valid."));
-    } finally {
-      setSubmitting(false);
+  const requestAttendanceAction = (action: "checkin" | "checkout") => {
+    if (!attendanceSettings) {
+      setGpsError("Konfigurasi absensi belum tersedia. Muat ulang konfigurasi sebelum melanjutkan.");
+      return;
     }
+    if (attendanceSettings?.isQrRequired) {
+      setPendingAttendanceAction(action);
+      setShowQrScanner(true);
+      return;
+    }
+    void executeAttendance(action);
   };
+
+  const handleCheckin = () => requestAttendanceAction("checkin");
+  const handleCheckout = () => requestAttendanceAction("checkout");
+
+  const handleAttendanceQrScanned = useCallback((qrToken: string) => {
+    closeQrScanner();
+    void executeAttendance(pendingAttendanceAction, qrToken);
+  // executeAttendance membaca state terbaru yang terikat pada satu sesi modal.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeQrScanner, pendingAttendanceAction]);
 
   const handleAddTask = async () => {
     if (!taskForm.task.trim()) return;
@@ -375,11 +482,11 @@ export default function AttendancePage() {
 
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    return new Date(dateStr).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    return new Date(dateStr).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric" });
   };
 
   const formatDuration = (minutes?: number) => {
@@ -388,17 +495,6 @@ export default function AttendancePage() {
     const m = minutes % 60;
     return h > 0 ? `${h}j ${m}m` : `${m}m`;
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="w-12 h-12 neo-border rounded-full animate-spin border-t-[#f3701e] mx-auto mb-4" />
-          <p className="text-[#5a5a5a] font-bold">Memuat data absensi...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -411,6 +507,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Stats Cards */}
+      <SectionFeedback loading={loading} error={sectionErrors.stats} onRetry={() => void fetchData()} label="statistik absensi" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="neo-card p-5 text-center">
           <div className="w-12 h-12 rounded-full neo-border bg-[#e8f5e9] flex items-center justify-center mx-auto mb-3">
@@ -466,6 +563,7 @@ export default function AttendancePage() {
       {/* Tab Content */}
       {activeTab === "today" && (
         <div className="space-y-4">
+          <SectionFeedback loading={loading} error={sectionErrors.attendance || sectionErrors.shifts} onRetry={() => void fetchData()} label="absensi hari ini" />
           {/* Shift Info */}
           {todayShift && (
             <div className="neo-card p-5">
@@ -499,12 +597,39 @@ export default function AttendancePage() {
               <TbMapPin className="w-6 h-6 text-[#4b607f]" /> Absensi
             </h3>
 
+            <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
+              {attendanceSettings?.isGeofencingEnabled === false
+                ? "Geofencing sedang nonaktif. GPS tidak diperlukan; validasi akhir tetap dilakukan server."
+                : "Geofencing aktif. Izinkan akses lokasi agar server dapat memvalidasi area absensi."}
+            </p>
+            {sectionErrors.settings && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 neo-border-sm" role="alert">
+                <p className="text-sm font-bold text-red-800">{sectionErrors.settings} Aksi absensi dinonaktifkan sampai konfigurasi berhasil dimuat.</p>
+                <button type="button" onClick={() => void fetchData()} disabled={loading} className="neo-btn mt-3 min-h-[44px] bg-white px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-50">
+                  {loading ? "Memuat konfigurasi..." : "Coba muat konfigurasi lagi"}
+                </button>
+              </div>
+            )}
+            {gpsError && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 neo-border-sm" role="alert">
+                <p className="text-sm font-bold text-red-800">{gpsError}</p>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void (lastLocationAction === "checkout" ? handleCheckout() : handleCheckin())}
+                  className="neo-btn mt-3 min-h-[44px] bg-white px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-50"
+                >
+                  Coba lagi
+                </button>
+              </div>
+            )}
+
             {!todayAttendance ? (
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={handleCheckin}
-                disabled={submitting}
+                disabled={submitting || loading || !attendanceSettings}
                 className="w-full py-4 bg-[#4b607f] text-white neo-btn text-lg font-heading tracking-wide flex items-center justify-center gap-2 hover:bg-[#3a4b63] transition-colors disabled:opacity-50"
               >
                 <TbClock className="w-6 h-6" strokeWidth={2.2} />
@@ -512,8 +637,8 @@ export default function AttendancePage() {
               </motion.button>
             ) : !todayAttendance.checkoutAt ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-[#e8f5e9] neo-border">
-                  <div>
+                <div className="flex flex-col gap-4 p-4 rounded-xl bg-[#e8f5e9] neo-border sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <p className="text-base font-bold text-green-800">Sudah Check-in</p>
                     <p className="text-sm font-medium text-green-600 mt-1">
                       {formatTime(todayAttendance.checkinAt)} WIB
@@ -528,8 +653,8 @@ export default function AttendancePage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleCheckout}
-                    disabled={submitting}
-                    className="px-5 py-2.5 bg-[#f3701e] text-white neo-btn text-sm font-bold flex items-center gap-2 hover:bg-[#e05b0c] transition-colors disabled:opacity-50"
+                    disabled={submitting || loading || !attendanceSettings}
+                    className="w-full px-5 py-2.5 bg-[#f3701e] text-white neo-btn text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#e05b0c] transition-colors disabled:opacity-50 sm:w-auto sm:shrink-0"
                   >
                     <TbClockOff className="w-5 h-5" strokeWidth={2.2} />
                     {submitting ? "..." : "Check-out"}
@@ -572,6 +697,7 @@ export default function AttendancePage() {
 
       {activeTab === "tasks" && (
         <div className="space-y-4">
+          <SectionFeedback loading={loading} error={sectionErrors.tasks} onRetry={() => void fetchData()} label="daily task" />
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Daily Task Log</h3>
             <motion.button
@@ -653,6 +779,7 @@ export default function AttendancePage() {
 
       {activeTab === "history" && (
         <div className="space-y-4">
+          <SectionFeedback loading={loading} error={sectionErrors.attendance} onRetry={() => void fetchData()} label="riwayat absensi" />
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Riwayat Absensi</h3>
             <input
@@ -676,7 +803,7 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-3">
                       <div className="text-center min-w-[50px]">
                         <p className="text-xs text-[#5a5a5a]">
-                          {new Date(entry.checkinAt || entry.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                          {new Date(entry.checkinAt || entry.createdAt).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short" })}
                         </p>
                       </div>
                       <div>
@@ -703,6 +830,7 @@ export default function AttendancePage() {
 
       {activeTab === "corrections" && (
         <div className="space-y-4">
+          <SectionFeedback loading={loading} error={sectionErrors.corrections} onRetry={() => void fetchData()} label="pengajuan koreksi" />
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Koreksi Absensi</h3>
             <motion.button
@@ -757,6 +885,7 @@ export default function AttendancePage() {
 
       {activeTab === "leaves" && (
         <div className="space-y-4">
+          <SectionFeedback loading={loading} error={sectionErrors.leaves} onRetry={() => void fetchData()} label="pengajuan izin dan sakit" />
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-bold text-xl text-[#1a1a1a]">Pengajuan Izin / Sakit</h3>
             <motion.button
@@ -793,7 +922,7 @@ export default function AttendancePage() {
                     </span>
                   </div>
                   <p className="text-sm font-bold text-[#1a1a1a]">
-                    {new Date(req.date).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {new Date(req.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                   </p>
                   <p className="text-sm text-[#5a5a5a] mt-1">{req.reason}</p>
                   {req.evidenceUrl && (
@@ -813,6 +942,42 @@ export default function AttendancePage() {
           )}
         </div>
       )}
+
+      {/* Dynamic Attendance QR Scanner */}
+      <AnimatePresence>
+        {showQrScanner && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+            role="dialog" aria-modal="true" aria-labelledby="attendance-qr-title"
+            onClick={closeQrScanner}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-[#f5ede6] p-4 sm:max-w-md sm:rounded-2xl sm:p-6 neo-border"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2 id="attendance-qr-title" className="flex items-center gap-2 font-heading text-xl font-bold">
+                    <TbQrcode className="h-6 w-6" /> Pindai QR Absensi
+                  </h2>
+                  <p className="mt-1 text-sm text-[#5a5a5a]">
+                    Pindai QR dinamis yang ditampilkan Koordinator untuk {pendingAttendanceAction === "checkin" ? "check-in" : "check-out"}.
+                  </p>
+                </div>
+                <button ref={qrCloseButtonRef} type="button" onClick={closeQrScanner} className="neo-btn min-h-[44px] min-w-[44px] bg-white p-2" aria-label="Tutup pemindai QR">
+                  <TbX className="h-5 w-5" />
+                </button>
+              </div>
+              <QRScanner onScanSuccess={handleAttendanceQrScanned} onScanError={(message) => setGpsError(message)} />
+              <button type="button" onClick={closeQrScanner} className="neo-btn mt-4 min-h-[44px] w-full bg-white px-4 py-2 font-bold">
+                Batal
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Leave Request Modal */}
       <AnimatePresence>

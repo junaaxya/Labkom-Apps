@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { TbLoader2, TbQrcode, TbArrowBackUp, TbAlertTriangle, TbX } from "react-icons/tb";
 import api from "@/services/api";
@@ -50,10 +51,11 @@ const statusConfig: Record<KeyStatus, { label: string; color: string; icon: stri
 
 export default function KeysPage() {
   const toast = useToast();
-  const [showScanModal, setShowScanModal] = useState(false);
+  const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<KeyItem | null>(null);
   const [keys, setKeys] = useState<KeyItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -75,8 +77,9 @@ export default function KeysPage() {
     });
   }, []);
 
-  const fetchKeys = async () => {
+  const fetchKeys = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
 
     try {
       const response = await api.get<{ data: RawKeyResponse[] }>("/keys");
@@ -98,16 +101,17 @@ export default function KeysPage() {
 
       setKeys(mapped);
     } catch (err) {
-      toast.error(errMsg(err, "Gagal memuat data kunci"));
-      setKeys([]);
+      const message = errMsg(err, "Gagal memuat data kunci");
+      toast.error(message);
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchKeys());
-  }, []);
+  }, [fetchKeys]);
 
   const handleTakeKey = async (id: string) => {
     setActionLoadingId(id);
@@ -212,7 +216,7 @@ export default function KeysPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setShowScanModal(true)}
+              onClick={() => router.push("/scan")}
               className="px-5 py-2.5 bg-[#f3701e] text-white neo-btn flex items-center gap-2"
             >
               <TbQrcode className="w-5 h-5" /> Scan QR
@@ -314,7 +318,16 @@ export default function KeysPage() {
         ))}
       </div>
 
-      {!isLoading && keys.length === 0 && (
+      {!isLoading && loadError && (
+        <div className="neo-card p-8 text-center bg-white">
+          <TbAlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h3 className="font-heading text-lg font-bold">Data kunci gagal dimuat</h3>
+          <p className="text-sm text-[#5a5a5a] mt-1 mb-4">{loadError}</p>
+          <button onClick={() => void fetchKeys()} className="neo-btn bg-[#f3701e] text-white px-5 py-2.5">Coba Lagi</button>
+        </div>
+      )}
+
+      {!isLoading && !loadError && keys.length === 0 && (
         <div className="neo-card p-12 text-center flex flex-col items-center justify-center">
           <TbQrcode className="w-12 h-12 text-[#5a5a5a] mb-3" />
           <h3 className="font-heading text-xl font-bold text-[#1a1a1a] mb-1">Tidak Ada Kunci</h3>
@@ -322,48 +335,6 @@ export default function KeysPage() {
         </div>
       )}
 
-      <AnimatePresence>
-        {showScanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowScanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="neo-card p-4 sm:p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto text-center shadow-[6px_6px_0px_#1a1a1a]"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Scan QR Kunci</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowScanModal(false)}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
-                >
-                  <TbX className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="w-48 h-48 mx-auto bg-[#e8d8c9] neo-border rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0px_#1a1a1a]">
-                <TbQrcode className="w-16 h-16 text-[#1a1a1a]" />
-              </div>
-              <p className="text-sm text-[#5a5a5a] mb-4">Arahkan kamera ke QR Code pada kunci lab</p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowScanModal(false)}
-                className="w-full py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn"
-              >
-                Tutup
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {selectedKey && (

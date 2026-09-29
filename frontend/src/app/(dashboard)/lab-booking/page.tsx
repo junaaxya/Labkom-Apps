@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   TbCalendarClock,
   TbChecklist,
@@ -72,17 +72,17 @@ export default function LabBookingPage() {
   const canApprove = isApprovalRole(user?.role);
   const canRequest = user?.role === "MAHASISWA" || Boolean(user?.isKetuaKelas);
 
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     const res = await api.get<{ data: Lab[] }>("/labs");
     setLabs(res.data ?? []);
-  };
+  }, []);
 
-  const fetchMyBookings = async () => {
+  const fetchMyBookings = useCallback(async () => {
     const res = await api.get<{ data: LabBooking[] }>("/bookings/my");
     setMyBookings(res.data ?? []);
-  };
+  }, []);
 
-  const fetchPendingBookings = async () => {
+  const fetchPendingBookings = useCallback(async () => {
     if (!canApprove) {
       setPendingBookings([]);
       return;
@@ -90,9 +90,9 @@ export default function LabBookingPage() {
 
     const res = await api.get<{ data: ListBookingResponse }>("/bookings?status=PENDING&limit=100");
     setPendingBookings(res.data?.items ?? []);
-  };
+  }, [canApprove]);
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([fetchLabs(), fetchMyBookings(), fetchPendingBookings()]);
@@ -101,7 +101,7 @@ export default function LabBookingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchLabs, fetchMyBookings, fetchPendingBookings, toast]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -122,7 +122,7 @@ export default function LabBookingPage() {
   useEffect(() => {
     if (!user) return;
     queueMicrotask(() => void refreshData());
-  }, [user]);
+  }, [refreshData, user]);
 
   const stats = useMemo(() => {
     return {

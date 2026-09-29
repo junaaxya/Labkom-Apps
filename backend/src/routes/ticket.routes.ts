@@ -4,8 +4,8 @@ import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.get("/", authenticate, TicketController.getAllTickets);
-router.get("/stats", authenticate, TicketController.getTicketStats);
+router.get("/", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), TicketController.getAllTickets);
+router.get("/stats", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), TicketController.getTicketStats);
 router.get("/my", authenticate, TicketController.getMyTickets);
 router.get("/:id", authenticate, TicketController.getTicketById);
 router.post("/", authenticate, TicketController.createTicket);

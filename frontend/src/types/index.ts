@@ -1,4 +1,4 @@
-export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA";
+export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
 
 export type LabStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
@@ -213,6 +213,7 @@ export interface Shift {
 export interface AttendanceSettings {
   id: string;
   isGeofencingEnabled: boolean;
+  isQrRequired: boolean;
   defaultRadiusMeter: number;
   lateToleranceMinutes: number;
   checkoutGraceMinutes: number;

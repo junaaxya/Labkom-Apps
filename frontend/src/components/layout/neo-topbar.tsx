@@ -19,6 +19,7 @@ import { NotificationPanel } from "@/components/notifications/notification-panel
 import { useSidebar } from "@/providers/sidebar-context";
 import type { User } from "@/types";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
+import api from "@/services/api";
 
 interface NeoTopbarProps {
   user: User;
@@ -46,7 +47,7 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
       <header className="sticky top-0 z-20 w-full bg-[#e8d8c9]/90 backdrop-blur-md neo-border-sm border-t-0 border-x-0 px-3 sm:px-6 py-2 sm:py-3 pt-safe-top">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="hidden md:flex items-center gap-2 font-medium text-sm">
+            <div className="hidden lg:flex items-center gap-2 font-medium text-sm">
               <span className="text-[#5a5a5a]">Home</span>
               {segments.map((segment, index) => (
                 <span key={index} className="flex items-center gap-2">
@@ -58,7 +59,7 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
               ))}
             </div>
             
-            <div className="md:hidden flex items-center gap-3">
+            <div className="lg:hidden flex items-center gap-3">
               <button
                 onClick={toggleSidebar}
                 className="w-11 h-11 flex items-center justify-center rounded-lg bg-white neo-border-sm shadow-[2px_2px_0px_#1a1a1a] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
@@ -162,16 +163,22 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
                         <Link href="/profile" onClick={() => setIsDropdownOpen(false)} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#1a1a1a] rounded-md hover:bg-[#e8d8c9] active:bg-[#e8d8c9] transition-colors">
                           <TbUser className="w-4 h-4" /> Profil Saya
                         </Link>
-                        <Link href="/settings" onClick={() => setIsDropdownOpen(false)} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#1a1a1a] rounded-md hover:bg-[#e8d8c9] active:bg-[#e8d8c9] transition-colors">
-                          <TbSettings className="w-4 h-4" /> Pengaturan
-                        </Link>
+                        {(user.role === "KOORDINATOR_LAB" || user.role === "ASISTEN_LAB") && (
+                          <Link href="/settings" onClick={() => setIsDropdownOpen(false)} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#1a1a1a] rounded-md hover:bg-[#e8d8c9] active:bg-[#e8d8c9] transition-colors">
+                            <TbSettings className="w-4 h-4" /> Pengaturan
+                          </Link>
+                        )}
                       </div>
                       <div className="p-2 border-t-2 border-[#e8d8c9]">
                         <button
-                          onClick={() => {
-                            localStorage.removeItem("token");
-                            localStorage.removeItem("user");
-                            router.push("/login");
+                          onClick={async () => {
+                            try {
+                              await api.delete("/files/session");
+                            } finally {
+                              localStorage.removeItem("token");
+                              localStorage.removeItem("user");
+                              router.push("/login");
+                            }
                           }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#ef4444] rounded-md hover:bg-[#ef4444]/10 active:bg-[#ef4444]/10 transition-colors"
                         >

@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 import { TbDownload, TbPrinter, TbX } from "react-icons/tb";
 
 interface QRPreviewModalProps {
@@ -83,7 +84,7 @@ export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPrevie
             </div>
 
             <div className="p-4 border-2 border-[#1a1a1a] rounded-xl bg-[#f5ede6] flex flex-col items-center">
-              <img src={qrImage} alt={`QR ${code}`} width={300} height={300} className="w-[300px] h-[300px]" />
+              <Image src={qrImage} alt={`QR ${code}`} width={300} height={300} unoptimized className="w-[300px] h-[300px]" />
               <p className="mt-3 text-sm font-bold text-[#1a1a1a]">{code}</p>
             </div>
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RoleGuard } from "@/components/auth/role-guard";
 import type { User } from "@/types";
+import api from "@/services/api";
 
 export default function DashboardRootLayout({
   children,
@@ -25,7 +26,8 @@ export default function DashboardRootLayout({
       }
 
       try {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData) as User;
+        void api.post("/files/session", {}).catch(() => undefined).finally(() => setUser(parsedUser));
       } catch {
         router.push("/login");
       }

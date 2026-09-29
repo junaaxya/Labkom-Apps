@@ -332,6 +332,9 @@ export default function AttendanceShiftsPage() {
   };
 
   const deleteSchedule = async (scheduleId: string) => {
+    const schedule = schedules.find((item) => item.id === scheduleId);
+    const label = schedule ? `${schedule.user?.name ?? "Aslab"} pada ${formatDate(schedule.scheduleDate)}` : "ini";
+    if (!window.confirm(`Hapus jadwal piket ${label}? Tindakan ini tidak dapat dibatalkan.`)) return;
     try { await api.delete(`/attendance/shift-schedules/${scheduleId}`); toast.success("Jadwal piket berhasil dihapus."); await loadSchedules(); }
     catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menghapus jadwal piket."); }
   };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   TbLock,
@@ -67,7 +68,7 @@ export default function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await api.get<{ data: ProfileData }>("/auth/profile");
       setProfile(res.data);
@@ -83,13 +84,13 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchProfile();
     });
-  }, []);
+  }, [fetchProfile]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -194,9 +195,12 @@ export default function ProfilePage() {
           <div className="absolute -bottom-12 left-6 sm:left-8">
             <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
               {shouldRenderAvatar ? (
-                <img
+                <Image
                   key={avatarUrl}
                   src={avatarUrl}
+                  width={96}
+                  height={96}
+                  unoptimized
                   alt={`Foto profil ${profile?.name || "User"}`}
                   className="w-full h-full rounded-[14px] object-cover"
                   referrerPolicy="no-referrer"

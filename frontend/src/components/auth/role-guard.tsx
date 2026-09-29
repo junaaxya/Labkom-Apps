@@ -6,22 +6,26 @@ import type { Role } from "@/types";
 import { TbShieldX } from "react-icons/tb";
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/announcements/manage": ["KOORDINATOR_LAB"],
+  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
 
-  "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/schedule-changes": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/users": ["KOORDINATOR_LAB"],
   "/assistants": ["KOORDINATOR_LAB"],
-  "/settings": ["KOORDINATOR_LAB"],
+  "/settings": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
 
   "/logbook": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/logbook/condition": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/tickets": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/tickets": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/tickets/my": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/tickets/new": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/attendance": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/settings": ["KOORDINATOR_LAB"],
@@ -38,13 +42,17 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/pc-monitoring": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/inventory": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
 
-  "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/ai-quality": ["KOORDINATOR_LAB"],
   "/predictive": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/smart-scheduling": ["KOORDINATOR_LAB"],
 
   "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/download": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/layanan-hosting": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/offline": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
 };
 
 function hasAccess(pathname: string, role: Role): boolean {
@@ -56,7 +64,7 @@ function hasAccess(pathname: string, role: Role): boolean {
     if (allowedRoles) return allowedRoles.includes(role);
   }
 
-  return true;
+  return false;
 }
 
 interface RoleGuardProps {

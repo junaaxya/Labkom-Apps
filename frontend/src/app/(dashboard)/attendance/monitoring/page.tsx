@@ -30,6 +30,7 @@ import {
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { MobileCard } from "@/components/ui/mobile-card";
+import { AttendanceQrPanel } from "@/components/attendance/attendance-qr-panel";
 import type {
   AttendanceEntry,
   AsLabPicketDestination,
@@ -142,20 +143,22 @@ function ToggleSwitch({
   onToggle: () => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onToggle}
       className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors border-2 border-[#1a1a1a] ${
         checked ? "bg-[#4b607f]" : "bg-gray-300"
       }`}
       role="switch"
       aria-checked={checked}
+      aria-label={checked ? "Nonaktifkan opsi" : "Aktifkan opsi"}
     >
-      <div
-        className={`h-5 w-5 rounded-full bg-white transition-transform ${
+      <span
+        className={`block h-5 w-5 rounded-full bg-white transition-transform ${
           checked ? "translate-x-6" : "translate-x-0"
         }`}
       />
-    </div>
+    </button>
   );
 }
 
@@ -895,6 +898,9 @@ export default function AttendanceMonitoringPage() {
   };
 
   const deleteShiftSchedule = async (scheduleId: string) => {
+    const schedule = shiftSchedules.find((item) => item.id === scheduleId);
+    const label = schedule ? `${schedule.user?.name ?? "Aslab"} pada ${formatDate(schedule.scheduleDate)}` : "ini";
+    if (!window.confirm(`Hapus jadwal shift ${label}? Tindakan ini tidak dapat dibatalkan.`)) return;
     try {
       await api.delete(`/attendance/shift-schedules/${scheduleId}`);
       toast.success("Jadwal shift berhasil dihapus.");
@@ -952,6 +958,8 @@ export default function AttendanceMonitoringPage() {
           </div>
         </div>
       </header>
+
+      <AttendanceQrPanel />
 
       <div className="neo-card p-2">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
@@ -1431,12 +1439,18 @@ export default function AttendanceMonitoringPage() {
                     </div>
                     <div className="flex gap-2 ml-3 sm:ml-4">
                       <button
+                        type="button"
+                        aria-label={`Setujui pengajuan ${leave.type === "SICK" ? "sakit" : "izin"} ${leave.user?.name || "Aslab"}`}
+                        title="Setujui pengajuan"
                         onClick={() => { setLeaveReviewAction("APPROVED"); openLeaveReview(leave); }}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
                       >
                         <TbCheck className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
+                        aria-label={`Tolak pengajuan ${leave.type === "SICK" ? "sakit" : "izin"} ${leave.user?.name || "Aslab"}`}
+                        title="Tolak pengajuan"
                         onClick={() => { setLeaveReviewAction("REJECTED"); openLeaveReview(leave); }}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
                       >
@@ -1497,12 +1511,18 @@ export default function AttendanceMonitoringPage() {
                     </div>
                     <div className="flex gap-2 ml-3 sm:ml-4">
                       <button
+                        type="button"
+                        aria-label={`Setujui koreksi absensi ${correction.user?.name || "Aslab"}`}
+                        title="Setujui koreksi"
                         onClick={() => openCorrectionReview(correction, "APPROVED")}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
                       >
                         <TbCheck className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
+                        aria-label={`Tolak koreksi absensi ${correction.user?.name || "Aslab"}`}
+                        title="Tolak koreksi"
                         onClick={() => openCorrectionReview(correction, "REJECTED")}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
                       >

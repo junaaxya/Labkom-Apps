@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   TbAlertTriangle,
   TbBuildingWarehouse,
   TbCategory,
-  TbPhoto,
+
   TbCpu,
   TbFileDescription,
   TbSend,
@@ -72,7 +72,7 @@ export default function NewTicketPage() {
     photo: [],
   });
 
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     setLoadingLabs(true);
     try {
       const res = await api.get<{ data: Lab[] }>("/labs");
@@ -83,7 +83,7 @@ export default function NewTicketPage() {
     } finally {
       setLoadingLabs(false);
     }
-  };
+  }, [toast]);
 
   const fetchPcs = async (labId: string) => {
     if (!labId) {
@@ -106,7 +106,7 @@ export default function NewTicketPage() {
     queueMicrotask(() => {
       void fetchLabs();
     });
-  }, []);
+  }, [fetchLabs]);
 
   useEffect(() => {
     queueMicrotask(() => {

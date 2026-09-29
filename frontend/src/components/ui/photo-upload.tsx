@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { TbPhoto, TbX, TbUpload } from "react-icons/tb";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
@@ -90,7 +91,7 @@ export function PhotoUpload({
         <div className="flex flex-wrap gap-2">
           {value.map((url, i) => (
             <div key={i} className="relative w-20 h-20 rounded-lg border-2 border-[#1a1a1a] overflow-hidden group">
-              <img src={toUploadDisplayUrl(url)} alt="" className="w-full h-full object-cover" />
+              <Image src={toUploadDisplayUrl(url)} alt="" width={80} height={80} unoptimized className="w-full h-full object-cover" />
               {!disabled && (
                 <button
                   type="button"
@@ -204,7 +205,7 @@ export function SinglePhotoUpload({
       <div className="flex items-center gap-3">
         {value && (
           <div className="relative w-16 h-16 rounded-full border-2 border-[#1a1a1a] overflow-hidden">
-            <img src={toUploadDisplayUrl(value)} alt="" className="w-full h-full object-cover" />
+            <Image src={toUploadDisplayUrl(value)} alt="" width={64} height={64} unoptimized className="w-full h-full object-cover" />
           </div>
         )}
 

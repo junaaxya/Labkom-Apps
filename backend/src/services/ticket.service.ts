@@ -94,52 +94,63 @@ export class TicketService {
       throw new Error("Kategori ticket tidak valid");
     }
 
-    if (data.pcId) {
-      const pc = await prisma.pC.findUnique({ where: { id: data.pcId } });
-      if (pc) {
-        await prisma.pC.update({
+    return prisma.$transaction(async (tx) => {
+      const lab = await tx.lab.findUnique({
+        where: { id: data.labId },
+        select: { id: true },
+      });
+      if (!lab) throw new Error("Lab tidak ditemukan");
+
+      if (data.pcId) {
+        const pc = await tx.pC.findUnique({
+          where: { id: data.pcId },
+          select: { id: true, labId: true },
+        });
+        if (!pc) throw new Error("PC tidak ditemukan");
+        if (pc.labId !== data.labId) throw new Error("PC tidak berada di lab yang dipilih");
+        await tx.pC.update({
           where: { id: data.pcId },
           data: { status: "BROKEN" },
         });
       }
-    }
 
-    const ticket = await prisma.ticket.create({
-      data: {
-        pcId: data.pcId,
-        labId: data.labId,
-        reportedBy: data.reportedBy,
-        category: data.category as any,
-        title: data.title,
-        description: data.description,
-        photo: data.photo || [],
-        priority: (data.priority as any) || "MEDIUM",
-      },
-      include: {
-        lab: { select: { id: true, name: true } },
-        pc: { select: { id: true, pcCode: true } },
-      },
+      const ticket = await tx.ticket.create({
+        data: {
+          pcId: data.pcId,
+          labId: data.labId,
+          reportedBy: data.reportedBy,
+          category: data.category as any,
+          title: data.title,
+          description: data.description,
+          photo: data.photo || [],
+          priority: (data.priority as any) || "MEDIUM",
+        },
+        include: {
+          lab: { select: { id: true, name: true } },
+          pc: { select: { id: true, pcCode: true } },
+        },
+      });
+
+      const pointsMap: Record<string, number> = {
+        LOW: 10,
+        MEDIUM: 20,
+        HIGH: 30,
+        CRITICAL: 50,
+      };
+      const missionPoints = pointsMap[ticket.priority] || 20;
+
+      await tx.mission.create({
+        data: {
+          title: `[Perbaikan] ${ticket.title}`,
+          description: `Laporan kerusakan dari mahasiswa: ${ticket.description || ticket.title}. Lab: ${ticket.lab?.name || "Unknown"}${ticket.pc ? `, PC: ${ticket.pc.pcCode}` : ""}. Kategori: ${ticket.category}.`,
+          points: missionPoints,
+          status: "OPEN",
+          createdById: data.reportedBy,
+        },
+      });
+
+      return ticket;
     });
-
-    const pointsMap: Record<string, number> = {
-      LOW: 10,
-      MEDIUM: 20,
-      HIGH: 30,
-      CRITICAL: 50,
-    };
-    const missionPoints = pointsMap[ticket.priority] || 20;
-
-    await prisma.mission.create({
-      data: {
-        title: `[Perbaikan] ${ticket.title}`,
-        description: `Laporan kerusakan dari mahasiswa: ${ticket.description || ticket.title}. Lab: ${ticket.lab?.name || "Unknown"}${ticket.pc ? `, PC: ${ticket.pc.pcCode}` : ""}. Kategori: ${ticket.category}.`,
-        points: missionPoints,
-        status: "OPEN",
-        createdById: data.reportedBy,
-      },
-    }).catch(() => {});
-
-    return ticket;
   }
 
   static async assignTicket(ticketId: string, assignedTo: string) {
