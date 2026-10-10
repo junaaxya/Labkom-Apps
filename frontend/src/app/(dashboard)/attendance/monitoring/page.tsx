@@ -738,6 +738,7 @@ export default function AttendanceMonitoringPage() {
   };
 
   const openVerifyModal = (attendance: AttendanceEntry) => {
+    if (attendance.status !== "WAITING_VERIFICATION") return;
     setSelectedAttendance(attendance);
     setVerifyAction("APPROVED");
     setVerifyNote("");
@@ -789,7 +790,7 @@ export default function AttendanceMonitoringPage() {
   };
 
   const submitVerifyAttendance = async () => {
-    if (!selectedAttendance) return;
+    if (!selectedAttendance || selectedAttendance.status !== "WAITING_VERIFICATION" || verifySubmitting) return;
     setVerifySubmitting(true);
     try {
       await api.patch(`/attendance/${selectedAttendance.id}/verify`, {
@@ -1061,14 +1062,14 @@ export default function AttendanceMonitoringPage() {
                               { label: "Check-in", value: formatDateTime(attendance.checkinAt) },
                               { label: "Durasi Kerja", value: formatDuration(attendance.workDurationMinutes) },
                             ]}
-                            actions={[
+                            actions={attendance.status === "WAITING_VERIFICATION" ? [
                               {
                                 label: "Verify",
                                 icon: <TbCheck className="w-4 h-4" />,
                                 onClick: () => openVerifyModal(attendance),
                                 variant: "primary",
                               },
-                            ]}
+                            ] : []}
                           />
                         );
                       })}
@@ -1100,9 +1101,11 @@ export default function AttendanceMonitoringPage() {
                                 </td>
                                 <td className="p-3 text-sm text-[#5a5a5a]">{formatDuration(attendance.workDurationMinutes)}</td>
                                 <td className="p-3">
-                                  <button onClick={() => openVerifyModal(attendance)} className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold">
-                                    Verify
-                                  </button>
+                                  {attendance.status === "WAITING_VERIFICATION" ? (
+                                    <button onClick={() => openVerifyModal(attendance)} className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold">
+                                      Verify
+                                    </button>
+                                  ) : <span className="text-sm text-[#5a5a5a]">—</span>}
                                 </td>
                               </tr>
                             );
