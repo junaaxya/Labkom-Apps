@@ -13,7 +13,7 @@ import {
 } from "./schedule-availability";
 import { getJakartaClock } from "./jakarta-time";
 
-type ScheduleConflictType = "DOSEN" | "ASISTEN";
+type ScheduleConflictType = "LAB" | "DOSEN" | "ASISTEN";
 
 export class ScheduleService {
   static async getAllSchedules(filters?: { labId?: string; day?: string; semester?: string }) {
@@ -343,7 +343,7 @@ export class ScheduleService {
   }
 
   private static conflictMessage(type: ScheduleConflictType, title: string, startTime: string, endTime: string): string {
-    const resource = type === "DOSEN" ? "dosen" : "asisten";
+    const resource = type === "LAB" ? "lab" : type === "DOSEN" ? "dosen" : "asisten";
     return `Jadwal bentrok pada ${resource} dengan "${title}" (${startTime}-${endTime})`;
   }
 }
