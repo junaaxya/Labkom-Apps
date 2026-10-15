@@ -1,18 +1,21 @@
 import prisma from "../config/database";
 import { DayOfWeek } from "@prisma/client";
 import { TicketService } from "./ticket.service";
+import {
+  canonicalDateOnly,
+  dateOnlyRange,
+  getJakartaClock,
+  jakartaTimestampRangeForDateOnly,
+  weekdayForDateOnly,
+} from "./jakarta-time";
+import { OPERATIONAL_SCHEDULE_STATUSES } from "./schedule-availability";
 
-function todayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
+function todayRange(now = new Date()) {
+  return dateOnlyRange(getJakartaClock(now).date);
 }
 
-function todayDate() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+function todayDate(now = new Date()) {
+  return getJakartaClock(now).date;
 }
 
 const LOGBOOK_INCLUDE = {
@@ -78,13 +81,20 @@ export class LogbookService {
     const labIds = (logbook.conditions || []).map((c) => c.labId);
     if (labIds.length === 0) return logbook;
 
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const logbookDate = new Date(logbook.date);
-    const logbookDay = dayNames[logbookDate.getDay()];
+    const logbookDate = canonicalDateOnly(logbook.date);
+    const logbookDay = weekdayForDateOnly(logbookDate);
+    const keyLogRange = jakartaTimestampRangeForDateOnly(logbookDate);
 
     const [schedules, keyLogs] = await Promise.all([
       prisma.schedule.findMany({
-        where: { labId: { in: labIds }, day: logbookDay as DayOfWeek, isActive: true },
+        where: {
+          labId: { in: labIds },
+          isActive: true,
+          OR: [
+            { specificDate: logbookDate },
+            { specificDate: null, day: logbookDay as DayOfWeek },
+          ],
+        },
         select: {
           id: true, labId: true, title: true, lecturerName: true,
           className: true, semester: true, startTime: true, endTime: true, type: true,
@@ -93,7 +103,7 @@ export class LogbookService {
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: labIds } },
-          createdAt: { gte: logbookDate },
+          createdAt: { gte: keyLogRange.start, lt: keyLogRange.end },
         },
         include: {
           user: { select: { id: true, name: true } },
@@ -142,8 +152,9 @@ export class LogbookService {
     });
   }
 
-  static async getTodayLogbook(userId: string) {
-    const date = todayDate();
+  static async getTodayLogbook(userId: string, now = new Date()) {
+    const { date, day } = getJakartaClock(now);
+    const keyLogRange = jakartaTimestampRangeForDateOnly(date);
     const logbook = await prisma.logbook.findFirst({
       where: { officialCheckinById: userId, date },
       include: LOGBOOK_INCLUDE,
@@ -154,16 +165,16 @@ export class LogbookService {
     const allLabIds = await prisma.lab.findMany({ select: { id: true } });
     const relevantLabIds = labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
 
-    const now = new Date();
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const todayDay = dayNames[now.getDay()];
-
     const [todaySchedules, todayKeyLogs] = await Promise.all([
       prisma.schedule.findMany({
         where: {
           labId: { in: relevantLabIds },
-          day: todayDay as DayOfWeek,
           isActive: true,
+          status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
+          OR: [
+            { specificDate: date },
+            { specificDate: null, day: day as DayOfWeek },
+          ],
         },
         select: {
           id: true,
@@ -180,7 +191,7 @@ export class LogbookService {
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: relevantLabIds } },
-          createdAt: { gte: date },
+          createdAt: { gte: keyLogRange.start, lt: keyLogRange.end },
         },
         include: {
           user: { select: { id: true, name: true } },
@@ -319,8 +330,13 @@ export class LogbookService {
     if (!logbook) throw new Error("Logbook tidak ditemukan");
     if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
 
+    const conditionLabIds = [...new Set(logbook.conditions.map((condition) => condition.labId))];
+    if (conditionLabIds.length === 0) {
+      throw new Error("Belum ada kondisi lab yang disubmit. Submit kondisi lab sebelum checkout.");
+    }
+
     const borrowedKeys = await prisma.key.findMany({
-      where: { status: "BORROWED" },
+      where: { status: "BORROWED", labId: { in: conditionLabIds } },
       include: { lab: { select: { name: true } } },
     });
     if (borrowedKeys.length > 0) {
@@ -356,12 +372,12 @@ export class LogbookService {
     });
   }
 
-  static async getStats() {
-    const { start, end } = todayRange();
+  static async getStats(now = new Date()) {
+    const { start, end } = todayRange(now);
 
     const [statusGroups, todaySessions, activeSessions, total] = await Promise.all([
       prisma.logbook.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.logbook.count({ where: { date: { gte: start, lte: end } } }),
+      prisma.logbook.count({ where: { date: { gte: start, lt: end } } }),
       prisma.logbook.count({ where: { status: { in: ["CHECKED_IN"] } } }),
       prisma.logbook.count(),
     ]);

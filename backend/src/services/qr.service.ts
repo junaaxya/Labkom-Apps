@@ -2,6 +2,18 @@ import * as QRCode from "qrcode";
 import prisma from "../config/database";
 import { config } from "../config";
 
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => HTML_ESCAPE_MAP[character]);
+}
+
 export class QRService {
   private static getAppUrl(): string {
     return config.appUrl;
@@ -391,7 +403,7 @@ export class QRService {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>QR Codes - ${lab.name}</title>
+  <title>QR Codes - ${escapeHtml(lab.name)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; padding: 20px; }
@@ -409,13 +421,13 @@ export class QRService {
   </style>
 </head>
 <body>
-  <h1>QR Codes — ${lab.name}</h1>
+  <h1>QR Codes — ${escapeHtml(lab.name)}</h1>
   <div class="grid">
     ${items.map((item) => `
     <div class="item">
-      <img src="${item.qrImage}" alt="${item.code}" />
-      <div class="code">${item.code}</div>
-      <div class="label">${item.label}</div>
+      <img src="${item.qrImage}" alt="${escapeHtml(item.code)}" />
+      <div class="code">${escapeHtml(item.code)}</div>
+      <div class="label">${escapeHtml(item.label)}</div>
     </div>`).join("")}
   </div>
 </body>

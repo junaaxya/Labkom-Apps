@@ -24,6 +24,17 @@ interface KeyItem {
   qrCode: string;
 }
 
+type KeyEligibilityMap = Record<
+  string,
+  {
+    canTake: boolean;
+    takeReason?: string;
+    canReturn: boolean;
+    returnReason?: string;
+    needsEvidence: boolean;
+  }
+>;
+
 interface RawKeyResponse {
   id: string;
   keyCode: string;
@@ -61,6 +72,7 @@ export default function KeysPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrPreview, setQrPreview] = useState<{ qrImage: string; code: string; label: string } | null>(null);
   const [userRole, setUserRole] = useState<string>("");
+  const [eligibilityMap, setEligibilityMap] = useState<KeyEligibilityMap>({});
   const [forceReturnModal, setForceReturnModal] = useState<{ keyId: string; keyCode: string; holder: string } | null>(null);
   const [forceReturnReason, setForceReturnReason] = useState("");
   const [forceReturning, setForceReturning] = useState(false);
@@ -100,10 +112,25 @@ export default function KeysPage() {
       }));
 
       setKeys(mapped);
+
+      const nextMap: KeyEligibilityMap = {};
+      await Promise.all(
+        mapped.map(async (k) => {
+          try {
+            const elig = await api.get<{ data?: KeyEligibilityMap[string] }>(`/keys/${k.id}/eligibility`);
+            if (elig.data) {
+              nextMap[k.id] = elig.data;
+            }
+          } catch {}
+        })
+      );
+      setEligibilityMap(nextMap);
     } catch (err) {
       const message = errMsg(err, "Gagal memuat data kunci");
       toast.error(message);
       setLoadError(message);
+      setKeys([]);
+      setEligibilityMap({});
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +196,7 @@ export default function KeysPage() {
     if (!forceReturnModal) return;
     setForceReturning(true);
     try {
-      await api.patch(`/keys/${forceReturnModal.keyId}/force-return`, { reason: forceReturnReason || undefined });
+      await api.patch(`/keys/${forceReturnModal.keyId}/force-return`, { reason: forceReturnReason.trim() });
       toast.success("Kunci berhasil dikembalikan paksa.");
       setForceReturnModal(null);
       setForceReturnReason("");
@@ -287,7 +314,7 @@ export default function KeysPage() {
               )}
               {userRole === "MAHASISWA" && (
                 <>
-                  {key.status === "AVAILABLE" && (
+                  {Boolean(eligibilityMap[key.id]?.canTake) && (
                     <button
                       className="flex-1 py-2 text-xs bg-[#4b607f] text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
                       disabled={actionLoadingId === key.id}
@@ -299,7 +326,7 @@ export default function KeysPage() {
                       {actionLoadingId === key.id ? "Memproses..." : "Ambil Kunci"}
                     </button>
                   )}
-                  {key.status === "BORROWED" && (
+                  {Boolean(eligibilityMap[key.id]?.canReturn) && (
                     <button
                       className="flex-1 py-2 text-xs bg-green-500 text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
                       disabled={actionLoadingId === key.id}
@@ -427,7 +454,7 @@ export default function KeysPage() {
                 <p className="text-sm"><span className="text-[#5a5a5a]">Peminjam:</span> <span className="font-bold">{forceReturnModal.holder}</span></p>
               </div>
               <div className="mb-4">
-                <label className="text-xs font-bold text-[#1a1a1a] mb-1 block">Alasan (opsional)</label>
+                <label className="text-xs font-bold text-[#1a1a1a] mb-1 block">Alasan (wajib)</label>
                 <textarea
                   value={forceReturnReason}
                   onChange={(e) => setForceReturnReason(e.target.value)}
@@ -444,8 +471,8 @@ export default function KeysPage() {
                 </button>
                 <button
                   onClick={handleForceReturn}
-                  disabled={forceReturning}
-                  className="flex-1 py-2.5 min-h-[44px] bg-red-500 text-white neo-btn text-sm"
+                  disabled={forceReturning || !forceReturnReason.trim()}
+                  className="flex-1 py-2.5 min-h-[44px] bg-red-500 text-white neo-btn text-sm disabled:opacity-50"
                 >
                   {forceReturning ? "Memproses..." : "Ya, Force Return"}
                 </button>

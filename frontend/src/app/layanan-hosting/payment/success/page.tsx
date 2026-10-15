@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { TbCheck, TbClock, TbMailForward } from "react-icons/tb";
 
-export default function HostingPaymentSuccessPage({
+export default async function HostingPaymentSuccessPage({
   searchParams,
 }: {
-  searchParams?: { status?: string; order_id?: string };
+  searchParams: Promise<{ status?: string; order_id?: string }>;
 }) {
-  const isPending = searchParams?.status === "pending";
+  const { order_id, status } = await searchParams;
+  const isPending = status === "pending";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#e8d8c9] px-5 py-12 text-[#1a1a1a]">
@@ -30,9 +31,9 @@ export default function HostingPaymentSuccessPage({
             : "Terima kasih. Pesanan VPS Anda sudah masuk. Tim LabKom akan menyiapkan layanan dan mengirim credential ke email Anda dalam 1x24 jam."}
         </p>
 
-        {searchParams?.order_id && (
+        {order_id && (
           <p className="mt-4 rounded-lg border-2 border-[#1a1a1a] bg-[#f5ede6] px-3 py-2 text-sm font-bold">
-            Order ID: {searchParams.order_id}
+            Order ID: {order_id}
           </p>
         )}
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import { TbDownload, TbPrinter, TbX } from "react-icons/tb";
 
 interface QRPreviewModalProps {
@@ -12,8 +11,16 @@ interface QRPreviewModalProps {
   label: string;
 }
 
+const PNG_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
+
+export function isPngDataUrl(value: string): boolean {
+  return PNG_DATA_URL.test(value);
+}
+
 export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPreviewModalProps) {
   const handleDownload = () => {
+    if (!isPngDataUrl(qrImage)) return;
+
     const link = document.createElement("a");
     link.href = qrImage;
     link.download = `${code || "qr-code"}.png`;
@@ -23,29 +30,34 @@ export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPrevie
   };
 
   const handlePrint = () => {
+    if (!isPngDataUrl(qrImage)) return;
+
     const printWindow = window.open("", "_blank", "width=420,height=560");
     if (!printWindow) return;
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${label} - ${code}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 24px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-            .wrap { text-align: center; }
-            img { width: 300px; height: 300px; }
-            p { margin-top: 12px; font-size: 16px; font-weight: 700; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            <img src="${qrImage}" alt="QR ${code}" />
-            <p>${code}</p>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    const document = printWindow.document;
+    const html = document.documentElement;
+    const head = document.head;
+    const body = document.body;
+    const title = document.createElement("title");
+    title.textContent = `${label} - ${code}`;
+    head.append(title);
+
+    const style = document.createElement("style");
+    style.textContent = "body { font-family: Arial, sans-serif; margin: 0; padding: 24px; display: flex; align-items: center; justify-content: center; min-height: 100vh; } .wrap { text-align: center; } img { width: 300px; height: 300px; } p { margin-top: 12px; font-size: 16px; font-weight: 700; }";
+    head.append(style);
+
+    const wrap = document.createElement("div");
+    wrap.className = "wrap";
+    const image = document.createElement("img");
+    image.src = qrImage;
+    image.alt = `QR ${code}`;
+    wrap.append(image);
+    const text = document.createElement("p");
+    text.textContent = code;
+    wrap.append(text);
+    body.append(wrap);
+    html.lang = "en";
     printWindow.focus();
     printWindow.print();
   };
@@ -84,7 +96,11 @@ export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPrevie
             </div>
 
             <div className="p-4 border-2 border-[#1a1a1a] rounded-xl bg-[#f5ede6] flex flex-col items-center">
-              <Image src={qrImage} alt={`QR ${code}`} width={300} height={300} unoptimized className="w-[300px] h-[300px]" />
+              {isPngDataUrl(qrImage) ? (
+                <img src={qrImage} alt={`QR ${code}`} width={300} height={300} className="w-[300px] h-[300px]" />
+              ) : (
+                <p className="flex h-[300px] w-[300px] items-center justify-center text-sm font-bold text-[#5a5a5a]">QR image tidak tersedia</p>
+              )}
               <p className="mt-3 text-sm font-bold text-[#1a1a1a]">{code}</p>
             </div>
 

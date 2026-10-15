@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ApprovalConflictError } from "../services/approval-conflict.error";
 import { ScheduleChangeService } from "../services/schedule-change.service";
 import {
   approveScheduleChangeSchema,
@@ -81,6 +82,11 @@ export class ScheduleChangeController {
     } catch (error: any) {
       if (error.name === "ZodError") {
         res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        return;
+      }
+
+      if (error instanceof ApprovalConflictError) {
+        res.status(409).json({ success: false, message: error.message });
         return;
       }
 
