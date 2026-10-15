@@ -105,8 +105,6 @@ export default function ProfilePage() {
       const res = await api.patch<{ data: ProfileData }>("/auth/profile", {
         name,
         phone: phone || undefined,
-        semester: semester || undefined,
-        className: className || undefined,
         avatar: avatar || undefined,
       });
       setProfile(res.data);
@@ -299,12 +297,16 @@ export default function ProfilePage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-[#1a1a1a]">Semester</label>
-                  <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Contoh: 4" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />
+                  <label className="block text-sm font-semibold text-[#5a5a5a]">
+                    Semester <span className="text-[10px] font-normal text-[#9a9a9a]">(diatur koordinator)</span>
+                  </label>
+                  <input type="text" value={profile?.semester || "-"} disabled className="neo-input w-full min-h-[44px] bg-[#f5ede6] text-[#5a5a5a] cursor-not-allowed px-4 py-3" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-[#1a1a1a]">Kelas</label>
-                  <input type="text" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Contoh: TI-4A" className="neo-input w-full min-h-[44px] bg-white px-4 py-3" />
+                  <label className="block text-sm font-semibold text-[#5a5a5a]">
+                    Kelas <span className="text-[10px] font-normal text-[#9a9a9a]">(diatur koordinator)</span>
+                  </label>
+                  <input type="text" value={profile?.className || "-"} disabled className="neo-input w-full min-h-[44px] bg-[#f5ede6] text-[#5a5a5a] cursor-not-allowed px-4 py-3" />
                 </div>
               </div>
             </div>

@@ -303,7 +303,7 @@ export default function AttendanceMonitoringPage() {
   const [shiftLoading, setShiftLoading] = useState(false);
   const [scheduleMonth, setScheduleMonth] = useState(monthNow());
   const [shiftSchedules, setShiftSchedules] = useState<ShiftSchedule[]>([]);
-  const [aslabUsers, setAslabUsers] = useState<User[]>([]);
+  const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [leavesLoading, setLeavesLoading] = useState(false);
@@ -414,14 +414,17 @@ export default function AttendanceMonitoringPage() {
 
   const loadShiftReferences = useCallback(async () => {
     try {
-      const [usersRes, shiftsRes] = await Promise.all([
+      const [aslabRes, magangRes, shiftsRes] = await Promise.all([
         api.get<ApiMaybeWrapped<User[]> | Record<string, unknown>>("/users?role=ASISTEN_LAB"),
+        api.get<ApiMaybeWrapped<User[]> | Record<string, unknown>>("/users?role=MAGANG"),
         api.get<ApiMaybeWrapped<Shift[]> | Record<string, unknown>>("/shifts"),
       ]);
-      setAslabUsers(safeArray<User>(usersRes, ["users", "rows"]));
+      const users = [...safeArray<User>(aslabRes, ["users", "rows"]), ...safeArray<User>(magangRes, ["users", "rows"])]
+        .filter((user, index, all) => all.findIndex((candidate) => candidate.id === user.id) === index);
+      setStaffUsers(users);
       setShifts(safeArray<Shift>(shiftsRes, ["shifts", "rows"]));
     } catch {
-      setAslabUsers([]);
+      setStaffUsers([]);
       setShifts([]);
     }
   }, []);
@@ -1879,17 +1882,17 @@ export default function AttendanceMonitoringPage() {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold uppercase text-[#5a5a5a] flex items-center gap-1">
-                    <TbUsers className="w-4 h-4" /> Aslab
+                     <TbUsers className="w-4 h-4" /> Petugas
                   </label>
                   <select
                     value={shiftForm.userId}
                     onChange={(event) => setShiftForm((prev) => ({ ...prev, userId: event.target.value }))}
                     className="neo-input neo-border mt-1 w-full rounded-lg px-3 py-2 bg-white text-[#1a1a1a]"
                   >
-                    <option value="">Pilih Aslab</option>
-                    {aslabUsers.map((user) => (
+                    <option value="">Pilih petugas</option>
+                    {staffUsers.map((user) => (
                       <option key={user.id} value={user.id}>
-                        {user.name}
+                        {user.name} · {user.role === "MAGANG" ? "Magang" : "Asisten Lab"}
                       </option>
                     ))}
                   </select>

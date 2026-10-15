@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { TbAlertCircle, TbCalendarClock, TbChecklist, TbFileDescription, TbFlask, TbIdBadge, TbLoader2, TbMail, TbMapPin, TbPhone, TbSearch, TbSend, TbUser, TbUsers } from "react-icons/tb";
+import { TbAlertCircle, TbChecklist, TbFileDescription, TbFlask, TbLoader2, TbMail, TbMapPin, TbPhone, TbSearch, TbSend, TbUser, TbUsers } from "react-icons/tb";
 import type { AccessRequest, AccessRequestType } from "@/types";
 
 type PublicLab = { id: string; name: string; location: string };
@@ -42,7 +42,16 @@ const initialForm: RequestFormState = {
   labId: "",
 };
 
-// Pendaftaran mandiri tidak tersedia. Akun Mahasiswa dibuat oleh Koordinator.
+const getMagangPasswordError = (value: string) => {
+  if (value.length < 12) return "Password minimal 12 karakter.";
+  if (value.length > 128) return "Password maksimal 128 karakter.";
+  if (!/[a-z]/.test(value)) return "Password harus memiliki huruf kecil.";
+  if (!/[A-Z]/.test(value)) return "Password harus memiliki huruf besar.";
+  if (!/\d/.test(value)) return "Password harus memiliki angka.";
+  if (!/[^A-Za-z0-9]/.test(value)) return "Password harus memiliki simbol.";
+  return "";
+};
+
 export default function RegisterPage() {
   const [formData, setFormData] = useState<RequestFormState>(initialForm);
   const [requestCode, setRequestCode] = useState("");
@@ -50,8 +59,14 @@ export default function RegisterPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState("");
   const [successCode, setSuccessCode] = useState("");
+  const [successType, setSuccessType] = useState<AccessRequestType | "">("");
   const [checkedRequest, setCheckedRequest] = useState<AccessRequest | null>(null);
   const [labs, setLabs] = useState<PublicLab[]>([]);
+  const [copyFeedback, setCopyFeedback] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
   useEffect(() => {
     void fetch(`${process.env.NEXT_PUBLIC_API_URL}/access-requests/labs`)
@@ -76,7 +91,7 @@ export default function RegisterPage() {
     }
 
     if (formData.type === "MAGANG") {
-      return "Jika disetujui, admin/koordinator akan menindaklanjuti proses akun atau akses magang sesuai kebutuhan operasional.";
+      return "Setelah email terverifikasi dan pengajuan disetujui, Anda akan menerima email konfirmasi aktivasi akun.";
     }
 
     return "Jika disetujui, Anda akan mendapat akses sementara yang terbatas untuk kebutuhan tamu, kegiatan khusus, atau akses singkat lainnya.";
@@ -95,6 +110,12 @@ export default function RegisterPage() {
           next.endTime = "";
           next.participants = "1";
         }
+        if (value !== "MAGANG") {
+          setPassword("");
+          setConfirmPassword("");
+          setPasswordError("");
+          setConfirmPasswordError("");
+        }
         if (value === "AKSES_SEMENTARA") {
           next.requestedRole = "";
           next.labId = "";
@@ -112,6 +133,18 @@ export default function RegisterPage() {
     setIsLoading(true);
     setError("");
     setSuccessCode("");
+    setSuccessType("");
+
+    if (formData.type === "MAGANG") {
+      const nextPasswordError = getMagangPasswordError(password);
+      const nextConfirmPasswordError = password !== confirmPassword ? "Konfirmasi password harus sama." : "";
+      setPasswordError(nextPasswordError);
+      setConfirmPasswordError(nextConfirmPasswordError);
+      if (nextPasswordError || nextConfirmPasswordError) {
+        setIsLoading(false);
+        return;
+      }
+    }
 
     try {
       const payload = {
@@ -122,6 +155,8 @@ export default function RegisterPage() {
         date: formData.type === "PEMINJAMAN_LAB" ? formData.date : undefined,
         startTime: formData.type === "PEMINJAMAN_LAB" ? formData.startTime : undefined,
         endTime: formData.type === "PEMINJAMAN_LAB" ? formData.endTime : undefined,
+        password: formData.type === "MAGANG" ? password : undefined,
+        confirmPassword: formData.type === "MAGANG" ? confirmPassword : undefined,
       };
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/access-requests`, {
@@ -138,7 +173,10 @@ export default function RegisterPage() {
       }
 
       setSuccessCode(data.data.requestCode);
+      setSuccessType(formData.type);
       setFormData(initialForm);
+      setPassword("");
+      setConfirmPassword("");
       setRequestCode(data.data.requestCode);
     } catch {
       setError("Terjadi kesalahan. Coba lagi.");
@@ -184,10 +222,29 @@ export default function RegisterPage() {
   const approvedStatusHint = checkedRequest?.status === "APPROVED"
     ? checkedRequest.type === "PEMINJAMAN_LAB"
       ? "Pengajuan sudah disetujui. Tim lab akan menindaklanjuti jadwal peminjaman Anda."
-      : checkedRequest.type === "MAGANG"
-        ? `Pengajuan disetujui. Silakan login memakai email pengajuan Anda dan password awal = kode pengajuan (${checkedRequest.requestCode}). Setelah berhasil masuk, segera ganti password.`
-        : `Pengajuan disetujui. Silakan login memakai email pengajuan Anda dan password awal = kode pengajuan (${checkedRequest.requestCode}). Akses ini bersifat sementara dan terbatas.`
+       : "Akun MAGANG Anda telah diaktifkan. Periksa email untuk konfirmasi dan login dengan password yang Anda buat saat mendaftar."
     : "";
+
+  const statusHint = checkedRequest?.status === "PENDING"
+    ? "Pengajuan sedang ditinjau."
+    : checkedRequest?.status === "REJECTED" || checkedRequest?.status === "REVISION"
+      ? "Silakan hubungi lab melalui kanal resmi dengan menyebutkan kode pengajuan ini untuk langkah berikutnya."
+      : approvedStatusHint;
+
+  const copyRequestCode = async () => {
+    if (!successCode) return;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(successCode);
+      } else {
+        setCopyFeedback("Salin kode secara manual: " + successCode);
+        return;
+      }
+      setCopyFeedback("Kode berhasil disalin.");
+    } catch {
+      setCopyFeedback("Salin kode secara manual: " + successCode);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--color-cream)] flex flex-col md:flex-row overflow-hidden">
@@ -226,7 +283,7 @@ export default function RegisterPage() {
               {error && <motion.div initial={{ opacity: 0, y: -10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }} className="mb-6 p-4 bg-[#ffcdd2] neo-border rounded-lg flex items-start gap-3 origin-top"><TbAlertCircle className="text-red-600 text-xl mt-0.5 shrink-0" /><p className="text-sm text-red-800 font-bold">{error}</p></motion.div>}
             </AnimatePresence>
 
-            {successCode && <div className="mb-6 rounded-lg bg-green-100 p-4 neo-border"><p className="text-sm font-bold text-green-800">Pengajuan terkirim. Kode Anda: <span className="font-heading">{successCode}</span></p></div>}
+              {successCode && <div className="mb-6 rounded-lg bg-green-100 p-4 neo-border">{successType === "MAGANG" && <p className="text-sm font-bold text-green-800">Pendaftaran berhasil! Periksa email Anda untuk melakukan verifikasi.</p>}{successType !== "MAGANG" && <><p className="text-sm font-bold text-green-800">Pengajuan terkirim. Kode Anda: <span className="font-heading">{successCode}</span></p><button type="button" onClick={() => void copyRequestCode()} className="neo-btn mt-3 min-h-[44px] bg-white px-4 py-2 text-sm text-[#1a1a1a]">Salin Kode Pengajuan</button>{copyFeedback && <p className="mt-2 text-xs font-bold text-green-800" role="status">{copyFeedback}</p>}</>}</div>}
 
             <form onSubmit={submitRequest} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -248,10 +305,15 @@ export default function RegisterPage() {
 
               {formData.type === "PEMINJAMAN_LAB" && <div className="grid grid-cols-1 md:grid-cols-3 gap-4"><label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Tanggal</span><input type="date" name="date" value={formData.date} onChange={handleChange} required className="w-full px-4 py-3 min-h-[44px] neo-input" /></label><label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Jam Mulai</span><input type="time" name="startTime" value={formData.startTime} onChange={handleChange} required className="w-full px-4 py-3 min-h-[44px] neo-input" /></label><label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Jam Selesai</span><input type="time" name="endTime" value={formData.endTime} onChange={handleChange} required className="w-full px-4 py-3 min-h-[44px] neo-input" /></label></div>}
 
-              {formData.type === "MAGANG" && <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Role Diminta</span><div className="relative"><TbIdBadge className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5a5a5a]" /><input value="MAGANG" disabled className="w-full pl-11 pr-4 py-3 min-h-[44px] neo-input bg-[#f5ede6] text-[#5a5a5a]" /></div></label>}
+                {formData.type === "MAGANG" && <>
+                  <p className="rounded-lg bg-[#f5ede6] p-3 text-sm font-bold text-[#1a1a1a] neo-border-sm">Pengajuan ini diproses sebagai MAGANG. Role dikirim otomatis bersama pengajuan. Password tidak ditampilkan di status pengajuan.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Password</span><input type="password" name="password" value={password} onChange={(e) => { setPassword(e.target.value); setPasswordError(getMagangPasswordError(e.target.value)); }} minLength={12} maxLength={128} required className="w-full px-4 py-3 min-h-[44px] neo-input" aria-invalid={Boolean(passwordError)} aria-describedby="magang-password-error" />{passwordError && <p id="magang-password-error" className="text-xs font-bold text-red-700">{passwordError}</p>}</label>
+                    <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Konfirmasi Password</span><input type="password" name="confirmPassword" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setConfirmPasswordError(e.target.value === password ? "" : "Konfirmasi password harus sama."); }} required className="w-full px-4 py-3 min-h-[44px] neo-input" aria-invalid={Boolean(confirmPasswordError)} aria-describedby="magang-confirm-password-error" />{confirmPasswordError && <p id="magang-confirm-password-error" className="text-xs font-bold text-red-700">{confirmPasswordError}</p>}</label>
+                  </div>
+                </>}
 
-              <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Tujuan / Keterangan</span><textarea name="purpose" value={formData.purpose} onChange={handleChange} rows={3} className="w-full px-4 py-3 neo-input" placeholder={formData.type === "MAGANG" ? "Ceritakan tujuan magang / divisi / periode" : `Jelaskan kebutuhan ${typeLabel.toLowerCase()}`} /></label>
-              <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Deskripsi Tambahan</span><textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-4 py-3 neo-input" /></label>
+               <label className="space-y-1.5 block"><span className="block text-sm font-bold text-[#1a1a1a]">Detail Pengajuan</span><textarea name="description" value={formData.description || formData.purpose} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value, purpose: e.target.value }))} rows={3} className="w-full px-4 py-3 neo-input" placeholder={formData.type === "MAGANG" ? "Ceritakan tujuan magang / divisi / periode" : `Jelaskan kebutuhan ${typeLabel.toLowerCase()}`} /></label>
 
               <div className="rounded-lg bg-[#f5ede6] p-4 neo-border-sm"><p className="text-sm font-bold text-[#1a1a1a]">Kalau pengajuan disetujui</p><p className="mt-1 text-sm text-[#5a5a5a]">{approvalOutcomeText}</p></div>
 
@@ -264,7 +326,7 @@ export default function RegisterPage() {
             <p className="mb-4 text-sm font-medium text-[#5a5a5a]">Sudah pernah mengajukan? Masukkan kode pengajuan untuk melihat apakah pengajuan Anda masih diproses, disetujui, ditolak, atau perlu revisi.</p>
             <div className="flex flex-col sm:flex-row gap-3"><input value={requestCode} onChange={(e) => setRequestCode(e.target.value.toUpperCase())} placeholder="Contoh: BOOK-AB12CD34" className="neo-input flex-1 px-4 py-3 min-h-[44px]" /><button type="button" onClick={() => void checkStatus()} disabled={isChecking} className="neo-btn min-h-[44px] bg-[#4b607f] px-5 py-3 text-white">{isChecking ? "Mengecek..." : "Cek Status"}</button></div>
 
-            {checkedRequest && <div className="mt-4 rounded-lg bg-[#f5ede6] p-4 neo-border"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-[#1a1a1a]">{checkedRequest.title}</p><span className={`rounded-full px-3 py-1 text-xs font-black ${statusBadge}`}>{checkedRequest.status}</span></div><p className="mt-2 text-sm font-medium text-[#5a5a5a]">Kode: {checkedRequest.requestCode}</p>{approvedStatusHint && <p className="mt-2 text-sm font-bold text-[#1a1a1a]">{approvedStatusHint}</p>}{checkedRequest.reviewerNotes && <p className="mt-2 text-sm text-[#1a1a1a]">Catatan reviewer: {checkedRequest.reviewerNotes}</p>}</div>}
+             {checkedRequest && <div className="mt-4 rounded-lg bg-[#f5ede6] p-4 neo-border"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-[#1a1a1a]">{checkedRequest.title}</p><span className={`rounded-full px-3 py-1 text-xs font-black ${statusBadge}`}>{checkedRequest.status}</span></div><p className="mt-2 text-sm font-medium text-[#5a5a5a]">Kode: {checkedRequest.requestCode}</p>{statusHint && <p className="mt-2 text-sm font-bold text-[#1a1a1a]">{statusHint}</p>}</div>}
           </div>
 
           <div className="text-center text-sm font-medium text-[#5a5a5a]">

@@ -391,7 +391,7 @@ export class ShiftScheduleService {
         orderBy: { name: "asc" },
       }),
       prisma.user.findMany({
-        where: { role: "ASISTEN_LAB", isActive: true },
+        where: { role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true },
         select: { id: true, name: true, nim: true },
         orderBy: { name: "asc" },
       }),
@@ -420,7 +420,7 @@ export class ShiftScheduleService {
     }));
     const assistantsRequiredPerDay = configuredRooms.reduce((sum, room) => sum + room.requiredAssistantCount, 0);
     if (assistants.length < assistantsRequiredPerDay) {
-      throw new WeeklyPlannerError(`Aslab aktif tidak cukup; diperlukan ${assistantsRequiredPerDay} per hari`, [{ field: "rooms" }]);
+      throw new WeeklyPlannerError(`Petugas aktif tidak cukup; diperlukan ${assistantsRequiredPerDay} per hari`, [{ field: "rooms" }]);
     }
 
     const unavailableByDate = new Map<string, Set<string>>();
@@ -527,6 +527,11 @@ export class ShiftScheduleService {
   static async create(data: { userId: string; destination: AsLabPicketDestination; shiftId: string; scheduleDate: string; assignedBy: string; notes?: string }) {
     const activeShift = await prisma.shift.findUnique({ where: { id: data.shiftId, isActive: true }, select: { id: true } });
     if (!activeShift) throw new Error("Shift tidak ditemukan atau sudah tidak aktif");
+    const eligibleUser = await prisma.user.findFirst({
+      where: { id: data.userId, role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true },
+      select: { id: true },
+    });
+    if (!eligibleUser) throw new Error("User tujuan harus Asisten Lab atau Magang aktif");
     const existing = await prisma.asLabShiftSchedule.findFirst({
       where: {
         userId: data.userId,
@@ -534,7 +539,7 @@ export class ShiftScheduleService {
         status: "SCHEDULED",
       },
     });
-    if (existing) throw new Error("Aslab sudah memiliki jadwal shift pada tanggal tersebut");
+    if (existing) throw new Error("Petugas sudah memiliki jadwal shift pada tanggal tersebut");
 
     const schedule = await prisma.asLabShiftSchedule.create({
       data: {
@@ -575,7 +580,7 @@ export class ShiftScheduleService {
         });
         results.push(schedule);
       } catch (error) {
-        if (!(error instanceof Error) || !error.message.includes("Aslab sudah memiliki jadwal shift")) {
+        if (!(error instanceof Error) || !error.message.includes("Petugas sudah memiliki jadwal shift")) {
           throw error;
         }
       }
@@ -601,7 +606,7 @@ export class ShiftScheduleService {
           .sort((left, right) => left.count - right.count || left.tieBreaker - right.tieBreaker);
 
         if (candidates.length < room.requiredAssistantCount) {
-          throw new WeeklyPlannerError("Aslab tanpa konflik tidak cukup untuk melengkapi jadwal", [{ date, labId: room.id }]);
+          throw new WeeklyPlannerError("Petugas tanpa konflik tidak cukup untuk melengkapi jadwal", [{ date, labId: room.id }]);
         }
 
         const userIds = candidates.slice(0, room.requiredAssistantCount).map(({ assistant }) => assistant.id);
@@ -646,7 +651,7 @@ export class ShiftScheduleService {
           select: { id: true, name: true },
         }),
         tx.user.findMany({
-          where: { id: { in: userIds }, role: "ASISTEN_LAB", isActive: true },
+          where: { id: { in: userIds }, role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true },
           select: { id: true },
         }),
         tx.asLabShiftSchedule.findMany({
@@ -669,13 +674,13 @@ export class ShiftScheduleService {
       const activeUserIds = new Set(activeUsers.map((user) => user.id));
       const invalidUserIds = userIds.filter((userId) => !activeUserIds.has(userId));
       if (invalidUserIds.length > 0) {
-        throw new WeeklyPlannerError("assignments memuat user yang bukan Aslab aktif", [{ field: "assignments.userIds", userIds: invalidUserIds }]);
+        throw new WeeklyPlannerError("assignments memuat user yang bukan petugas aktif", [{ field: "assignments.userIds", userIds: invalidUserIds }]);
       }
        const matchingConflicts = conflicts.filter((conflict) =>
          requestedUserDates.has(`${conflict.userId}:${conflict.scheduleDate.toISOString().slice(0, 10)}`),
        );
        if (matchingConflicts.length > 0) {
-         throw new WeeklyPlannerError("Satu atau lebih Aslab sudah memiliki jadwal pada tanggal yang sama", matchingConflicts.map((conflict) => ({
+          throw new WeeklyPlannerError("Satu atau lebih petugas sudah memiliki jadwal pada tanggal yang sama", matchingConflicts.map((conflict) => ({
            date: conflict.scheduleDate.toISOString().slice(0, 10),
            userIds: [conflict.userId],
          })));
@@ -888,7 +893,7 @@ export class ShiftScheduleService {
       const [shift, labs, activeUsers, conflicts] = await Promise.all([
         tx.shift.findUnique({ where: { id: data.shiftId, isActive: true }, select: { id: true, name: true, startTime: true, endTime: true } }),
         tx.lab.findMany({ where: { id: { in: labIds }, status: "ACTIVE", isPicketEnabled: true }, select: { id: true, name: true } }),
-        tx.user.findMany({ where: { id: { in: userIds }, role: "ASISTEN_LAB", isActive: true }, select: { id: true } }),
+        tx.user.findMany({ where: { id: { in: userIds }, role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true }, select: { id: true } }),
         tx.asLabShiftSchedule.findMany({
           where: {
             userId: { in: userIds }, scheduleDate: { gte: dateOnly(horizon.start), lte: dateOnly(horizon.end) },
@@ -900,12 +905,12 @@ export class ShiftScheduleService {
       if (labs.length !== labIds.length) throw new WeeklyPlannerError("assignments hanya boleh memuat Lab ACTIVE yang diaktifkan untuk piket", [{ field: "assignments.labId" }]);
       const activeUserIds = new Set(activeUsers.map(({ id }) => id));
       const invalidUserIds = userIds.filter((id) => !activeUserIds.has(id));
-      if (invalidUserIds.length) throw new WeeklyPlannerError("assignments memuat user yang bukan Aslab aktif", [{ field: "assignments.userIds", userIds: invalidUserIds }]);
+      if (invalidUserIds.length) throw new WeeklyPlannerError("assignments memuat user yang bukan petugas aktif", [{ field: "assignments.userIds", userIds: invalidUserIds }]);
       const matchingConflicts = conflicts.filter((row) =>
         requestedUserDates.has(`${row.userId}:${row.scheduleDate.toISOString().slice(0, 10)}`)
         && !(row.patternId !== null && row.status === "SCHEDULED" && row.scheduleDate >= dateOnly(data.effectiveFrom)),
       );
-      if (matchingConflicts.length) throw new WeeklyPlannerError("Satu atau lebih Aslab memiliki jadwal yang tidak dapat diganti", matchingConflicts.map((row) => ({ date: row.scheduleDate.toISOString().slice(0, 10), userIds: [row.userId] })));
+      if (matchingConflicts.length) throw new WeeklyPlannerError("Satu atau lebih petugas memiliki jadwal yang tidak dapat diganti", matchingConflicts.map((row) => ({ date: row.scheduleDate.toISOString().slice(0, 10), userIds: [row.userId] })));
 
       const replaceWhere = { patternId: { not: null }, status: "SCHEDULED" as const, scheduleDate: { gte: dateOnly(data.effectiveFrom), lte: dateOnly(horizon.end) } };
       const linkedSchedules = await tx.attendance.count({ where: { shiftSchedule: { is: replaceWhere } } });
@@ -1303,7 +1308,7 @@ export class AttendanceService {
         },
         orderBy: { checkinAt: "asc" },
       }),
-      prisma.user.count({ where: { role: "ASISTEN_LAB", isActive: true } }),
+      prisma.user.count({ where: { role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true } }),
       prisma.asLabShiftSchedule.findMany({
         where: { scheduleDate: start, status: "SCHEDULED" },
         include: { user: { select: { id: true, name: true } } },
@@ -1316,7 +1321,6 @@ export class AttendanceService {
     const forgotCheckout = attendances.filter((a) => a.status === "FORGOT_CHECKOUT");
     const waitingVerification = attendances.filter((a) => a.status === "WAITING_VERIFICATION");
 
-    // Find aslab who have shift today but haven't checked in
     const checkedInUserIds = attendances.map((a) => a.userId);
     const notCheckedIn = todaySchedules.filter((s) => !checkedInUserIds.includes(s.userId));
 
@@ -1417,7 +1421,7 @@ export class AttendanceService {
   static async getMonthlyRecap(month: string) {
     const { start, end } = getMonthRange(month);
     const assistants = await prisma.user.findMany({
-      where: { role: "ASISTEN_LAB", isActive: true },
+      where: { role: { in: ["ASISTEN_LAB", "MAGANG"] }, isActive: true },
       select: {
         id: true,
         name: true,

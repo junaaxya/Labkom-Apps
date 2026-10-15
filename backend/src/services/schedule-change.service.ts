@@ -1,4 +1,6 @@
 import prisma from "../config/database";
+import { ApprovalConflictError } from "./approval-conflict.error";
+import { findOccupancyConflict, withSerializableRetry } from "./schedule-availability";
 import type { CreateScheduleChangeInput } from "../validators/schedule-change.validator";
 import { ScheduleService } from "./schedule.service";
 
@@ -106,7 +108,7 @@ export class ScheduleChangeService {
   }
 
   static async approveRequest(requestId: string, approvedById: string, adminNotes?: string) {
-    const outcome = await ScheduleService.withSerializableRetry(async (tx) => {
+    const outcome = await withSerializableRetry(async (tx) => {
       const affectedScheduleIds: string[] = [];
       const request = await tx.scheduleChangeRequest.findUnique({
         where: { id: requestId },
@@ -121,18 +123,16 @@ export class ScheduleChangeService {
           throw new Error("Data perubahan jadwal tidak lengkap untuk RESCHEDULE");
         }
 
-        ScheduleService.assertValidTimeInterval(request.newStartTime, request.newEndTime);
-        const conflict = await ScheduleService.checkConflict(tx, {
+        const conflict = await findOccupancyConflict(tx, {
           labId: request.newLabId || request.schedule.labId,
           day: request.newDay,
           startTime: request.newStartTime,
           endTime: request.newEndTime,
-          lecturerName: request.schedule.lecturerName || undefined,
-          assistantId: request.schedule.assistantId || undefined,
-        }, request.scheduleId);
-        if (conflict) {
-          throw new Error(ScheduleService.conflictMessage(conflict.type, conflict.schedule.title, conflict.schedule.startTime, conflict.schedule.endTime));
-        }
+          specificDate: request.schedule.specificDate,
+        }, { excludeScheduleId: request.schedule.id });
+        this.throwOccupancyConflict(conflict);
+
+        ScheduleService.assertValidTimeInterval(request.newStartTime, request.newEndTime);
 
         await tx.schedule.update({
           where: { id: request.scheduleId },
@@ -164,17 +164,14 @@ export class ScheduleChangeService {
         if (!targetLabId) throw new Error("Lab tujuan tidak ditemukan untuk EXTRA_SLOT");
 
         ScheduleService.assertValidTimeInterval(request.newStartTime, request.newEndTime);
-        const conflict = await ScheduleService.checkConflict(tx, {
+        const conflict = await findOccupancyConflict(tx, {
           labId: targetLabId,
           day: request.newDay,
           startTime: request.newStartTime,
           endTime: request.newEndTime,
-          lecturerName: sourceSchedule?.lecturerName || undefined,
-          assistantId: sourceSchedule?.assistantId || undefined,
+          specificDate: null,
         });
-        if (conflict) {
-          throw new Error(ScheduleService.conflictMessage(conflict.type, conflict.schedule.title, conflict.schedule.startTime, conflict.schedule.endTime));
-        }
+        this.throwOccupancyConflict(conflict);
 
         const extraSchedule = await tx.schedule.create({
           data: {
@@ -225,10 +222,21 @@ export class ScheduleChangeService {
       where: { id: { in: outcome.affectedScheduleIds } },
       include: { lab: { select: { name: true } } },
     });
-    for (const schedule of affectedSchedules) {
-      await ScheduleService.reconcileScheduleCalendar(schedule);
+      for (const schedule of affectedSchedules) {
+        await ScheduleService.reconcileScheduleCalendar(schedule);
+      }
+      return outcome.approved;
+  }
+
+  private static throwOccupancyConflict(
+    conflict: Awaited<ReturnType<typeof findOccupancyConflict>>
+  ): void {
+    if (conflict?.kind === "SCHEDULE") {
+      throw new ApprovalConflictError(`Jadwal bentrok dengan "${conflict.title}" (${conflict.startTime}-${conflict.endTime})`);
     }
-    return outcome.approved;
+    if (conflict?.kind === "BOOKING") {
+      throw new ApprovalConflictError("Jadwal bentrok dengan peminjaman lab lain yang sudah disetujui");
+    }
   }
 
   static async rejectRequest(requestId: string, rejectedById: string, rejectionReason: string) {

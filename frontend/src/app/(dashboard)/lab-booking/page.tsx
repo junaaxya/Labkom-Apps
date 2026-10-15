@@ -16,6 +16,7 @@ import {
 import api from "@/services/api";
 import type { BookingStatus, Lab, LabBooking, Role, User } from "@/types";
 import { useToast } from "@/providers/toast-provider";
+import { jakartaDateKey } from "@/utils/jakarta-date";
 
 type BookingPurpose = "UKM" | "Lomba" | "Kerja Kelompok" | "Riset" | "Pelatihan" | "Lainnya";
 type TabKey = "request" | "history" | "approval";
@@ -33,7 +34,7 @@ interface ListBookingResponse {
   items: LabBooking[];
 }
 
-function isApprovalRole(role?: Role): boolean {
+function canViewApprovalQueue(role?: Role): boolean {
   return role === "KOORDINATOR_LAB" || role === "ASISTEN_LAB";
 }
 
@@ -69,7 +70,8 @@ export default function LabBookingPage() {
     participants: "1",
   });
 
-  const canApprove = isApprovalRole(user?.role);
+  const canViewApprovals = canViewApprovalQueue(user?.role);
+  const canApprove = user?.role === "KOORDINATOR_LAB";
   const canRequest = user?.role === "MAHASISWA" || user?.role === "MAGANG" || Boolean(user?.isKetuaKelas);
 
   const fetchLabs = useCallback(async () => {
@@ -83,14 +85,14 @@ export default function LabBookingPage() {
   }, []);
 
   const fetchPendingBookings = useCallback(async () => {
-    if (!canApprove) {
+    if (!canViewApprovals) {
       setPendingBookings([]);
       return;
     }
 
     const res = await api.get<{ data: ListBookingResponse }>("/bookings?status=PENDING&limit=100");
     setPendingBookings(res.data?.items ?? []);
-  }, [canApprove]);
+  }, [canViewApprovals]);
 
   const refreshData = useCallback(async () => {
     setLoading(true);
@@ -110,7 +112,7 @@ export default function LabBookingPage() {
       try {
         const parsed = JSON.parse(rawUser);
         setUser(parsed);
-        if (isApprovalRole(parsed.role)) {
+        if (canViewApprovalQueue(parsed.role)) {
           setActiveTab("approval");
         }
       } catch {
@@ -183,10 +185,11 @@ export default function LabBookingPage() {
   };
 
   const handleApprove = async (bookingId: string) => {
+    if (!canApprove) return;
     setActingBookingId(bookingId);
     try {
       await api.patch(`/bookings/${bookingId}/approve`, {});
-      toast.success("Pengajuan berhasil disetujui dan jadwal peminjaman dibuat.");
+      toast.success("Pengajuan disetujui dan jadwal peminjaman dibuat. Pengambilan kunci mengikuti alur kunci terpisah.");
       setSelectedBooking(null);
       await refreshData();
     } catch (err) {
@@ -197,6 +200,7 @@ export default function LabBookingPage() {
   };
 
   const handleReject = async (bookingId: string) => {
+    if (!canApprove) return;
     if (!rejectReason.trim()) {
       toast.error("Alasan penolakan wajib diisi.");
       return;
@@ -274,7 +278,7 @@ export default function LabBookingPage() {
         >
           {canApprove ? "Semua Peminjaman" : "Riwayat Peminjaman"}
         </button>
-        {canApprove && (
+        {canViewApprovals && (
           <button
             onClick={() => setActiveTab("approval")}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2 ${
@@ -297,9 +301,10 @@ export default function LabBookingPage() {
         <>
           {activeTab === "request" && canRequest && (
             <form onSubmit={handleSubmit} className="neo-card p-4 sm:p-6 md:p-8 bg-white space-y-6">
-              <h2 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4 pb-4 border-b-2 border-dashed border-gray-200 flex items-center gap-2">
-                <TbClipboardList className="text-[#f3701e]" size={24} strokeWidth={2.2} /> Form Pengajuan
-              </h2>
+               <h2 className="font-heading font-bold text-xl text-[#1a1a1a] mb-4 pb-4 border-b-2 border-dashed border-gray-200 flex items-center gap-2">
+                 <TbClipboardList className="text-[#f3701e]" size={24} strokeWidth={2.2} /> Form Pengajuan
+               </h2>
+               <p className="rounded-lg bg-[#f5ede6] p-3 text-sm font-medium text-[#5a5a5a] neo-border-sm">Ketersediaan lab dikonfirmasi server saat pengajuan dikirim. Pilihan waktu belum menjadi reservasi sampai pengajuan disetujui.</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
@@ -448,7 +453,7 @@ export default function LabBookingPage() {
                           <div className="w-6 h-6 rounded bg-[#e8d8c9] neo-border flex items-center justify-center shrink-0">
                             <TbCalendarClock size={14} />
                           </div>
-                          <span className="truncate">{new Date(booking.date).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                           <span className="truncate">{jakartaDateKey(booking.date)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-[#1a1a1a] font-medium">
                           <div className="w-6 h-6 rounded bg-[#e8d8c9] neo-border flex items-center justify-center shrink-0">
@@ -475,12 +480,13 @@ export default function LabBookingPage() {
                             <span className="text-[#5a5a5a] line-clamp-2">{booking.description}</span>
                           </p>
                         )}
-                        {booking.rejectionReason && (
-                          <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-lg neo-border border-red-200 text-xs">
-                            <span className="font-bold block mb-1">Alasan Ditolak:</span>
-                            {booking.rejectionReason}
-                          </div>
-                        )}
+                         {booking.rejectionReason && (
+                           <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-lg neo-border border-red-200 text-xs">
+                             <span className="font-bold block mb-1">Alasan Ditolak:</span>
+                             {booking.rejectionReason}
+                             <span className="font-bold block mt-2">Buat pengajuan baru dengan informasi yang sudah diperbaiki.</span>
+                           </div>
+                         )}
                       </div>
 
                       {booking.status === "PENDING" && (
@@ -502,7 +508,7 @@ export default function LabBookingPage() {
             </div>
           )}
 
-          {activeTab === "approval" && canApprove && (
+          {activeTab === "approval" && canViewApprovals && (
             <div className="space-y-4">
               {pendingBookings.length === 0 ? (
                 <div className="neo-card p-12 bg-white/50 text-center border-dashed">
@@ -539,7 +545,7 @@ export default function LabBookingPage() {
                               </span>
                               <span className="hidden sm:inline text-gray-300">•</span>
                               <span className="flex items-center gap-1.5">
-                                <TbCalendarClock size={16} /> {new Date(booking.date).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}
+                                 <TbCalendarClock size={16} /> {jakartaDateKey(booking.date)}
                               </span>
                             </div>
                           </div>
@@ -593,7 +599,7 @@ export default function LabBookingPage() {
                 </div>
                 <div className="bg-white neo-border rounded-xl p-4">
                   <p className="text-xs font-bold text-[#5a5a5a] mb-2 uppercase tracking-wider flex items-center gap-1.5"><TbChecklist size={16} className="text-green-600" /> Jadwal</p>
-                  <p className="font-bold text-base text-[#1a1a1a] mb-1">{new Date(selectedBooking.date).toLocaleDateString("id-ID", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                   <p className="font-bold text-base text-[#1a1a1a] mb-1">{jakartaDateKey(selectedBooking.date)}</p>
                   <span className="inline-block bg-green-50 px-2 py-1 rounded-md text-xs font-bold text-green-700 neo-border border-green-200">{selectedBooking.startTime} - {selectedBooking.endTime}</span>
                 </div>
                 <div className="bg-white neo-border rounded-xl p-4">
@@ -613,7 +619,8 @@ export default function LabBookingPage() {
                 </div>
               </div>
 
-              <div className="mb-8">
+               {canApprove ? <>
+               <div className="mb-8">
                 <label className="text-sm font-bold text-[#1a1a1a] mb-2 flex items-center gap-2">Alasan Penolakan <span className="text-xs text-[#5a5a5a] font-normal">(wajib jika ditolak)</span></label>
                 <textarea
                   rows={3}
@@ -624,7 +631,7 @@ export default function LabBookingPage() {
                 />
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t-2 border-dashed border-[#1a1a1a]/20">
+               <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t-2 border-dashed border-[#1a1a1a]/20">
                 <button
                   type="button"
                   onClick={() => handleReject(selectedBooking.id)}
@@ -641,7 +648,12 @@ export default function LabBookingPage() {
                 >
                   {actingBookingId === selectedBooking.id ? "Memproses..." : "Setujui Pengajuan"}
                 </button>
-              </div>
+               </div>
+               </> : (
+                 <p className="border-t-2 border-dashed border-[#1a1a1a]/20 pt-4 text-sm font-bold text-[#5a5a5a]">
+                    ASISTEN_LAB dapat membuka detail antrean, tetapi hanya Koordinator Lab yang dapat menyetujui atau menolak pengajuan.
+                 </p>
+               )}
             </div>
           </div>
         </div>

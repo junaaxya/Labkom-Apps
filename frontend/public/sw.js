@@ -1,17 +1,13 @@
-const CACHE_NAME = "labkom-45f99b1d9dd4";
+const CACHE_NAME = "labkom-pwa-e8c9d4eb1b1b";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
-  "/",
   "/offline",
   "/manifest.json",
-  "/manifest-labkom-45f99b1d9dd4.webmanifest",
-  "/icons/labkom-45f99b1d9dd4.png",
-  "/icons/labkom-45f99b1d9dd4.png",
-  "/icons/labkom-45f99b1d9dd4.png",
-  "/icons/labkom-45f99b1d9dd4.png",
-  "/icons/labkom-45f99b1d9dd4.png",
-  "/labkom-45f99b1d9dd4.png",
+  "/manifest-labkom-20260708.webmanifest",
+  "/icons/labkom-app-icon-192.png",
+  "/icons/labkom-app-icon-512.png",
+  "/labkom-apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -30,7 +26,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== CACHE_NAME)
+            .filter((key) => key.startsWith("labkom-pwa-") && key !== CACHE_NAME)
             .map((key) => caches.delete(key))
         )
       )
@@ -58,8 +54,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "LabKom";
   const options = {
     body: payload.body || payload.message || "Notifikasi baru",
-    icon: "/icons/labkom-45f99b1d9dd4.png",
-    badge: "/icons/labkom-45f99b1d9dd4.png",
+    icon: "/icons/labkom-app-icon-192.png",
+    badge: "/icons/labkom-app-icon-192.png",
     data: payload.data || { link: "/notifications" },
   };
 
@@ -91,10 +87,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
 
   if (
+    url.origin !== self.location.origin ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/uploads/") ||
-    url.hostname.endsWith("localhost") ||
-    url.port === "5000"
+    url.pathname.endsWith("/notifications/stream") ||
+    req.headers.has("authorization")
   ) {
     return;
   }
@@ -113,9 +110,8 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname === "/manifest.json" ||
-    url.pathname === "/manifest-labkom-45f99b1d9dd4.webmanifest" ||
-    url.pathname === "/apple-touch-icon.png" ||
-    url.pathname === "/labkom-45f99b1d9dd4.png";
+    url.pathname === "/manifest-labkom-20260708.webmanifest" ||
+    url.pathname === "/labkom-apple-touch-icon.png";
 
   if (!isStaticAsset) return;
 
@@ -126,7 +122,10 @@ self.addEventListener("fetch", (event) => {
         fetch(req).then((response) => {
           if (response && response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(req, clone))
+              .catch(() => {});
           }
           return response;
         })

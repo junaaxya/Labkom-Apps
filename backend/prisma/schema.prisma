@@ -35,6 +35,14 @@ enum AccessRequestStatus {
   REVISION
 }
 
+enum MagangApprovalEmailStatus {
+  QUEUED
+  PROCESSING
+  SENT
+  QA_CAPTURED
+  FAILED
+}
+
 enum LabStatus {
   ACTIVE
   INACTIVE
@@ -130,6 +138,14 @@ enum KeyStatus {
 enum KeyAction {
   TAKEN
   RETURNED
+  FORCE_RETURNED
+}
+
+enum KeyBorrowCycleStatus {
+  ACTIVE
+  RETURNED
+  FORCE_RETURNED
+  CANCELLED
 }
 
 enum TicketCategory {
@@ -278,6 +294,11 @@ model User {
   conditionsVerified       LogbookCondition[]             @relation("ConditionVerifier")
   keysCurrentHolder        Key[]                          @relation("KeyCurrentHolder")
   keyLogs                  KeyLog[]
+  keyBorrowCycles          KeyBorrowCycle[]               @relation("KeyBorrower")
+  keyBorrowCyclesReturned  KeyBorrowCycle[]               @relation("KeyReturnedBy")
+  keyBorrowCyclesForced    KeyBorrowCycle[]               @relation("KeyForceReturnedBy")
+  keyBorrowEvidence        KeyBorrowEvidence[]            @relation("KeyBorrowEvidenceSubmitter")
+  conditionPhotoUploads    ConditionPhotoUpload[]         @relation("ConditionPhotoOwner")
   ticketsReported          Ticket[]                       @relation("TicketReporter")
   ticketsAssigned          Ticket[]                       @relation("TicketAssignee")
   missionsCreated          Mission[]                      @relation("MissionCreator")
@@ -311,6 +332,7 @@ model User {
   assetAuditLogs           AssetAuditLog[]
   accessRequests           AccessRequest[]                 @relation("AccessRequestApplicant")
   accessRequestsReviewed   AccessRequest[]                 @relation("AccessRequestReviewer")
+  magangEmailVerification  MagangEmailVerification?        @relation("MagangVerificationUser")
 
   @@map("users")
 }
@@ -590,6 +612,7 @@ model Schedule {
   lab            Lab                     @relation(fields: [labId], references: [id])
   assistant      User?                   @relation("ScheduleAssistant", fields: [assistantId], references: [id])
   changeRequests ScheduleChangeRequest[]
+  keyBorrowCycles KeyBorrowCycle[]
 
   @@index([labId, startTime])
   @@index([status, startTime])
@@ -672,6 +695,7 @@ model LabBooking {
   requester User? @relation("BookingRequester", fields: [requestedBy], references: [id])
   approver  User? @relation("BookingApprover", fields: [approvedBy], references: [id])
   accessRequest AccessRequest?
+  keyBorrowCycles KeyBorrowCycle[]
 
   @@map("lab_bookings")
 }
@@ -693,6 +717,7 @@ model AccessRequest {
   endTime          String?
   participants     Int?
   requestedRole    Role?
+  emailVerifiedAt  DateTime?
   reviewerNotes    String?
   reviewedAt       DateTime?
   reviewedById     String?
@@ -702,15 +727,54 @@ model AccessRequest {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  lab        Lab?        @relation(fields: [labId], references: [id])
-  booking    LabBooking? @relation(fields: [bookingId], references: [id])
-  applicant  User?       @relation("AccessRequestApplicant", fields: [userId], references: [id])
-  reviewer   User?       @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
+  lab                      Lab?                     @relation(fields: [labId], references: [id])
+  booking                  LabBooking?              @relation(fields: [bookingId], references: [id])
+  applicant                User?                    @relation("AccessRequestApplicant", fields: [userId], references: [id])
+  reviewer                 User?                    @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
+  magangEmailVerification  MagangEmailVerification? @relation("MagangVerificationRequest")
+  approvalEmailDelivery    MagangApprovalEmailDelivery?
 
   @@index([status, createdAt])
   @@index([type, status])
   @@index([labId, date])
   @@map("access_requests")
+}
+
+model MagangEmailVerification {
+  id              String   @id @default(cuid())
+  tokenHash       String   @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  userId          String   @unique
+  accessRequestId String   @unique
+  createdAt       DateTime @default(now())
+
+  user          User          @relation("MagangVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  accessRequest AccessRequest @relation("MagangVerificationRequest", fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("magang_email_verifications")
+}
+
+model MagangApprovalEmailDelivery {
+  id              String                    @id @default(cuid())
+  accessRequestId String                    @unique
+  recipientEmail  String
+  status          MagangApprovalEmailStatus @default(QUEUED)
+  attempts        Int                       @default(0)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?
+  leaseExpiresAt  DateTime?
+  completedAt     DateTime?
+  lastErrorCode   String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  accessRequest AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@map("magang_approval_email_deliveries")
 }
 
 // ============================================
@@ -758,6 +822,8 @@ model LogbookCondition {
   lab         Lab     @relation(fields: [labId], references: [id])
   submittedBy User?   @relation("ConditionSubmitter", fields: [submittedById], references: [id])
   verifiedBy  User?   @relation("ConditionVerifier", fields: [verifiedById], references: [id])
+  keyBorrowEvidence KeyBorrowEvidence[]
+  returnedKeyBorrowCycles KeyBorrowCycle[] @relation("CycleReturnCondition")
 
   @@unique([logbookId, labId])
   @@map("logbook_conditions")
@@ -781,6 +847,7 @@ model Key {
   lab           Lab      @relation(fields: [labId], references: [id])
   currentHolder User?    @relation("KeyCurrentHolder", fields: [currentHolderId], references: [id])
   keyLogs       KeyLog[]
+  borrowCycles  KeyBorrowCycle[]
 
   @@map("keys")
 }
@@ -793,14 +860,88 @@ model KeyLog {
   takenAt    DateTime?
   returnedAt DateTime?
   notes      String?
+  borrowCycleId String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   // Relations
   key  Key  @relation(fields: [keyId], references: [id])
   user User @relation(fields: [userId], references: [id])
+  borrowCycle KeyBorrowCycle? @relation(fields: [borrowCycleId], references: [id])
 
+  @@index([borrowCycleId])
+  @@index([keyId, createdAt])
   @@map("key_logs")
+}
+
+model KeyBorrowCycle {
+  id                    String               @id @default(cuid())
+  keyId                 String
+  scheduleId            String?
+  occurrenceDate        DateTime             @db.Date
+  bookingId             String?
+  borrowerId            String
+  takenAt               DateTime
+  returnedAt            DateTime?
+  returnConditionId     String?
+  status                KeyBorrowCycleStatus @default(ACTIVE)
+  takenByRole           Role
+  returnedById          String?
+  forceReturnedById     String?
+  reason                String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  key                 Key                    @relation(fields: [keyId], references: [id])
+  schedule            Schedule?              @relation(fields: [scheduleId], references: [id])
+  booking             LabBooking?            @relation(fields: [bookingId], references: [id])
+  borrower            User                   @relation("KeyBorrower", fields: [borrowerId], references: [id])
+  returnedBy          User?                  @relation("KeyReturnedBy", fields: [returnedById], references: [id])
+  forceReturnedBy     User?                  @relation("KeyForceReturnedBy", fields: [forceReturnedById], references: [id])
+  returnCondition     LogbookCondition?      @relation("CycleReturnCondition", fields: [returnConditionId], references: [id])
+  returnEvidence      KeyBorrowEvidence?     @relation("CycleReturnEvidence")
+  keyLogs             KeyLog[]
+  photoUploads        ConditionPhotoUpload[]
+
+  @@unique([keyId, scheduleId, occurrenceDate])
+  @@index([keyId, status])
+  @@index([borrowerId, status])
+  @@index([scheduleId, occurrenceDate])
+  @@index([returnConditionId])
+  @@map("key_borrow_cycles")
+}
+
+model KeyBorrowEvidence {
+  id                  String    @id @default(cuid())
+  keyBorrowCycleId    String    @unique
+  logbookConditionId  String?
+  submittedById       String
+  fotoBukti           String[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  cycle               KeyBorrowCycle @relation("CycleReturnEvidence", fields: [keyBorrowCycleId], references: [id])
+  logbookCondition    LogbookCondition? @relation(fields: [logbookConditionId], references: [id])
+  submittedBy         User @relation("KeyBorrowEvidenceSubmitter", fields: [submittedById], references: [id])
+
+  @@index([logbookConditionId])
+  @@map("key_borrow_evidence")
+}
+
+model ConditionPhotoUpload {
+  id                 String   @id @default(cuid())
+  url                String   @unique
+  sha256             String
+  ownerId            String
+  keyBorrowCycleId   String?
+  createdAt          DateTime @default(now())
+
+  owner              User            @relation("ConditionPhotoOwner", fields: [ownerId], references: [id])
+  keyBorrowCycle     KeyBorrowCycle? @relation(fields: [keyBorrowCycleId], references: [id])
+
+  @@index([ownerId, createdAt])
+  @@index([keyBorrowCycleId])
+  @@map("condition_photo_uploads")
 }
 
 // ============================================

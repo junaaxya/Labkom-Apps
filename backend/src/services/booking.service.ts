@@ -1,13 +1,11 @@
 import prisma from "../config/database";
+import { ApprovalConflictError } from "./approval-conflict.error";
+import { findOccupancyConflict, operationalScheduleOverlapWhere, withSerializableRetry } from "./schedule-availability";
+import { canonicalDateOnly, dateOnlyRange, weekdayForDateOnly } from "./jakarta-time";
 import type { CreateBookingInput, GetAllBookingsQueryInput } from "../validators/booking.validator";
-import { ScheduleService } from "./schedule.service";
 
 type BookingFilters = GetAllBookingsQueryInput;
-
-function toDayOfWeek(date: Date): "SENIN" | "SELASA" | "RABU" | "KAMIS" | "JUMAT" | "SABTU" | "MINGGU" {
-  const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"] as const;
-  return dayNames[date.getDay()];
-}
+type BookingActor = { userId: string; role: string };
 
 export class BookingService {
   static async getAllBookings(filters?: BookingFilters) {
@@ -19,13 +17,10 @@ export class BookingService {
     if (filters?.status) where.status = filters.status;
     if (filters?.labId) where.labId = filters.labId;
     if (filters?.date) {
-      const dateOnly = new Date(filters.date);
-      dateOnly.setHours(0, 0, 0, 0);
-      const nextDate = new Date(dateOnly);
-      nextDate.setDate(nextDate.getDate() + 1);
+      const { start, end } = dateOnlyRange(filters.date);
       where.date = {
-        gte: dateOnly,
-        lt: nextDate,
+        gte: start,
+        lt: end,
       };
     }
 
@@ -67,7 +62,7 @@ export class BookingService {
     });
   }
 
-  static async getBookingById(id: string) {
+  static async getBookingById(id: string, actor: BookingActor) {
     const booking = await prisma.labBooking.findUnique({
       where: { id },
       include: {
@@ -78,70 +73,62 @@ export class BookingService {
     });
 
     if (!booking) throw new Error("Pengajuan peminjaman tidak ditemukan");
+    if (
+      actor.role !== "KOORDINATOR_LAB" &&
+      booking.requestedBy !== actor.userId
+    ) {
+      throw new Error("Anda tidak memiliki akses ke data ini");
+    }
+
     return booking;
   }
 
   static async createBooking(data: CreateBookingInput, userId: string) {
-    return ScheduleService.withSerializableRetry(async (tx) => {
+    return withSerializableRetry(async (tx) => {
       const requester = await tx.user.findUnique({
         where: { id: userId },
         select: { role: true, isKetuaKelas: true },
       });
-      if (!requester || (requester.role !== "MAHASISWA" && !requester.isKetuaKelas)) {
-        throw new Error("Hanya mahasiswa atau ketua kelas yang dapat mengajukan peminjaman lab");
+      if (!requester || (requester.role !== "MAHASISWA" && requester.role !== "MAGANG" && !requester.isKetuaKelas)) {
+        throw new Error("Hanya mahasiswa, magang, atau ketua kelas yang dapat mengajukan peminjaman lab");
       }
 
-    if (!requester || (requester.role !== "MAHASISWA" && requester.role !== "MAGANG" && !requester.isKetuaKelas)) {
-      throw new Error("Hanya mahasiswa, magang, atau ketua kelas yang dapat mengajukan peminjaman lab");
-    }
+      const lab = await tx.lab.findUnique({ where: { id: data.labId } });
+      if (!lab) throw new Error("Lab tidak ditemukan");
 
-      const date = new Date(data.date);
-      date.setHours(0, 0, 0, 0);
-      const day = toDayOfWeek(date);
-      const [conflictWithSchedules, conflictWithBookings] = await Promise.all([
-        tx.schedule.findFirst({
-          where: {
-            labId: data.labId,
-            day,
-            isActive: true,
-            status: { in: ["SCHEDULED", "ONGOING"] },
-            startTime: { lt: data.endTime },
-            endTime: { gt: data.startTime },
-          },
-        }),
-        tx.labBooking.findFirst({
-          where: {
-            labId: data.labId,
-            date,
-            status: { in: ["PENDING", "APPROVED"] },
-            startTime: { lt: data.endTime },
-            endTime: { gt: data.startTime },
-          },
-        }),
-      ]);
-
-      if (conflictWithSchedules) {
-        throw new Error(`Waktu bentrok dengan jadwal "${conflictWithSchedules.title}" (${conflictWithSchedules.startTime}-${conflictWithSchedules.endTime})`);
-      }
-      if (conflictWithBookings) {
-        throw new Error(`Waktu bentrok dengan pengajuan lain (${conflictWithBookings.startTime}-${conflictWithBookings.endTime})`);
-      }
-
-    const [conflictWithSchedules, conflictWithBookings] = await Promise.all([
-      prisma.schedule.findFirst({
+      const date = canonicalDateOnly(data.date);
+      const day = weekdayForDateOnly(date);
+      const scheduleConflict = await tx.schedule.findFirst({
         where: {
           labId: data.labId,
-          isActive: true,
+          ...operationalScheduleOverlapWhere({
+            labId: data.labId,
+            day,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            specificDate: date,
+          }),
+        },
+      });
+      if (scheduleConflict) {
+        throw new Error(`Waktu bentrok dengan jadwal "${scheduleConflict.title}" (${scheduleConflict.startTime}-${scheduleConflict.endTime})`);
+      }
+
+      const bookingConflict = await tx.labBooking.findFirst({
+        where: {
+          labId: data.labId,
+          date,
+          status: { in: ["PENDING", "APPROVED"] },
           startTime: { lt: data.endTime },
           endTime: { gt: data.startTime },
-          OR: [
-            { specificDate: date },
-            { specificDate: null, day },
-          ],
         },
-      }),
-      prisma.labBooking.findFirst({
-        where: {
+      });
+      if (bookingConflict) {
+        throw new Error(`Waktu bentrok dengan pengajuan lain (${bookingConflict.startTime}-${bookingConflict.endTime})`);
+      }
+
+      return tx.labBooking.create({
+        data: {
           labId: data.labId,
           requestedBy: userId,
           title: data.title,
@@ -162,60 +149,34 @@ export class BookingService {
   }
 
   static async approveBooking(id: string, approverId: string) {
-    return ScheduleService.withSerializableRetry(async (tx) => {
+    return withSerializableRetry(async (tx) => {
       const booking = await tx.labBooking.findUnique({ where: { id } });
       if (!booking) throw new Error("Pengajuan peminjaman tidak ditemukan");
       if (booking.status !== "PENDING") throw new Error("Hanya pengajuan berstatus PENDING yang dapat disetujui");
-      ScheduleService.assertValidTimeInterval(booking.startTime, booking.endTime);
 
-      const day = toDayOfWeek(booking.date);
-      const [conflictWithSchedules, conflictWithBookings] = await Promise.all([
-        tx.schedule.findFirst({
-          where: {
-            labId: booking.labId,
-            day,
-            isActive: true,
-            status: { in: ["SCHEDULED", "ONGOING"] },
-            startTime: { lt: booking.endTime },
-            endTime: { gt: booking.startTime },
-          },
-        }),
-        tx.labBooking.findFirst({
-          where: {
-            id: { not: booking.id },
-            labId: booking.labId,
-            date: booking.date,
-            status: "APPROVED",
-            startTime: { lt: booking.endTime },
-            endTime: { gt: booking.startTime },
-          },
-        }),
-      ]);
+      const date = canonicalDateOnly(booking.date);
+      const day = weekdayForDateOnly(date);
+      const conflict = await findOccupancyConflict(
+        tx,
+        {
+          labId: booking.labId,
+          day,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          specificDate: date,
+        },
+        { excludeBookingId: booking.id }
+      );
 
-    const [conflictWithSchedules, conflictWithBookings] = await Promise.all([
-      prisma.schedule.findFirst({
-        where: {
-          labId: booking.labId,
-          isActive: true,
-          startTime: { lt: booking.endTime },
-          endTime: { gt: booking.startTime },
-          OR: [
-            { specificDate: booking.date },
-            { specificDate: null, day },
-          ],
-        },
-      }),
-      prisma.labBooking.findFirst({
-        where: {
-          id: { not: booking.id },
-          labId: booking.labId,
-          date: booking.date,
-          status: "APPROVED",
-          startTime: { lt: booking.endTime },
-          endTime: { gt: booking.startTime },
-        },
-      }),
-    ]);
+      if (conflict?.kind === "SCHEDULE") {
+        throw new ApprovalConflictError(
+          `Tidak dapat menyetujui karena bentrok dengan jadwal "${conflict.title}" (${conflict.startTime}-${conflict.endTime})`
+        );
+      }
+
+      if (conflict?.kind === "BOOKING") {
+        throw new ApprovalConflictError("Tidak dapat menyetujui karena bentrok dengan peminjaman lab lain yang sudah disetujui");
+      }
 
       const approved = await tx.labBooking.update({
         where: { id },
@@ -226,11 +187,11 @@ export class BookingService {
           approver: { select: { id: true, name: true, email: true, role: true } },
         },
       });
-      await tx.auditLog.create({
+      await tx.schedule.create({
         data: {
           labId: booking.labId,
           title: booking.title,
-          specificDate: booking.date,
+          specificDate: date,
           day,
           startTime: booking.startTime,
           endTime: booking.endTime,
