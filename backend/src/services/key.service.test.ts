@@ -90,6 +90,32 @@ test("force return requires nonempty reason before changing custody", async () =
   await assert.rejects(KeyService.forceReturnKey("key-1", "coordinator-1", "   ", now), /Alasan force return wajib/);
 });
 
+test("legacy reconciliation releases BORROWED key without fabricating a cycle", async () => {
+  const key = { id: "key-legacy", status: "BORROWED", currentHolderId: "holder-1" };
+  const updates: unknown[] = [];
+  const logs: unknown[] = [];
+  const tx = {
+    key: {
+      findUnique: async () => key,
+      updateMany: async (args: unknown) => { updates.push(args); return { count: 1 }; },
+      findFirst: async () => null,
+    },
+    keyBorrowCycle: { findFirst: async () => null },
+    keyLog: { create: async (args: unknown) => { logs.push(args); } },
+  };
+  const original = prisma.$transaction;
+  (prisma as any).$transaction = async (callback: (value: typeof tx) => unknown) => callback(tx);
+  try {
+    await KeyService.reconcileLegacyBorrowedKey("key-legacy", "coordinator-1", "Physical return verified");
+    assert.equal(updates.length, 1);
+    assert.equal(logs.length, 1);
+    assert.match(String((logs[0] as any).data.notes), /LEGACY RECONCILIATION/);
+    assert.equal((logs[0] as any).data.borrowCycleId, undefined);
+  } finally {
+    (prisma as any).$transaction = original;
+  }
+});
+
 test("student self-service profile update cannot escalate className or isKetuaKelas", async () => {
   const user = { ...chair, isKetuaKelas: false, className: "TI-3B" };
   const restores = [

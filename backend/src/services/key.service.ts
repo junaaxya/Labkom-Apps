@@ -219,6 +219,33 @@ export class KeyService {
     });
   }
 
+  static async reconcileLegacyBorrowedKey(keyId: string, adminUserId: string, reason: string, now = new Date()) {
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) throw new Error("Alasan rekonsiliasi wajib diisi.");
+    return prisma.$transaction(async (tx) => {
+      const key = await tx.key.findUnique({ where: { id: keyId }, select: { id: true, status: true, currentHolderId: true } });
+      if (!key) throw new Error("Kunci tidak ditemukan");
+      if (key.status !== "BORROWED" || !key.currentHolderId) throw new Error("Kunci legacy tidak sedang dipinjam.");
+      const activeCycle = await tx.keyBorrowCycle.findFirst({ where: { keyId, status: "ACTIVE" }, select: { id: true } });
+      if (activeCycle) throw new Error("Kunci memiliki siklus aktif; gunakan force return.");
+      const updated = await tx.key.updateMany({
+        where: { id: keyId, status: "BORROWED", currentHolderId: key.currentHolderId },
+        data: { status: "AVAILABLE", currentHolderId: null },
+      });
+      if (updated.count !== 1) throw new Error("Status kunci berubah; ulangi pemeriksaan.");
+      await tx.keyLog.create({
+        data: {
+          keyId,
+          userId: adminUserId,
+          action: "FORCE_RETURNED",
+          returnedAt: now,
+          notes: `[LEGACY RECONCILIATION] borrowerId=${key.currentHolderId}; ${trimmedReason}`,
+        },
+      });
+      return tx.key.findUnique({ where: { id: keyId }, include: { lab: { select: { id: true, name: true } } } });
+    });
+  }
+
   static async getKeyLogs(keyId?: string) {
     return prisma.keyLog.findMany({
       where: keyId ? { keyId } : {},

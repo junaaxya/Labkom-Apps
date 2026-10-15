@@ -129,6 +129,17 @@ export class KeyController {
     }
   }
 
+  static async reconcileLegacyBorrowedKey(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
+      const reason = requiredBodyText(req.body, "reason");
+      const key = await KeyService.reconcileLegacyBorrowedKey(getParam(req.params.id), req.user.userId, reason);
+      res.json({ success: true, message: "Kunci legacy berhasil direkonsiliasi", data: key });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   static async getKeyLogs(req: Request, res: Response): Promise<void> {
     try {
       const keyId = req.query.keyId as string | undefined;
