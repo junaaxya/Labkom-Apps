@@ -36,6 +36,7 @@ type LockedMagangRequestRow = {
   status: string;
   userId: string | null;
   applicantEmail: string;
+  applicantName?: string;
   emailVerifiedAt: Date | null;
 };
 
@@ -44,6 +45,7 @@ type ResendVerificationRow = {
   userId: string;
   accessRequestId: string;
   applicantEmail: string;
+  applicantName?: string;
   status: string;
   emailVerifiedAt: Date | null;
   isActive: boolean;
@@ -240,7 +242,7 @@ export class AccessRequestService {
     const row = await prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<ResendVerificationRow[]>(Prisma.sql`
         SELECT verification."id", verification."userId", verification."accessRequestId", request."applicantEmail",
-               request."status"::text AS "status", request."emailVerifiedAt", user_record."isActive"
+               request."applicantName", request."status"::text AS "status", request."emailVerifiedAt", user_record."isActive"
         FROM "magang_email_verifications" AS verification
         INNER JOIN "access_requests" AS request ON request."id" = verification."accessRequestId"
         INNER JOIN "users" AS user_record ON user_record."id" = verification."userId"
@@ -258,7 +260,7 @@ export class AccessRequestService {
     });
     if (!row) return;
     try {
-      await MagangVerificationEmailService.sendVerification(normalizedEmail, createVerificationUrl(rawToken));
+      await MagangVerificationEmailService.sendVerification(normalizedEmail, createVerificationUrl(rawToken), row.applicantName);
     } catch {
       return;
     }
@@ -532,7 +534,7 @@ export class AccessRequestService {
     }
 
     try {
-      await MagangVerificationEmailService.sendVerification(normalizedEmail, createVerificationUrl(rawToken));
+      await MagangVerificationEmailService.sendVerification(normalizedEmail, createVerificationUrl(rawToken), data.applicantName);
     } catch (error) {
       if (error instanceof VerificationDeliveryError) throw error;
       throw new VerificationDeliveryError();
@@ -544,6 +546,7 @@ export class AccessRequestService {
   private static async reviewMagangRequest(id: string, reviewerId: string, input: UpdateAccessRequestStatusInput) {
     let approvalEmailDeliveryId: string | null = null;
     let rejectionEmail: string | null = null;
+    let rejectionName: string | undefined = undefined;
     const reviewedRequest = await prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<LockedMagangRequestRow[]>(Prisma.sql`
         SELECT
@@ -552,6 +555,7 @@ export class AccessRequestService {
           "status"::text AS "status",
           "userId",
           "applicantEmail",
+          "applicantName",
           "emailVerifiedAt"
         FROM "access_requests"
         WHERE "id" = ${id}
@@ -576,6 +580,7 @@ export class AccessRequestService {
           include: accessRequestInclude,
         });
         rejectionEmail = request.applicantEmail;
+        rejectionName = request.applicantName;
         return rejected;
       }
 
@@ -673,7 +678,7 @@ export class AccessRequestService {
     }
     if (rejectionEmail !== null) {
       const informationUrl = `${process.env.APP_URL || "http://localhost:3000"}/register`;
-      try { await MagangVerificationEmailService.sendRejectionNotification(rejectionEmail, informationUrl); } catch {}
+      try { await MagangVerificationEmailService.sendRejectionNotification(rejectionEmail, informationUrl, rejectionName); } catch {}
     }
 
     return reviewedRequest;
