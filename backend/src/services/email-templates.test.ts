@@ -4,6 +4,8 @@ import {
   buildHtmlEmail,
   buildPlainTextEmail,
   escapeHtml,
+  getResolvedLogoUrl,
+  DEFAULT_LABKOM_LOGO_PATH,
 } from './email-templates';
 import { MagangVerificationEmailService } from './magang-verification-email.service';
 
@@ -115,4 +117,27 @@ test('buildHtmlEmail incorporates table structure, styling, and safe fallbacks',
   assert.match(html, /border-bottom: 3px solid #f3701e/);
   assert.match(html, /Tombol Aksi Utama/);
   assert.match(html, /https:\/\/lab-ilkom\.my\.id\/action/);
+  assert.match(html, /<img src="https:\/\/lab-ilkom\.my\.id\/icons\/labkom-app-icon-192\.png"/);
+  assert.match(html, /alt="Logo LabKom"/);
+  assert.match(html, /width="38"/);
+  assert.match(html, /height="38"/);
+  assert.doesNotMatch(html, />\s*LK\s*<\/div>/);
+});
+
+test('getResolvedLogoUrl uses custom logoUrl when provided or falls back to APP_URL', () => {
+  assert.equal(
+    getResolvedLogoUrl('https://custom.example.com/logo.png'),
+    'https://custom.example.com/logo.png'
+  );
+
+  const originalAppUrl = process.env.APP_URL;
+  try {
+    process.env.APP_URL = 'https://portal.unmuhbabel.ac.id/';
+    assert.equal(
+      getResolvedLogoUrl(),
+      `https://portal.unmuhbabel.ac.id${DEFAULT_LABKOM_LOGO_PATH}`
+    );
+  } finally {
+    process.env.APP_URL = originalAppUrl;
+  }
 });

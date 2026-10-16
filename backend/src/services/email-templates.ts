@@ -32,6 +32,17 @@ export interface EmailTemplateOptions {
   action?: EmailAction;
   actionNote?: string;
   secondaryNote?: string;
+  logoUrl?: string;
+}
+
+export const DEFAULT_LABKOM_LOGO_PATH = "/icons/labkom-app-icon-192.png";
+
+export function getResolvedLogoUrl(customLogoUrl?: string): string {
+  if (customLogoUrl && customLogoUrl.trim().length > 0) {
+    return customLogoUrl.trim();
+  }
+  const appBaseUrl = (process.env.APP_URL || "https://lab-ilkom.my.id").replace(/\/+$/, "");
+  return `${appBaseUrl}${DEFAULT_LABKOM_LOGO_PATH}`;
 }
 
 export function escapeHtml(value: string): string {
@@ -116,6 +127,7 @@ export function buildHtmlEmail(options: EmailTemplateOptions): string {
   const safeIntro = escapeHtml(options.introParagraph);
   const badgeColor = options.badgeColor || "#1e40af";
   const badgeBg = options.badgeBg || "#eff6ff";
+  const logoUrl = escapeHtml(getResolvedLogoUrl(options.logoUrl));
 
   // Build Info Items table if present
   let infoTableHtml = "";
@@ -275,10 +287,14 @@ export function buildHtmlEmail(options: EmailTemplateOptions): string {
                     <!-- Institution Title & Lab Brand -->
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="padding-right: 12px; vertical-align: middle;">
-                          <div style="width: 40px; height: 40px; background-color: #ffffff; border-radius: 8px; text-align: center; line-height: 40px; font-weight: 900; font-size: 20px; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-                            LK
-                          </div>
+                        <td style="padding-right: 14px; vertical-align: middle;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
+                            <tr>
+                              <td align="center" valign="middle" style="width: 44px; height: 44px; padding: 3px; background-color: #ffffff; border-radius: 8px;">
+                                <img src="${logoUrl}" alt="Logo LabKom" width="38" height="38" style="display: block; width: 38px; height: 38px; max-width: 38px; max-height: 38px; border: 0; outline: none; text-decoration: none; border-radius: 6px; -ms-interpolation-mode: bicubic;" />
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                         <td style="vertical-align: middle;">
                           <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">LabKom</h1>
