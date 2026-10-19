@@ -8,7 +8,7 @@ describe("MAGANG attendance frontend contract", () => {
   test("allows only personal attendance routes", () => {
     const guard = source("../../../components/auth/role-guard.tsx");
     assert.match(guard, /"\/attendance": \["KOORDINATOR_LAB", "ASISTEN_LAB", "MAGANG"\]/);
-    assert.match(guard, /"\/attendance\/shifts": \["KOORDINATOR_LAB", "ASISTEN_LAB", "MAGANG"\]/);
+    assert.match(guard, /"\/attendance\/shifts": \["KOORDINATOR_LAB", "ASISTEN_LAB"\]/);
     assert.match(guard, /"\/attendance\/monitoring": \["KOORDINATOR_LAB"\]/);
     assert.match(guard, /"\/attendance\/settings": \["KOORDINATOR_LAB"\]/);
   });
@@ -16,7 +16,8 @@ describe("MAGANG attendance frontend contract", () => {
   test("exposes attendance in MAGANG navigation and keeps it in mobile first four", () => {
     const sidebar = source("../../../components/layout/neo-sidebar.tsx");
     const mobile = source("../../../components/layout/mobile-bottom-nav.tsx");
-    assert.match(sidebar, /MAGANG:[\s\S]*label: "Absensi Saya", href: "\/attendance"[\s\S]*label: "Jadwal Piket", href: "\/attendance\/shifts"/);
+    assert.match(sidebar, /MAGANG:[\s\S]*label: "Absensi Saya", href: "\/attendance"/);
+    assert.doesNotMatch(sidebar, /MAGANG:[\s\S]*label: "Jadwal Piket"/);
     assert.match(mobile, /MAGANG:[\s\S]*label: "Absensi", href: "\/attendance"/);
   });
 

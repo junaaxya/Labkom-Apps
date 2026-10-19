@@ -89,8 +89,8 @@ export class BookingService {
         where: { id: userId },
         select: { role: true, isKetuaKelas: true },
       });
-      if (!requester || (requester.role !== "MAHASISWA" && requester.role !== "MAGANG" && !requester.isKetuaKelas)) {
-        throw new Error("Hanya mahasiswa, magang, atau ketua kelas yang dapat mengajukan peminjaman lab");
+      if (!requester || (requester.role !== "MAHASISWA" && !requester.isKetuaKelas)) {
+        throw new Error("Hanya mahasiswa atau ketua kelas yang dapat mengajukan peminjaman lab");
       }
 
       const lab = await tx.lab.findUnique({ where: { id: data.labId } });

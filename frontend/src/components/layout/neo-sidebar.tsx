@@ -119,9 +119,10 @@ const menuByRole: Record<Role, MenuItem[]> = {
   MAGANG: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
+    { label: "Jadwal Mata Kuliah", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
     { label: "Absensi Saya", href: "/attendance", icon: TbChecklist, group: "My Work" },
-    { label: "Jadwal Piket", href: "/attendance/shifts", icon: TbClock, group: "My Work" },
-    { label: "Peminjaman Lab", href: "/lab-booking", icon: TbCalendarClock, group: "Support" },
+    { label: "Status Kunci Lab", href: "/keys", icon: TbKey, group: "Support" },
+    { label: "Asisten AI Lab", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
     { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Resources" },
     { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
   ],
