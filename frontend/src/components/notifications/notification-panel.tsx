@@ -20,6 +20,7 @@ import {
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
+import { createSseParser, parseNotificationEvent } from "./notification-sse";
 
 interface Notification {
   id: string;
@@ -74,7 +75,8 @@ export function NotificationPanel() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const streamControllerRef = useRef<AbortController | null>(null);
+  const streamRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -105,39 +107,85 @@ export function NotificationPanel() {
   }, [fetchUnreadCount]);
 
   useEffect(() => {
-    let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+    const streamUrl = `${apiBase}/notifications/stream`;
+    let stopped = false;
+    let retryDelay = 1000;
+
+    const clearRetryTimer = () => {
+      if (streamRetryTimerRef.current) {
+        clearTimeout(streamRetryTimerRef.current);
+        streamRetryTimerRef.current = null;
+      }
+    };
+
+    const stopStream = () => {
+      stopped = true;
+      clearRetryTimer();
+      streamControllerRef.current?.abort();
+      streamControllerRef.current = null;
+    };
+
+    const scheduleRetry = () => {
+      if (stopped || streamRetryTimerRef.current) return;
+      streamRetryTimerRef.current = setTimeout(() => {
+        streamRetryTimerRef.current = null;
+        void connect();
+      }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 10000);
+    };
 
     const connect = async () => {
+      if (stopped || streamControllerRef.current) return;
+      const controller = new AbortController();
+      streamControllerRef.current = controller;
+
       try {
-        const response = await api.post<{ data: { ticket: string } }>("/notifications/sse-ticket", {});
-        if (cancelled) return;
-
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-        const es = new EventSource(`${apiBase}/notifications/stream?ticket=${encodeURIComponent(response.data.ticket)}`);
-        eventSourceRef.current = es;
-
-        es.addEventListener("notification", (event) => {
-          const data = JSON.parse(event.data);
-          setNotifications((prev) => [data, ...prev].slice(0, 15));
-          setUnreadCount((prev) => prev + 1);
+        const response = await fetch(streamUrl, {
+          headers: {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
         });
 
-        es.onerror = () => {
-          es.close();
-          if (!cancelled) retryTimer = setTimeout(() => void connect(), 5000);
-        };
+        if (response.status === 401 || response.status === 403) {
+          stopStream();
+          return;
+        }
+        if (!response.ok || !response.body) throw new Error(`SSE HTTP ${response.status}`);
+
+        retryDelay = 1000;
+        const decoder = new TextDecoder();
+        const parser = createSseParser((event) => {
+          const data = parseNotificationEvent(event);
+          if (!data) return;
+          setNotifications((prev) => [data as unknown as Notification, ...prev].slice(0, 15));
+          setUnreadCount((prev) => prev + 1);
+        });
+        const reader = response.body.getReader();
+
+        while (!stopped) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parser.push(decoder.decode(value, { stream: true }));
+        }
+
+        if (!stopped) scheduleRetry();
       } catch {
-        if (!cancelled) retryTimer = setTimeout(() => void connect(), 5000);
+        if (!stopped && !controller.signal.aborted) scheduleRetry();
+      } finally {
+        if (streamControllerRef.current === controller) {
+          streamControllerRef.current = null;
+        }
       }
     };
 
     void connect();
-    return () => {
-      cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      eventSourceRef.current?.close();
-    };
+    return stopStream;
   }, []);
 
   useEffect(() => {

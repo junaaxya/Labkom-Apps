@@ -41,6 +41,7 @@
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "node-cron": "^4.2.1",
+    "nodemailer": "^10.1.0",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4",
     "web-push": "^3.6.7",
@@ -62,5 +63,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   }
 }

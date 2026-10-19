@@ -74,16 +74,17 @@ test("Protected file downloads call object-level authorization", () => {
   assert.match(access, /item\.proof\?\.trim\(\) === url/);
 });
 
-test("SSE uses one-time tickets instead of bearer JWTs in query strings", () => {
+test("SSE uses bearer authentication without query-string JWTs", () => {
   const middleware = read("src/middlewares/auth.middleware.ts");
   const routes = read("src/routes/notification.routes.ts");
   const panel = read("../frontend/src/components/notifications/notification-panel.tsx");
   assert.doesNotMatch(middleware, /authenticateQueryToken/);
-  assert.match(routes, /sse-ticket/);
-  assert.match(routes, /consumeSseTicket/);
+  assert.match(routes, /router\.get\("\/stream", authenticate/);
+  assert.doesNotMatch(routes, /sse-ticket/);
+  assert.doesNotMatch(routes, /consumeSseTicket/);
   assert.doesNotMatch(panel, /stream\?token=/);
-  assert.match(panel, /sse-ticket/);
-  assert.match(routes, /sseTicketLimiter/);
+  assert.match(panel, /Authorization/);
+  assert.doesNotMatch(panel, /EventSource/);
 });
 
 test("Calendar reconciles approved schedule changes and restricts settings by role", () => {

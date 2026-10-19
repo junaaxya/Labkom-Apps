@@ -30,6 +30,10 @@ jobs:
         run: npm ci
       - name: Frontend lint and build
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://lab-ilkom.my.id/api/v1
+          NEXT_PUBLIC_APP_URL: https://lab-ilkom.my.id
+          NEXT_PUBLIC_APP_NAME: LabKom Management System
         run: npm run lint && npm run build
       - name: Install Chromium
         working-directory: frontend

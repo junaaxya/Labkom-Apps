@@ -32,7 +32,7 @@ type UserContext = {
 
 type KeyLogItem = {
   id: string;
-  action: "TAKEN" | "RETURNED";
+  action: "TAKEN" | "RETURNED" | "FORCE_RETURNED";
   notes?: string;
   createdAt?: string;
   takenAt?: string;
@@ -65,11 +65,30 @@ type KeyScanData = {
 
 type ReturnStatus = {
   needsCondition: boolean;
-  logbook: {
+  cycleId?: string | null;
+  conditionSubmitted: boolean;
+  logbook?: {
     id: string;
     labId: string;
   } | null;
-  conditionSubmitted: boolean;
+};
+
+type KeyEligibility = {
+  keyId: string;
+  keyStatus: string;
+  canTake: boolean;
+  takeReason?: string;
+  canReturn: boolean;
+  returnReason?: string;
+  needsEvidence: boolean;
+  activeCycleId?: string | null;
+  occurrence?: {
+    scheduleId?: string;
+    scheduleTitle?: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  } | null;
 };
 
 const keyStatusBadge: Record<string, string> = {
@@ -104,6 +123,7 @@ export default function ScanKeyActionPage({
 
   const [user, setUser] = useState<UserContext>({});
   const [keyData, setKeyData] = useState<KeyScanData | null>(null);
+  const [eligibility, setEligibility] = useState<KeyEligibility | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
@@ -132,12 +152,21 @@ export default function ScanKeyActionPage({
       const res = await api.get<{ data?: KeyScanData }>(`/qr/scan/key/${code}`);
       if (!res?.data) {
         setKeyData(null);
+        setEligibility(null);
         toast.error("Kunci tidak ditemukan.");
         return;
       }
       setKeyData(res.data);
+
+      try {
+        const eligRes = await api.get<{ data?: KeyEligibility }>(`/keys/${res.data.id}/eligibility`);
+        setEligibility(eligRes.data || null);
+      } catch {
+        setEligibility(null);
+      }
     } catch (err) {
       setKeyData(null);
+      setEligibility(null);
       toast.error(errMsg(err, "Kunci tidak ditemukan."));
     } finally {
       setLoading(false);
@@ -154,13 +183,8 @@ export default function ScanKeyActionPage({
     currentUserId && currentHolderId && currentUserId === currentHolderId
   );
 
-  const canPrivilegedTake = useMemo(() => {
-    const role = (user.role || "").toUpperCase();
-    return role.includes("KOORDINATOR") || role.includes("ASISTEN") || Boolean(user.isKetuaKelas);
-  }, [user.isKetuaKelas, user.role]);
-
-  const canTake = keyData?.status === "AVAILABLE" && canPrivilegedTake;
-  const canReturn = keyData?.status === "BORROWED" && isCurrentHolder;
+  const canTake = Boolean(eligibility ? eligibility.canTake : keyData?.status === "AVAILABLE");
+  const canReturn = Boolean(eligibility ? eligibility.canReturn : keyData?.status === "BORROWED" && isCurrentHolder);
 
   const recentLogs = useMemo(
     () => (keyData?.keyLogs || []).slice(0, 5),
@@ -199,7 +223,7 @@ export default function ScanKeyActionPage({
   const handleReturn = async () => {
     if (!keyData) return;
 
-    if (returnStatus?.needsCondition) {
+    if (returnStatus?.needsCondition || eligibility?.needsEvidence) {
       setShowConditionForm(true);
       return;
     }
@@ -207,7 +231,7 @@ export default function ScanKeyActionPage({
     setActing(true);
     try {
       await api.patch(`/keys/${keyData.id}/return`, {});
-      toast.success("Kunci berhasil dikembalikan.");
+       toast.success("Kunci berhasil dikembalikan. Menunggu verifikasi asisten dan checkout resmi.");
       setShowConditionForm(false);
       setReturnStatus(null);
       await fetchKeyData();
@@ -235,14 +259,15 @@ export default function ScanKeyActionPage({
     setPreviews((p) => p.filter((_, idx) => idx !== i));
   };
 
-  const uploadPhotos = async (): Promise<string[]> => {
+  const uploadPhotos = async (cycleId?: string): Promise<string[]> => {
     if (photos.length === 0) return [];
     setUploading(true);
     try {
       const fd = new FormData();
       photos.forEach((f) => fd.append("photos", f));
+      if (cycleId) fd.append("keyBorrowCycleId", cycleId);
       const token = localStorage.getItem("token");
-    const res = await fetch(`${API_BASE}/upload/condition-photos`, {
+      const res = await fetch(`${API_BASE}/upload/condition-photos`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,
@@ -256,7 +281,7 @@ export default function ScanKeyActionPage({
   };
 
   const handleSubmitConditionAndReturn = async () => {
-    if (!keyData || !returnStatus?.logbook) return;
+    if (!keyData) return;
     if (photos.length === 0) {
       toast.error("Ambil minimal 1 foto kondisi lab sebelum mengembalikan kunci.");
       return;
@@ -265,20 +290,27 @@ export default function ScanKeyActionPage({
     setSubmittingCondition(true);
 
     try {
-      // Step 1: Upload photos
-      const urls = await uploadPhotos();
+      const cycleId = eligibility?.activeCycleId || returnStatus?.cycleId || undefined;
+      const urls = await uploadPhotos(cycleId);
 
-      await api.patch(`/logbooks/${returnStatus.logbook.id}/condition`, {
-        labId: returnStatus.logbook.labId,
+      await api.patch(`/keys/${keyData.id}/return-evidence`, {
         fotoBukti: urls,
-        kerusakanBaru: kerusakanBaru.trim() || undefined,
-        catatanKondisi: catatan.trim() || undefined,
       });
 
-      // Step 3: Return the key
+      if (returnStatus?.logbook?.id) {
+        try {
+          await api.patch(`/logbooks/${returnStatus.logbook.id}/condition`, {
+            labId: returnStatus.logbook.labId,
+            fotoBukti: urls,
+            kerusakanBaru: kerusakanBaru.trim() || undefined,
+            catatanKondisi: catatan.trim() || undefined,
+          });
+        } catch {}
+      }
+
       await api.patch(`/keys/${keyData.id}/return`, {});
 
-      toast.success("Kondisi lab berhasil divalidasi & kunci dikembalikan! ✅");
+      toast.success("Kondisi lab berhasil dikirim dan kunci dikembalikan. Menunggu verifikasi asisten dan checkout resmi.");
       setShowConditionForm(false);
       setReturnStatus(null);
       setPhotos([]);
@@ -469,14 +501,14 @@ export default function ScanKeyActionPage({
       </div>
 
       {/* Condition Validation Form — shown when returning requires condition */}
-      {showConditionForm && returnStatus?.logbook && (
+      {showConditionForm && (returnStatus?.needsCondition || eligibility?.needsEvidence || Boolean(returnStatus?.cycleId)) && (
         <div className="neo-card bg-white p-6 space-y-5 border-2 border-[#f3701e] shadow-[4px_4px_0px_#f3701e]">
           <div>
             <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
-              📸 Validasi Kondisi Lab
+               📸 Submit Kondisi Lab
             </h2>
             <p className="text-sm text-[#5a5a5a] mt-1">
-              Foto kondisi lab setelah selesai dipakai. Wajib sebelum mengembalikan kunci.
+               Kirim foto kondisi lab setelah selesai dipakai, lalu kembalikan kunci. Verifikasi asisten dan checkout resmi dilakukan setelahnya.
             </p>
           </div>
 

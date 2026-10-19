@@ -23,8 +23,6 @@ const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional(),
   avatar: avatarSchema.optional(),
-  semester: z.string().optional(),
-  className: z.string().optional(),
 });
 
 const changePasswordSchema = z.object({

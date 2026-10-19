@@ -49,6 +49,9 @@ export function getUploadCategoryDir(category: UploadCategory): string {
 }
 
 export function getUploadPath(category: UploadCategory, filename: string): string {
+  if (!filename || filename !== path.basename(filename)) {
+    throw new Error("Path file upload tidak valid");
+  }
   const safeFilename = path.basename(filename);
   const resolved = path.resolve(getUploadCategoryDir(category), safeFilename);
   const categoryRoot = path.resolve(getUploadCategoryDir(category));

@@ -50,18 +50,20 @@ interface UserStats {
   byRole: { role: string; count: number }[];
 }
 
-const ROLES = ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"] as const;
+const ROLES = ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   KOORDINATOR_LAB: "Koordinator Lab",
   ASISTEN_LAB: "Asisten Lab",
   MAHASISWA: "Mahasiswa",
+  MAGANG: "Magang",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   KOORDINATOR_LAB: "bg-[#f3701e] text-white",
   ASISTEN_LAB: "bg-[#4b607f] text-white",
   MAHASISWA: "bg-gray-200 text-gray-800",
+  MAGANG: "bg-violet-200 text-violet-900",
 };
 
 export default function UsersPage() {

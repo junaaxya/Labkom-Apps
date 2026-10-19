@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { BookingService } from "../services/booking.service";
+import { ApprovalConflictError } from "../services/approval-conflict.error";
 import {
   createBookingSchema,
   getAllBookingsQuerySchema,
@@ -41,27 +42,25 @@ export class BookingController {
   }
 
   static async getBookingById(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+
     try {
-      const booking = await BookingService.getBookingById(getParam(req.params, "id"));
-
-      if (!req.user) {
-        res.status(401).json({ success: false, message: "Unauthorized" });
-        return;
-      }
-
-      const canAccess =
-        req.user.role === "KOORDINATOR_LAB" ||
-        req.user.role === "ASISTEN_LAB" ||
-        booking.requestedBy === req.user.userId;
-
-      if (!canAccess) {
-        res.status(403).json({ success: false, message: "Anda tidak memiliki akses ke data ini" });
-        return;
-      }
+      const booking = await BookingService.getBookingById(getParam(req.params, "id"), req.user);
 
       res.json({ success: true, data: booking });
-    } catch (error: any) {
-      res.status(404).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "Anda tidak memiliki akses ke data ini") {
+        res.status(403).json({ success: false, message: error.message });
+        return;
+      }
+
+      res.status(404).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Pengajuan peminjaman tidak ditemukan",
+      });
     }
   }
 
@@ -94,6 +93,14 @@ export class BookingController {
       const booking = await BookingService.approveBooking(getParam(req.params, "id"), req.user.userId);
       res.json({ success: true, message: "Pengajuan peminjaman disetujui", data: booking });
     } catch (error: any) {
+      if (error instanceof ApprovalConflictError) {
+        res.status(409).json({ success: false, message: error.message });
+        return;
+      }
+      if (error.message === "Pengajuan peminjaman tidak ditemukan") {
+        res.status(404).json({ success: false, message: error.message });
+        return;
+      }
       res.status(400).json({ success: false, message: error.message });
     }
   }
@@ -111,6 +118,10 @@ export class BookingController {
     } catch (error: any) {
       if (error.name === "ZodError") {
         res.status(400).json({ success: false, message: "Validasi gagal", errors: error.errors });
+        return;
+      }
+      if (error.message === "Pengajuan peminjaman tidak ditemukan") {
+        res.status(404).json({ success: false, message: error.message });
         return;
       }
       res.status(400).json({ success: false, message: error.message });

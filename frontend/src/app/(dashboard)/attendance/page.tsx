@@ -20,6 +20,7 @@ import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { PhotoUpload } from "@/components/ui/photo-upload";
 import { QRScanner } from "@/components/qr/qr-scanner";
+import { jakartaDateKey } from "@/utils/jakarta-date";
 import type {
   AttendanceEntry,
   DailyTaskLog,
@@ -41,6 +42,17 @@ const emptySectionErrors: SectionErrors = {
   shifts: null, attendance: null, stats: null, tasks: null, categories: null,
   labs: null, corrections: null, leaves: null, settings: null,
 };
+function currentRole(): "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG" | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem("user") || "null");
+    return value && typeof value === "object" && "role" in value && typeof value.role === "string"
+      ? value.role as "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG"
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 const attendanceStatusConfig: Record<string, { label: string; color: string }> = {
   CHECKED_IN: { label: "Hadir", color: "bg-green-100 text-green-800" },
@@ -155,10 +167,7 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 function jakartaBusinessDate(value: Date | string = new Date()): string {
-  const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(date);
+  return jakartaDateKey(value);
 }
 
 function SectionFeedback({ loading, error, onRetry, label }: { loading: boolean; error?: string | null; onRetry: () => void; label: string }) {
@@ -200,6 +209,8 @@ async function getRequiredCoordinates(actionLabel: "check-in" | "check-out"): Pr
 
 export default function AttendancePage() {
   const toast = useToast();
+  const [role] = useState(currentRole);
+  const isMagang = role === "MAGANG";
   const [loading, setLoading] = useState(true);
   const [todayShift, setTodayShift] = useState<ShiftSchedule | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceEntry | null>(null);
@@ -250,6 +261,33 @@ export default function AttendancePage() {
     setLoading(true);
     try {
       setSectionErrors(emptySectionErrors);
+      if (isMagang) {
+        const [shiftRes, attendanceRes, statsRes, settingsRes] = await Promise.allSettled([
+          api.get<{ data: ShiftSchedule[] }>("/attendance/shift-schedules/me"),
+          api.get<{ data: AttendanceEntry[] }>(`/attendance/me?month=${selectedMonth}`),
+          api.get<{ data: AttendanceStats }>(`/attendance/stats?month=${selectedMonth}`),
+          api.get<{ data: AttendanceClientConfig }>("/attendance/config"),
+        ]);
+        if (shiftRes.status === "fulfilled") {
+          const schedules = extractListData<ShiftSchedule>(shiftRes.value);
+          const today = jakartaDateKey(new Date());
+          setTodayShift(schedules.find((s) => jakartaDateKey(s.scheduleDate) === today && s.status === "SCHEDULED") || null);
+        }
+        if (attendanceRes.status === "fulfilled") {
+          const entries = extractListData<AttendanceEntry>(attendanceRes.value);
+          setHistory(entries);
+          const today = jakartaDateKey(new Date());
+          setTodayAttendance(entries.find((a) => jakartaDateKey(a.checkinAt || a.createdAt) === today) || null);
+        }
+        if (statsRes.status === "fulfilled") setStats(normalizeAttendanceStats(extractData(statsRes.value)));
+        if (settingsRes.status === "fulfilled") {
+          const config = extractData<AttendanceClientConfig>(settingsRes.value);
+          if (config && typeof config.isGeofencingEnabled === "boolean" && typeof config.isQrRequired === "boolean") {
+            setAttendanceSettings(config);
+          }
+        }
+        return;
+      }
       const [shiftRes, attendanceRes, statsRes, tasksRes, catsRes, labsRes, correctionsRes, leavesRes, settingsRes] =
         await Promise.allSettled([
           api.get<{ data: ShiftSchedule[] }>("/attendance/shift-schedules/me"),
@@ -279,9 +317,9 @@ export default function AttendancePage() {
 
       if (shiftRes.status === "fulfilled") {
         const schedules = extractListData<ShiftSchedule>(shiftRes.value);
-        const today = jakartaBusinessDate();
+        const today = jakartaDateKey(new Date());
         const todaySchedule = schedules.find(
-          (s) => s.scheduleDate && jakartaBusinessDate(s.scheduleDate) === today && s.status === "SCHEDULED"
+          (s) => jakartaDateKey(s.scheduleDate) === today && s.status === "SCHEDULED"
         );
         setTodayShift(todaySchedule || null);
       }
@@ -289,9 +327,9 @@ export default function AttendancePage() {
       if (attendanceRes.status === "fulfilled") {
         const entries = extractListData<AttendanceEntry>(attendanceRes.value);
         setHistory(entries);
-        const today = jakartaBusinessDate();
+        const today = jakartaDateKey(new Date());
         const todayEntry = entries.find(
-          (a) => jakartaBusinessDate(a.checkinAt || a.createdAt) === today
+          (a) => jakartaDateKey(a.checkinAt || a.createdAt) === today
         );
         setTodayAttendance(todayEntry || null);
       }
@@ -336,7 +374,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth]);
+  }, [isMagang, selectedMonth]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchData());
@@ -501,21 +539,21 @@ export default function AttendancePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] mb-1">Absensi & Daily Task</h1>
-          <p className="text-[#5a5a5a] text-sm">Check-in, task log, shift, & statistik</p>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] mb-1">{isMagang ? "Absensi Saya" : "Absensi & Daily Task"}</h1>
+          <p className="text-[#5a5a5a] text-sm">{isMagang ? "Jadwal, riwayat, dan absensi GPS pribadi" : "Check-in, task log, shift, & statistik"}</p>
         </div>
       </div>
 
       {/* Stats Cards */}
       <SectionFeedback loading={loading} error={sectionErrors.stats} onRetry={() => void fetchData()} label="statistik absensi" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="neo-card p-5 text-center">
+        {!isMagang && <div className="neo-card p-5 text-center">
           <div className="w-12 h-12 rounded-full neo-border bg-[#e8f5e9] flex items-center justify-center mx-auto mb-3">
             <TbCheck className="w-6 h-6 text-green-600" strokeWidth={2.2} />
           </div>
           <p className="text-3xl font-heading font-bold text-[#4b607f]">{stats?.presentDays || 0}</p>
           <p className="text-sm font-bold text-[#5a5a5a] mt-2">Hari Hadir</p>
-        </div>
+        </div>}
         <div className="neo-card p-5 text-center">
           <div className="w-12 h-12 rounded-full neo-border bg-yellow-100 flex items-center justify-center mx-auto mb-3">
             <TbClock className="w-6 h-6 text-yellow-600" strokeWidth={2.2} />
@@ -530,18 +568,18 @@ export default function AttendancePage() {
           <p className="text-3xl font-heading font-bold text-red-500">{stats?.absentDays || 0}</p>
           <p className="text-sm font-bold text-[#5a5a5a] mt-2">Tidak Hadir</p>
         </div>
-        <div className="neo-card p-5 text-center">
+        {!isMagang && <div className="neo-card p-5 text-center">
           <div className="w-12 h-12 rounded-full neo-border bg-[#e8d8c9] flex items-center justify-center mx-auto mb-3">
             <TbClipboardList className="w-6 h-6 text-[#1a1a1a]" strokeWidth={2.2} />
           </div>
           <p className="text-3xl font-heading font-bold text-[#1a1a1a]">{stats?.totalTasks ?? tasks.length}</p>
           <p className="text-sm font-bold text-[#5a5a5a] mt-2">Total Task</p>
-        </div>
+        </div>}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {(["today", "tasks", "history", "corrections", "leaves"] as const).map((tab) => (
+        {(isMagang ? (["today", "history"] as const) : (["today", "tasks", "history", "corrections", "leaves"] as const)).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -695,7 +733,7 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {activeTab === "tasks" && (
+      {!isMagang && activeTab === "tasks" && (
         <div className="space-y-4">
           <SectionFeedback loading={loading} error={sectionErrors.tasks} onRetry={() => void fetchData()} label="daily task" />
           <div className="flex items-center justify-between">
@@ -828,7 +866,7 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {activeTab === "corrections" && (
+      {!isMagang && activeTab === "corrections" && (
         <div className="space-y-4">
           <SectionFeedback loading={loading} error={sectionErrors.corrections} onRetry={() => void fetchData()} label="pengajuan koreksi" />
           <div className="flex items-center justify-between">
@@ -883,7 +921,7 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {activeTab === "leaves" && (
+      {!isMagang && activeTab === "leaves" && (
         <div className="space-y-4">
           <SectionFeedback loading={loading} error={sectionErrors.leaves} onRetry={() => void fetchData()} label="pengajuan izin dan sakit" />
           <div className="flex items-center justify-between">
@@ -980,7 +1018,7 @@ export default function AttendancePage() {
       </AnimatePresence>
 
       {/* Leave Request Modal */}
-      <AnimatePresence>
+      {!isMagang && <AnimatePresence>
         {showLeaveRequest && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1068,10 +1106,10 @@ export default function AttendancePage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
 
       {/* Add Task Modal */}
-      <AnimatePresence>
+      {!isMagang && <AnimatePresence>
         {showAddTask && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1187,10 +1225,10 @@ export default function AttendancePage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
 
       {/* Correction Modal */}
-      <AnimatePresence>
+      {!isMagang && <AnimatePresence>
         {showCorrection && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1292,7 +1330,7 @@ export default function AttendancePage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
     </div>
   );
 }

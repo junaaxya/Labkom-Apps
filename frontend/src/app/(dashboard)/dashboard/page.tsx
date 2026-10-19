@@ -10,6 +10,7 @@ import {
   AsistenDashboard,
   DashboardHeader,
   KoordinatorDashboard,
+  MagangDashboard,
   MahasiswaDashboard,
   type KeyItem,
   type LabInfo,
@@ -180,13 +181,15 @@ export default function DashboardPage() {
 
       <DashboardHeader
         user={user}
-        subtitle={
-          role === "KOORDINATOR_LAB"
-            ? "Ringkasan operasional laboratorium hari ini."
-            : role === "ASISTEN_LAB"
-              ? "Pantau misi, shift, dan ticket Anda hari ini."
-              : "Lihat jadwal kelas dan laporan kerusakan terbaru."
-        }
+          subtitle={
+            role === "KOORDINATOR_LAB"
+              ? "Ringkasan operasional laboratorium hari ini."
+              : role === "ASISTEN_LAB"
+                ? "Pantau misi, shift, dan ticket Anda hari ini."
+                : role === "MAGANG"
+                  ? "Lihat pengajuan dan informasi akses Anda hari ini."
+                : "Lihat jadwal kelas dan laporan kerusakan terbaru."
+          }
       />
 
       {loading ? (
@@ -213,6 +216,8 @@ export default function DashboardPage() {
           myPoints={myRankEntry?.totalPoints || 0}
           attendanceMonthCount={attendanceMonthCount}
         />
+      ) : role === "MAGANG" ? (
+        <MagangDashboard unreadCount={unreadCount} />
       ) : (
         <MahasiswaDashboard
           schedules={mahasiswaSchedules}
