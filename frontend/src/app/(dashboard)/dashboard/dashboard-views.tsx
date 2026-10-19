@@ -929,6 +929,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
   const stats: StatCardItem[] = [
     { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/schedules" },
     { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange", href: "/tickets/my" },
+    { label: "Pengajuan Saya", value: 0, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/lab-booking" },
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
   ];
   return (
@@ -1045,7 +1046,6 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
 
 export function MagangDashboard({ unreadCount }: { unreadCount: number }) {
   const stats: StatCardItem[] = [
-    { label: "Pengajuan Saya", value: 0, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/lab-booking" },
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
   ];
 
