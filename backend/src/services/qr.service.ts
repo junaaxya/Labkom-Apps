@@ -25,16 +25,17 @@ export class QRService {
 
     const labPrefix = this.deriveLabPrefix(pc.lab.name, pc.pcCode);
 
-    const existingPCs = await prisma.pC.findMany({
-      where: { labId: pc.labId },
-      orderBy: { pcCode: "asc" },
-      select: { id: true, pcCode: true },
-    });
-
-    const index = existingPCs.findIndex((p) => p.id === pcId);
-    const seqNum = String(index + 1).padStart(3, "0");
-
-    const assetCode = `ASSET-${labPrefix}-PC-${seqNum}`;
+    const [pcs, assets] = await Promise.all([
+      prisma.pC.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+      prisma.asset.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+    ]);
+    const usedCodes = new Set([...pcs, ...assets].map((item) => item.assetCode).filter((code): code is string => Boolean(code)));
+    let sequence = 1;
+    let assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+    while (usedCodes.has(assetCode)) {
+      sequence += 1;
+      assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+    }
     return assetCode;
   }
 
@@ -48,22 +49,32 @@ export class QRService {
     const pcs = await prisma.pC.findMany({
       where: { labId },
       orderBy: { pcCode: "asc" },
-      select: { id: true, pcCode: true },
+      select: { id: true, pcCode: true, assetCode: true },
     });
 
     const labPrefix = this.deriveLabPrefix(lab.name, pcs[0]?.pcCode || "");
+    const [allPCs, assets] = await Promise.all([
+      prisma.pC.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+      prisma.asset.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+    ]);
+    const usedCodes = new Set([...allPCs, ...assets].map((item) => item.assetCode).filter((code): code is string => Boolean(code)));
     const results: { pcId: string; assetCode: string }[] = [];
 
-    for (let i = 0; i < pcs.length; i++) {
-      const seqNum = String(i + 1).padStart(3, "0");
-      const assetCode = `ASSET-${labPrefix}-PC-${seqNum}`;
-
-      await prisma.pC.update({
-        where: { id: pcs[i].id },
-        data: { assetCode },
-      });
-
-      results.push({ pcId: pcs[i].id, assetCode });
+    let sequence = 1;
+    for (const pc of pcs) {
+      if (pc.assetCode) {
+        results.push({ pcId: pc.id, assetCode: pc.assetCode });
+        continue;
+      }
+      let assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+      while (usedCodes.has(assetCode)) {
+        sequence += 1;
+        assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+      }
+      await prisma.pC.update({ where: { id: pc.id }, data: { assetCode } });
+      usedCodes.add(assetCode);
+      results.push({ pcId: pc.id, assetCode });
+      sequence += 1;
     }
 
     return results;
@@ -210,10 +221,14 @@ export class QRService {
     let assetCode = pc.assetCode;
     if (!assetCode) {
       assetCode = await this.generateAssetCode(pcId);
-      await prisma.pC.update({
-        where: { id: pcId },
-        data: { assetCode },
-      });
+      try {
+        await prisma.pC.update({ where: { id: pcId }, data: { assetCode } });
+      } catch (error: any) {
+        if (error?.code !== "P2002") throw error;
+        const refreshed = await prisma.pC.findUnique({ where: { id: pcId }, select: { assetCode: true } });
+        if (!refreshed?.assetCode) throw error;
+        assetCode = refreshed.assetCode;
+      }
     }
 
     const qrUrl = this.getPCQRUrl(assetCode);
