@@ -489,7 +489,7 @@ export default function AttendanceMonitoringPage() {
   }, [loadShiftSchedules]);
 
   useEffect(() => {
-    if (activeTab === "MAGANG") void loadMagangAttendance();
+    if (activeTab === "MAGANG") queueMicrotask(() => void loadMagangAttendance());
   }, [activeTab, loadMagangAttendance]);
 
   const loadPendingLeaves = useCallback(async () => {
