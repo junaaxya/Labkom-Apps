@@ -41,8 +41,8 @@ function getMonthRange(month: string): { start: Date; end: Date } {
   return { start, end };
 }
 
-function getTodayRange(): { start: Date; end: Date } {
-  const { date } = getJakartaDateParts(new Date());
+function getTodayRange(now = new Date()): { start: Date; end: Date } {
+  const { date } = getJakartaDateParts(now);
   const start = new Date(`${date}T00:00:00+07:00`);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
@@ -1059,6 +1059,48 @@ export class AttendanceService {
     const now = new Date();
     try {
       return await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { role: true, isActive: true },
+        });
+        if (!user) throw new Error("User tidak ditemukan");
+        if (!user.isActive) throw new Error("Akun tidak aktif. Hubungi administrator.");
+        if (user.role !== Role.ASISTEN_LAB && user.role !== Role.MAGANG) {
+          throw new Error("Role pengguna tidak dapat melakukan absensi");
+        }
+        if (user.role === Role.MAGANG) {
+          const { start, end } = getTodayRange(now);
+          const existing = await tx.attendance.findFirst({
+            where: { userId, checkinAt: { gte: start, lte: end } },
+          });
+          if (existing) throw new Error("Absensi hari ini sudah tercatat");
+
+          const created = await tx.attendance.create({
+            data: {
+              userId,
+              shiftScheduleId: null,
+              checkinAt: now,
+              checkinLatitude: latitude,
+              checkinLongitude: longitude,
+              checkinLocationId,
+              status: "CHECKED_IN",
+            },
+            include: {
+              shiftSchedule: { include: { shift: { select: { name: true, startTime: true, endTime: true } } } },
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId,
+              action: "ATTENDANCE_CHECKIN",
+              targetType: "Attendance",
+              targetId: created.id,
+              description: "Check-in MAGANG tanpa jadwal shift",
+            },
+          });
+          return created;
+        }
+
         const scheduleDate = dateOnly(getJakartaDateParts(now).date);
         const previousDate = new Date(scheduleDate);
         previousDate.setUTCDate(previousDate.getUTCDate() - 1);
@@ -1141,12 +1183,24 @@ export class AttendanceService {
   }
 
   static async checkout(userId: string, latitude?: number, longitude?: number, qrToken?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isActive: true },
+    });
+    if (!user) throw new Error("User tidak ditemukan");
+    if (!user.isActive) throw new Error("Akun tidak aktif. Hubungi administrator.");
+    if (user.role !== Role.ASISTEN_LAB && user.role !== Role.MAGANG) {
+      throw new Error("Role pengguna tidak dapat melakukan absensi");
+    }
+
     const attendance = await prisma.attendance.findFirst({
       where: { userId, checkoutAt: null, checkinAt: { not: null }, status: { in: ["CHECKED_IN", "LATE"] } },
-      include: { shiftSchedule: { include: { shift: true } } },
       orderBy: { checkinAt: "desc" },
     });
     if (!attendance) throw new Error("Belum check-in atau sudah check-out");
+    const shiftSchedule = user.role === Role.ASISTEN_LAB && attendance.shiftScheduleId
+      ? await prisma.asLabShiftSchedule.findUnique({ where: { id: attendance.shiftScheduleId }, include: { shift: true } })
+      : null;
 
     const settings = await AttendanceSettingsService.get();
     if (settings.isGeofencingEnabled) assertCoordinates(latitude, longitude);
@@ -1163,24 +1217,31 @@ export class AttendanceService {
       }
     }
     const checkoutAt = new Date();
-    const shiftSchedule = attendance.shiftSchedule;
-    const shift = shiftSchedule?.shift;
-    if (!shift || !shiftSchedule) throw new Error("Jadwal shift untuk absensi ini tidak ditemukan. Hubungi koordinator");
-    const checkoutGrace = shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes;
-    const window = evaluateShiftWindow(checkoutAt, shift.startTime, shift.endTime, checkoutGrace, shiftSchedule.scheduleDate);
-    if (!window.canCheckout) {
-      throw new Error("Batas waktu check-out untuk shift ini sudah berakhir. Ajukan koreksi kepada koordinator");
-    }
-    if (settings.isTaskRequired && shift.isTaskRequired) {
-      const taskCount = await prisma.dailyTaskLog.count({ where: { attendanceId: attendance.id } });
-      if (taskCount === 0) throw new Error("Minimal satu task harian wajib diisi sebelum check-out");
+    let auditDescription: string;
+    if (user.role === Role.MAGANG) {
+      auditDescription = "Check-out MAGANG tanpa jadwal shift";
+    } else {
+      const shift = shiftSchedule?.shift;
+      if (!shift || !shiftSchedule) throw new Error("Jadwal shift untuk absensi ini tidak ditemukan. Hubungi koordinator");
+      const checkoutGrace = shift.checkoutGraceMinutes ?? settings.checkoutGraceMinutes;
+      const window = evaluateShiftWindow(checkoutAt, shift.startTime, shift.endTime, checkoutGrace, shiftSchedule.scheduleDate);
+      if (!window.canCheckout) {
+        throw new Error("Batas waktu check-out untuk shift ini sudah berakhir. Ajukan koreksi kepada koordinator");
+      }
+      if (settings.isTaskRequired && shift.isTaskRequired) {
+        const taskCount = await prisma.dailyTaskLog.count({ where: { attendanceId: attendance.id } });
+        if (taskCount === 0) throw new Error("Minimal satu task harian wajib diisi sebelum check-out");
+      }
+      auditDescription = `Check-out shift ${shift.name}`;
     }
     if (qrPayload) await AttendanceQrService.markUsed(qrPayload, userId);
 
     const workDurationMinutes = attendance.checkinAt
       ? Math.max(0, Math.round((checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000))
       : 0;
-    const finalStatus = settings.isVerificationRequired ? "WAITING_VERIFICATION" : "CHECKED_OUT";
+    const finalStatus: AttendanceStatus = settings.isVerificationRequired
+      ? AttendanceStatus.WAITING_VERIFICATION
+      : AttendanceStatus.CHECKED_OUT;
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.attendance.updateMany({
@@ -1191,7 +1252,7 @@ export class AttendanceService {
           checkoutLongitude: longitude,
           checkoutLocationId,
           workDurationMinutes,
-          status: finalStatus as any,
+          status: finalStatus,
         },
       });
       if (updated.count !== 1) throw new Error("Absensi sudah di-check-out dari perangkat lain");
@@ -1201,7 +1262,7 @@ export class AttendanceService {
           action: "ATTENDANCE_CHECKOUT",
           targetType: "Attendance",
           targetId: attendance.id,
-          description: `Check-out shift ${shift.name}`,
+          description: auditDescription,
         },
       });
       // The guarded update above means this transaction is the sole successful

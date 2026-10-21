@@ -3,6 +3,7 @@ import test from "node:test";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 import { AttendanceLocationService, AttendanceService, isLateCheckin, pickTodaySchedule, ShiftScheduleService } from "./attendance.service";
+import { AttendanceQrService } from "./attendance-qr.service";
 
 type Restore = () => void;
 
@@ -119,14 +120,88 @@ function activeSchedule(userId = "magang-1") {
   };
 }
 
-function checkinTransaction(options: { existing?: unknown; create?: (query: any) => Promise<any> }) {
+function futureSchedule(userId = "magang-1") {
   return {
-    asLabShiftSchedule: { findMany: async () => [activeSchedule()] },
+    ...activeSchedule(userId),
+    id: "future-shift-schedule-1",
+    scheduleDate: new Date(Date.now() + 86_400_000),
+    shift: {
+      ...activeSchedule(userId).shift,
+      startTime: "08:00",
+      endTime: "16:00",
+    },
+  };
+}
+
+type CheckinActor = {
+  role: "ASISTEN_LAB" | "MAGANG" | "MAHASISWA";
+  isActive: boolean;
+};
+
+type AttendanceLookupQuery = {
+  where: {
+    shiftScheduleId?: string;
+    userId?: string;
+    checkinAt?: { gte: Date; lte: Date };
+  };
+};
+
+type AttendanceCreateQuery = {
+  data: {
+    userId: string;
+    shiftScheduleId: string | null;
+    checkinAt: Date;
+    checkinLatitude?: number;
+    checkinLongitude?: number;
+    checkinLocationId?: string;
+    status: "CHECKED_IN" | "LATE";
+  };
+};
+
+type AuditCreateQuery = {
+  data: {
+    userId: string;
+    action: string;
+    targetType: string;
+    targetId: string;
+    description: string;
+  };
+};
+
+type CheckinTransaction = {
+  user: {
+    findUnique: (query: unknown) => Promise<CheckinActor | null>;
+  };
+  asLabShiftSchedule: {
+    findMany: (query: unknown) => Promise<ReturnType<typeof activeSchedule>[]>;
+  };
+  attendance: {
+    findFirst: (query: AttendanceLookupQuery) => Promise<unknown>;
+    create: (query: AttendanceCreateQuery) => Promise<{ id: string }>;
+  };
+  auditLog: {
+    create: (query: AuditCreateQuery) => Promise<{ id: string }>;
+  };
+};
+
+function checkinTransaction(options: {
+  user?: CheckinActor | null;
+  findUser?: (query: unknown) => Promise<CheckinActor | null>;
+  schedules?: ReturnType<typeof activeSchedule>[];
+  findSchedules?: (query: unknown) => Promise<ReturnType<typeof activeSchedule>[]>;
+  existing?: unknown;
+  findExisting?: (query: AttendanceLookupQuery) => Promise<unknown>;
+  create?: (query: AttendanceCreateQuery) => Promise<{ id: string }>;
+  audit?: (query: AuditCreateQuery) => Promise<{ id: string }>;
+}): CheckinTransaction {
+  return {
+    user: { findUnique: options.findUser ?? (async () => options.user === undefined ? { role: "MAGANG", isActive: true } : options.user) },
+    asLabShiftSchedule: { findMany: options.findSchedules ?? (async () => options.schedules ?? [activeSchedule()]) },
     attendance: {
-      findFirst: async () => options.existing ?? null,
+      findFirst: options.findExisting ?? (async () => options.existing ?? null),
       create: options.create ?? (async () => ({ id: "attendance-1" })),
     },
-    auditLog: { create: async () => ({ id: "audit-1" }) },
+    auditLog: { create: options.audit ?? (async () => ({ id: "audit-1" })) },
   };
 }
 
@@ -142,14 +217,18 @@ test("check-in rejects missing GPS when geofencing is enabled before transaction
   }
 });
 
-test("check-in rejects duplicate attendance for the same scheduled shift", async () => {
+test("ASISTEN_LAB check-in rejects duplicate attendance for the same scheduled shift", async () => {
   const restores = [
     replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, lateToleranceMinutes: 15 })),
-    replaceMethod(prisma, "$transaction", async (callback: (tx: any) => unknown) => callback(checkinTransaction({ existing: { id: "attendance-open" } }))),
+    replaceMethod(prisma, "$transaction", async (callback: (transaction: CheckinTransaction) => Promise<unknown>) => callback(checkinTransaction({
+      user: { role: "ASISTEN_LAB", isActive: true },
+      schedules: [activeSchedule("asisten-1")],
+      existing: { id: "attendance-open" },
+    }))),
   ];
 
   try {
-    await assert.rejects(AttendanceService.checkin("magang-1"), /Absensi untuk shift ini sudah tercatat/);
+    await assert.rejects(AttendanceService.checkin("asisten-1"), /Absensi untuk shift ini sudah tercatat/);
   } finally {
     restoreAll(restores);
   }
@@ -178,16 +257,10 @@ test("check-in rejects Magang outside enabled geofence before create", async () 
   }
 });
 
-test("check-in creates attendance for passed Magang userId with valid GPS", async () => {
+test("MAGANG check-in ignores future shifts and creates independent attendance with valid GPS", async () => {
   const locationCalls: Array<{ latitude: number; longitude: number }> = [];
-  const createCalls: Array<{
-    data: {
-      userId: string;
-      checkinLatitude: number;
-      checkinLongitude: number;
-      checkinLocationId?: string;
-    };
-  }> = [];
+  const createCalls: AttendanceCreateQuery[] = [];
+  let scheduleQueries = 0;
   let scheduleUserId: string | undefined;
   const restores = [
     replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: true, lateToleranceMinutes: 15 })),
@@ -195,7 +268,11 @@ test("check-in creates attendance for passed Magang userId with valid GPS", asyn
       locationCalls.push({ latitude, longitude });
       return { location: { id: "location-1" }, distance: 0 };
     }),
-    replaceMethod(prisma, "$transaction", async (callback: (tx: any) => unknown) => callback(checkinTransaction({
+    replaceMethod(prisma, "$transaction", async (callback: (transaction: CheckinTransaction) => Promise<unknown>) => callback(checkinTransaction({
+      findSchedules: async () => {
+        scheduleQueries += 1;
+        return [futureSchedule()];
+      },
       create: async (query) => {
         createCalls.push(query);
         scheduleUserId = query.data.userId;
@@ -214,6 +291,281 @@ test("check-in creates attendance for passed Magang userId with valid GPS", asyn
     assert.equal(createCalls[0]?.data.checkinLatitude, -6.2);
     assert.equal(createCalls[0]?.data.checkinLongitude, 106.8);
     assert.equal(createCalls[0]?.data.checkinLocationId, "location-1");
+    assert.equal(createCalls[0]?.data.shiftScheduleId, null);
+    assert.equal(scheduleQueries, 0);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("MAGANG check-in without a shift creates independent attendance", async () => {
+  const userQueries: unknown[] = [];
+  const duplicateQueries: AttendanceLookupQuery[] = [];
+  const createCalls: AttendanceCreateQuery[] = [];
+  const auditCalls: AuditCreateQuery[] = [];
+  let transactionOptions: { isolationLevel?: unknown } | undefined;
+  const transaction = checkinTransaction({
+    schedules: [],
+    findUser: async (query) => {
+      userQueries.push(query);
+      return { role: "MAGANG", isActive: true };
+    },
+    findExisting: async (query) => {
+      duplicateQueries.push(query);
+      return null;
+    },
+    create: async (query) => {
+      createCalls.push(query);
+      return { id: "attendance-magang-1" };
+    },
+    audit: async (query) => {
+      auditCalls.push(query);
+      return { id: "audit-1" };
+    },
+  });
+  const restores = [
+    replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, isQrRequired: false })),
+    replaceMethod(prisma, "$transaction", async (
+      callback: (currentTransaction: CheckinTransaction) => Promise<unknown>,
+      options?: { isolationLevel?: unknown },
+    ) => {
+      transactionOptions = options;
+      return callback(transaction);
+    }),
+  ];
+
+  try {
+    const attendance = await AttendanceService.checkin("magang-1");
+    const duplicateRange = duplicateQueries[0]?.where.checkinAt;
+
+    assert.equal(attendance.id, "attendance-magang-1");
+    assert.deepEqual(userQueries, [{
+      where: { id: "magang-1" },
+      select: { role: true, isActive: true },
+    }]);
+    assert.equal(createCalls.length, 1);
+    assert.equal(createCalls[0]?.data.userId, "magang-1");
+    assert.equal(createCalls[0]?.data.shiftScheduleId, null);
+    assert.equal(createCalls[0]?.data.status, "CHECKED_IN");
+    assert.ok(duplicateRange);
+    assert.equal(duplicateQueries[0]?.where.userId, "magang-1");
+    assert.equal(duplicateRange.lte.getTime() - duplicateRange.gte.getTime(), 86_399_999);
+    assert.equal(duplicateRange.gte.getUTCHours(), 17);
+    assert.deepEqual(transactionOptions, { isolationLevel: "Serializable" });
+    assert.deepEqual(auditCalls, [{
+      data: {
+        userId: "magang-1",
+        action: "ATTENDANCE_CHECKIN",
+        targetType: "Attendance",
+        targetId: "attendance-magang-1",
+        description: "Check-in MAGANG tanpa jadwal shift",
+      },
+    }]);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("MAGANG independent check-in rejects an existing Jakarta-date attendance", async () => {
+  const duplicateQueries: AttendanceLookupQuery[] = [];
+  let createCalls = 0;
+  const transaction = checkinTransaction({
+    schedules: [],
+    findExisting: async (query) => {
+      duplicateQueries.push(query);
+      return { id: "attendance-today" };
+    },
+    create: async () => {
+      createCalls += 1;
+      return { id: "unexpected" };
+    },
+  });
+  const restores = [
+    replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, isQrRequired: false })),
+    replaceMethod(prisma, "$transaction", async (callback: (currentTransaction: CheckinTransaction) => Promise<unknown>) => callback(transaction)),
+  ];
+
+  try {
+    await assert.rejects(AttendanceService.checkin("magang-1"), /Absensi hari ini sudah tercatat/);
+    const duplicateRange = duplicateQueries[0]?.where.checkinAt;
+    assert.ok(duplicateRange);
+    assert.equal(duplicateQueries[0]?.where.userId, "magang-1");
+    assert.equal(duplicateRange.lte.getTime() - duplicateRange.gte.getTime(), 86_399_999);
+    assert.equal(createCalls, 0);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("ASISTEN_LAB without a shift keeps schedule rejection", async () => {
+  const attendanceQueries: AttendanceLookupQuery[] = [];
+  let createCalls = 0;
+  const transaction = checkinTransaction({
+    user: { role: "ASISTEN_LAB", isActive: true },
+    schedules: [],
+    findExisting: async (query) => {
+      attendanceQueries.push(query);
+      return null;
+    },
+    create: async () => {
+      createCalls += 1;
+      return { id: "unexpected" };
+    },
+  });
+  const restores = [
+    replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, isQrRequired: false })),
+    replaceMethod(prisma, "$transaction", async (callback: (currentTransaction: CheckinTransaction) => Promise<unknown>) => callback(transaction)),
+  ];
+
+  try {
+    await assert.rejects(AttendanceService.checkin("asisten-1"), /Anda tidak memiliki jadwal piket aktif pada waktu ini/);
+    assert.equal(attendanceQueries.length, 0);
+    assert.equal(createCalls, 0);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("check-in rejects inactive MAGANG and unsupported persisted roles", async () => {
+  const inactiveTransaction = checkinTransaction({ user: { role: "MAGANG", isActive: false } });
+  const unsupportedTransaction = checkinTransaction({ user: { role: "MAHASISWA", isActive: true } });
+  const transactions = [inactiveTransaction, unsupportedTransaction];
+  const restores = [
+    replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, isQrRequired: false })),
+    replaceMethod(prisma, "$transaction", async (callback: (currentTransaction: CheckinTransaction) => Promise<unknown>) => {
+      const transaction = transactions.shift();
+      if (!transaction) throw new Error("Unexpected attendance transaction");
+      return callback(transaction);
+    }),
+  ];
+
+  try {
+    await assert.rejects(AttendanceService.checkin("magang-inactive"), /Akun tidak aktif/);
+    await assert.rejects(AttendanceService.checkin("mahasiswa-1"), /Role pengguna tidak dapat melakukan absensi/);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+type CheckoutUpdateQuery = {
+  where: { id: string; checkoutAt: null };
+  data: {
+    checkoutAt: Date;
+    checkoutLatitude?: number;
+    checkoutLongitude?: number;
+    checkoutLocationId?: string;
+    workDurationMinutes: number;
+    status: "CHECKED_OUT" | "WAITING_VERIFICATION";
+  };
+};
+
+type CheckoutTransaction = {
+  attendance: {
+    updateMany: (query: CheckoutUpdateQuery) => Promise<{ count: number }>;
+    findUniqueOrThrow: (query: unknown) => Promise<{ id: string; status: string }>;
+  };
+  auditLog: {
+    create: (query: AuditCreateQuery) => Promise<{ id: string }>;
+  };
+  point: {
+    create: (query: unknown) => Promise<{ id: string }>;
+  };
+};
+
+test("MAGANG independent checkout keeps location, QR, audit, and atomic update without shift or task queries", async () => {
+  const locationCalls: Array<{ latitude: number; longitude: number }> = [];
+  const updateCalls: CheckoutUpdateQuery[] = [];
+  const auditCalls: AuditCreateQuery[] = [];
+  const qrTokens: string[] = [];
+  let qrUseCalls = 0;
+  let shiftQueries = 0;
+  let taskQueries = 0;
+  let transactionOptions: { isolationLevel?: unknown } | undefined;
+  const transaction: CheckoutTransaction = {
+    attendance: {
+      updateMany: async (query) => {
+        updateCalls.push(query);
+        return { count: 1 };
+      },
+      findUniqueOrThrow: async () => ({ id: "attendance-magang-1", status: "CHECKED_OUT" }),
+    },
+    auditLog: {
+      create: async (query) => {
+        auditCalls.push(query);
+        return { id: "audit-1" };
+      },
+    },
+    point: { create: async () => ({ id: "point-1" }) },
+  };
+  const restores = [
+    replaceMethod(prisma.user, "findUnique", async () => ({ role: "MAGANG", isActive: true })),
+    replaceMethod(prisma.attendance, "findFirst", async () => ({
+      id: "attendance-magang-1",
+      userId: "magang-1",
+      shiftScheduleId: "legacy-magang-shift-1",
+      checkinAt: new Date(Date.now() - 30 * 60_000),
+      checkoutAt: null,
+      status: "CHECKED_IN",
+    })),
+    replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({
+      isGeofencingEnabled: true,
+      isQrRequired: true,
+      isTaskRequired: true,
+      isVerificationRequired: false,
+    })),
+    replaceMethod(AttendanceLocationService, "findNearestValid", async (latitude: number, longitude: number) => {
+      locationCalls.push({ latitude, longitude });
+      return { location: { id: "location-1" }, distance: 0 };
+    }),
+    replaceMethod(AttendanceQrService, "verify", (token: string) => {
+      qrTokens.push(token);
+      return { type: "ATTENDANCE_QR", locationId: "location-1", nonce: "nonce-1", iat: 1, exp: 2 };
+    }),
+    replaceMethod(AttendanceQrService, "markUsed", async () => {
+      qrUseCalls += 1;
+    }),
+    replaceMethod(prisma.asLabShiftSchedule, "findUnique", async () => {
+      shiftQueries += 1;
+      return null;
+    }),
+    replaceMethod(prisma.dailyTaskLog, "count", async () => {
+      taskQueries += 1;
+      return 0;
+    }),
+    replaceMethod(prisma, "$transaction", async (
+      callback: (currentTransaction: CheckoutTransaction) => Promise<unknown>,
+      options?: { isolationLevel?: unknown },
+    ) => {
+      transactionOptions = options;
+      return callback(transaction);
+    }),
+  ];
+
+  try {
+    const attendance = await AttendanceService.checkout("magang-1", -6.2, 106.8, "qr-token");
+
+    assert.deepEqual(locationCalls, [{ latitude: -6.2, longitude: 106.8 }]);
+    assert.deepEqual(qrTokens, ["qr-token"]);
+    assert.equal(qrUseCalls, 1);
+    assert.equal(shiftQueries, 0);
+    assert.equal(taskQueries, 0);
+    assert.equal(attendance.status, "CHECKED_OUT");
+    assert.deepEqual(updateCalls[0]?.where, { id: "attendance-magang-1", checkoutAt: null });
+    assert.equal(updateCalls[0]?.data.checkoutLatitude, -6.2);
+    assert.equal(updateCalls[0]?.data.checkoutLongitude, 106.8);
+    assert.equal(updateCalls[0]?.data.checkoutLocationId, "location-1");
+    assert.equal(updateCalls[0]?.data.status, "CHECKED_OUT");
+    assert.ok((updateCalls[0]?.data.workDurationMinutes ?? 0) >= 30);
+    assert.deepEqual(transactionOptions, { isolationLevel: "Serializable" });
+    assert.deepEqual(auditCalls, [{
+      data: {
+        userId: "magang-1",
+        action: "ATTENDANCE_CHECKOUT",
+        targetType: "Attendance",
+        targetId: "attendance-magang-1",
+        description: "Check-out MAGANG tanpa jadwal shift",
+      },
+    }]);
   } finally {
     restoreAll(restores);
   }
