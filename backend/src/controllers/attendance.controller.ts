@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AsLabPicketDestination, ShiftScheduleStatus } from "@prisma/client";
+import { AsLabPicketDestination, AttendanceStatus, ShiftScheduleStatus } from "@prisma/client";
 import {
   AttendanceService,
   AttendanceSettingsService,
@@ -16,6 +16,7 @@ import { AttendanceQrService } from "../services/attendance-qr.service";
 
 const picketDestinations = new Set<string>(Object.values(AsLabPicketDestination));
 const shiftScheduleStatuses = new Set<string>(Object.values(ShiftScheduleStatus));
+const attendanceReportRoles = new Set(["ASISTEN_LAB", "MAGANG"]);
 
 function parsePicketDestination(value: unknown): AsLabPicketDestination | undefined {
   return typeof value === "string" && picketDestinations.has(value) ? (value as AsLabPicketDestination) : undefined;
@@ -90,10 +91,16 @@ export class AttendanceController {
 
   static async getAllAttendance(req: Request, res: Response): Promise<void> {
     try {
+      const role = req.query.role as string | undefined;
+      if (role !== undefined && !attendanceReportRoles.has(role)) {
+        res.status(400).json({ success: false, message: "Role harus ASISTEN_LAB atau MAGANG" });
+        return;
+      }
       const data = await AttendanceService.getAllAttendance({
         date: req.query.date as string | undefined,
-        status: req.query.status as string | undefined,
+        status: req.query.status as AttendanceStatus | undefined,
         userId: req.query.userId as string | undefined,
+        role: role as "ASISTEN_LAB" | "MAGANG" | undefined,
         page: req.query.page ? Number(req.query.page) : undefined,
         limit: req.query.limit ? Number(req.query.limit) : undefined,
       });
