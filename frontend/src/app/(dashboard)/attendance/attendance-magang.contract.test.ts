@@ -40,4 +40,17 @@ describe("MAGANG attendance frontend contract", () => {
       assert.match(page, /user\.role === "MAGANG" \? "Magang" : "Asisten Lab"/);
     }
   });
+
+  test("adds isolated coordinator MAGANG history reporting", () => {
+    const monitoring = source("./monitoring/page.tsx");
+    assert.match(monitoring, /type MonitoringTab = "TODAY" \| "MAGANG"/);
+    assert.match(monitoring, /\/attendance\/all\?role=MAGANG&limit=100/);
+    for (const label of ["Nama", "Tanggal", "Jam Masuk", "Jam Pulang", "Status"]) {
+      assert.match(monitoring, new RegExp(`label: "${label}"|>${label}<`));
+    }
+    assert.match(monitoring, /attendance\.checkinAt \?\? attendance\.createdAt/);
+    assert.match(monitoring, /\/attendance\/monitoring\/today/);
+    assert.match(monitoring, /\/users\?role=ASISTEN_LAB/);
+    assert.match(monitoring, /\/users\?role=MAGANG/);
+  });
 });
