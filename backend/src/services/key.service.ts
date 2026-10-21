@@ -79,10 +79,27 @@ export class KeyService {
   }
 
   static async getAllKeys(labId?: string) {
-    return prisma.key.findMany({
+    const keys = await prisma.key.findMany({
       where: labId ? { labId } : {},
-      include: { lab: { select: { id: true, name: true } }, currentHolder: { select: { id: true, name: true } } },
+      include: {
+        lab: { select: { id: true, name: true } },
+        currentHolder: { select: { id: true, name: true } },
+        borrowCycles: {
+          where: { status: "ACTIVE" },
+          select: { takenAt: true },
+          take: 1,
+        },
+      },
       orderBy: { keyCode: "asc" },
+    });
+
+    return keys.map((key) => {
+      const activeCycle = key.borrowCycles?.[0];
+      const { borrowCycles, ...rest } = key;
+      return {
+        ...rest,
+        takenAt: activeCycle?.takenAt ?? null,
+      };
     });
   }
 
@@ -100,6 +117,16 @@ export class KeyService {
   }
 
   static async getEligibility(keyId: string, userId: string, userRole: string, now = new Date()) {
+    if (userRole === "MAGANG") {
+      return {
+        canTake: false,
+        takeReason: "Peran MAGANG tidak memiliki izin mengambil kunci lab.",
+        canReturn: false,
+        returnReason: "Peran MAGANG tidak memiliki izin mengembalikan kunci lab.",
+        needsCondition: false,
+        cycleId: null,
+      };
+    }
     const key = await prisma.key.findUnique({ where: { id: keyId }, select: { id: true, status: true, currentHolderId: true } });
     if (!key) throw new Error("Kunci tidak ditemukan");
     const canReturn = key.status === "BORROWED" && key.currentHolderId === userId;
@@ -137,6 +164,9 @@ export class KeyService {
   }
 
   static async takeKey(keyId: string, userId: string, userRole: string, notes?: string, now = new Date()) {
+    if (userRole === "MAGANG") {
+      throw new Error("Peran MAGANG tidak memiliki izin mengambil kunci lab.");
+    }
     const occurrence = await KeyService.resolveOccurrence(keyId, userId, userRole, now);
     return prisma.$transaction(async (tx) => {
       const key = await tx.key.findUnique({ where: { id: keyId }, select: { status: true } });
@@ -173,7 +203,10 @@ export class KeyService {
     return { needsCondition: !cycle.returnEvidence, conditionSubmitted: Boolean(cycle.returnEvidence), cycleId: cycle.id, logbook: null };
   }
 
-  static async saveReturnEvidence(keyId: string, userId: string, fotoBukti: string[]) {
+  static async saveReturnEvidence(keyId: string, userId: string, fotoBukti: string[], userRole?: string) {
+    if (userRole === "MAGANG") {
+      throw new Error("Peran MAGANG tidak memiliki izin mengembalikan kunci lab.");
+    }
     if (fotoBukti.length === 0) throw new Error("Minimal satu foto kondisi lab wajib diisi.");
     return prisma.$transaction(async (tx) => {
       const cycle = await tx.keyBorrowCycle.findFirst({ where: { keyId, borrowerId: userId, status: "ACTIVE" }, include: { key: true } });
@@ -188,7 +221,10 @@ export class KeyService {
     });
   }
 
-  static async returnKey(keyId: string, userId: string, notes?: string, now = new Date()) {
+  static async returnKey(keyId: string, userId: string, notes?: string, now = new Date(), userRole?: string) {
+    if (userRole === "MAGANG") {
+      throw new Error("Peran MAGANG tidak memiliki izin mengembalikan kunci lab.");
+    }
     return prisma.$transaction(async (tx) => {
       const cycle = await tx.keyBorrowCycle.findFirst({
         where: { keyId, borrowerId: userId, status: "ACTIVE" },

@@ -28,6 +28,7 @@ function runAuthorization(roles: string[], role?: string): AuthorizationResult {
 }
 
 const source = readFileSync(path.join(__dirname, "attendance.routes.ts"), "utf8");
+const controllerSource = readFileSync(path.join(__dirname, "../controllers/attendance.controller.ts"), "utf8");
 
 test("attendance check-in and check-out allow only Asisten Lab and Magang", () => {
   assert.match(source, /router\.post\("\/checkin", authenticate, authorize\("ASISTEN_LAB", "MAGANG"\), attendanceActionLimiter, AttendanceController\.checkin\);/);
@@ -66,4 +67,10 @@ test("attendance routes keep Magang out of coordinator, task, correction, leave,
 
   assert.equal(runAuthorization(["KOORDINATOR_LAB"], "MAGANG").status, 403);
   assert.equal(runAuthorization(["ASISTEN_LAB"], "MAGANG").status, 403);
+});
+
+test("coordinator attendance report validates supported role filters", () => {
+  assert.match(controllerSource, /const attendanceReportRoles = new Set\(\["ASISTEN_LAB", "MAGANG"\]\)/);
+  assert.match(controllerSource, /role !== undefined && !attendanceReportRoles\.has\(role\)/);
+  assert.match(controllerSource, /role: role as "ASISTEN_LAB" \| "MAGANG" \| undefined/);
 });

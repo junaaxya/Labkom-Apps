@@ -21,6 +21,7 @@ interface KeyItem {
     name: string;
     role?: string;
   } | null;
+  takenAt?: string | null;
   qrCode: string;
 }
 
@@ -42,6 +43,7 @@ interface RawKeyResponse {
   lab?: { name?: string } | null;
   status: KeyStatus;
   currentHolder?: { id: string; name: string; role?: string } | null;
+  takenAt?: string | null;
   qrCode: string;
 }
 
@@ -108,22 +110,25 @@ export default function KeysPage() {
               role: item.currentHolder.role,
             }
           : null,
+        takenAt: item.takenAt ?? null,
         qrCode: item.qrCode,
       }));
 
       setKeys(mapped);
 
       const nextMap: KeyEligibilityMap = {};
-      await Promise.all(
-        mapped.map(async (k) => {
-          try {
-            const elig = await api.get<{ data?: KeyEligibilityMap[string] }>(`/keys/${k.id}/eligibility`);
-            if (elig.data) {
-              nextMap[k.id] = elig.data;
-            }
-          } catch {}
-        })
-      );
+      if (userRole !== "MAGANG") {
+        await Promise.all(
+          mapped.map(async (k) => {
+            try {
+              const elig = await api.get<{ data?: KeyEligibilityMap[string] }>(`/keys/${k.id}/eligibility`);
+              if (elig.data) {
+                nextMap[k.id] = elig.data;
+              }
+            } catch {}
+          })
+        );
+      }
       setEligibilityMap(nextMap);
     } catch (err) {
       const message = errMsg(err, "Gagal memuat data kunci");
@@ -134,7 +139,7 @@ export default function KeysPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, userRole]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchKeys());
@@ -226,29 +231,37 @@ export default function KeysPage() {
       <div className="neo-card p-4 sm:p-6 bg-[#e8d8c9]">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">Peminjaman Kunci</h1>
-            <p className="text-[#5a5a5a] mt-1 font-medium">Kelola peminjaman kunci lab via QR Code</p>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] tracking-tight">
+              {userRole === "MAGANG" ? "Status Kunci Lab" : "Peminjaman Kunci"}
+            </h1>
+            <p className="text-[#5a5a5a] mt-1 font-medium">
+              {userRole === "MAGANG"
+                ? "Informasi ketersediaan dan status peminjaman kunci lab"
+                : "Kelola peminjaman kunci lab via QR Code"}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleGenerateAllQR}
-              className="px-4 py-2.5 bg-white text-[#1a1a1a] neo-btn inline-flex items-center gap-2 text-sm"
-              disabled={bulkGenerating}
-            >
-              {bulkGenerating ? <TbLoader2 className="w-4 h-4 animate-spin" /> : <TbQrcode className="w-4 h-4" />}
-              Generate All QR
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push("/scan")}
-              className="px-5 py-2.5 bg-[#f3701e] text-white neo-btn flex items-center gap-2"
-            >
-              <TbQrcode className="w-5 h-5" /> Scan QR
-            </motion.button>
-          </div>
+          {userRole !== "MAGANG" && (
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleGenerateAllQR}
+                className="px-4 py-2.5 bg-white text-[#1a1a1a] neo-btn inline-flex items-center gap-2 text-sm"
+                disabled={bulkGenerating}
+              >
+                {bulkGenerating ? <TbLoader2 className="w-4 h-4 animate-spin" /> : <TbQrcode className="w-4 h-4" />}
+                Generate All QR
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push("/scan")}
+                className="px-5 py-2.5 bg-[#f3701e] text-white neo-btn flex items-center gap-2"
+              >
+                <TbQrcode className="w-5 h-5" /> Scan QR
+              </motion.button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -285,62 +298,71 @@ export default function KeysPage() {
               <div className="mt-2 p-2 rounded-lg bg-[#f5ede6] neo-border-sm">
                 <p className="text-xs text-[#5a5a5a]">Dipinjam oleh:</p>
                 <p className="text-sm font-bold text-[#1a1a1a]">{key.currentHolder.name}</p>
-                {key.currentHolder.role && <p className="text-xs text-[#5a5a5a]">Role: {key.currentHolder.role}</p>}
+                {userRole !== "MAGANG" && key.currentHolder.role && (
+                  <p className="text-xs text-[#5a5a5a]">Role: {key.currentHolder.role}</p>
+                )}
+                {key.takenAt && (
+                  <p className="text-xs text-[#5a5a5a] mt-1">
+                    Waktu ambil: {new Date(key.takenAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB"}
+                  </p>
+                )}
               </div>
             )}
+            {userRole !== "MAGANG" && (
               <div className="mt-3 flex gap-2">
-              <button
-                className="w-10 py-2 text-xs bg-white text-[#1a1a1a] neo-border-sm rounded-lg font-bold inline-flex items-center justify-center transition-all hover:bg-[#f5ede6] hover:shadow-[2px_2px_0px_#1a1a1a]"
-                disabled={actionLoadingId === key.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleShowKeyQR(key);
-                }}
-                title="Lihat QR"
-              >
-                <TbQrcode className="w-5 h-5" />
-              </button>
-              {userRole === "KOORDINATOR_LAB" && key.status === "BORROWED" && (
                 <button
-                  className="flex-1 py-2 text-xs bg-red-500 text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a] inline-flex items-center justify-center gap-1"
+                  className="w-10 py-2 text-xs bg-white text-[#1a1a1a] neo-border-sm rounded-lg font-bold inline-flex items-center justify-center transition-all hover:bg-[#f5ede6] hover:shadow-[2px_2px_0px_#1a1a1a]"
                   disabled={actionLoadingId === key.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setForceReturnModal({ keyId: key.id, keyCode: key.keyCode, holder: key.currentHolder?.name || "-" });
+                    handleShowKeyQR(key);
                   }}
+                  title="Lihat QR"
                 >
-                  <TbArrowBackUp className="w-4 h-4" /> Force Return
+                  <TbQrcode className="w-5 h-5" />
                 </button>
-              )}
-              {userRole === "MAHASISWA" && (
-                <>
-                  {Boolean(eligibilityMap[key.id]?.canTake) && (
-                    <button
-                      className="flex-1 py-2 text-xs bg-[#4b607f] text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
-                      disabled={actionLoadingId === key.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTakeKey(key.id);
-                      }}
-                    >
-                      {actionLoadingId === key.id ? "Memproses..." : "Ambil Kunci"}
-                    </button>
-                  )}
-                  {Boolean(eligibilityMap[key.id]?.canReturn) && (
-                    <button
-                      className="flex-1 py-2 text-xs bg-green-500 text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
-                      disabled={actionLoadingId === key.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReturnKey(key.id);
-                      }}
-                    >
-                      {actionLoadingId === key.id ? "Memproses..." : "Kembalikan"}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+                {userRole === "KOORDINATOR_LAB" && key.status === "BORROWED" && (
+                  <button
+                    className="flex-1 py-2 text-xs bg-red-500 text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a] inline-flex items-center justify-center gap-1"
+                    disabled={actionLoadingId === key.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setForceReturnModal({ keyId: key.id, keyCode: key.keyCode, holder: key.currentHolder?.name || "-" });
+                    }}
+                  >
+                    <TbArrowBackUp className="w-4 h-4" /> Force Return
+                  </button>
+                )}
+                {userRole === "MAHASISWA" && (
+                  <>
+                    {Boolean(eligibilityMap[key.id]?.canTake) && (
+                      <button
+                        className="flex-1 py-2 text-xs bg-[#4b607f] text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
+                        disabled={actionLoadingId === key.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTakeKey(key.id);
+                        }}
+                      >
+                        {actionLoadingId === key.id ? "Memproses..." : "Ambil Kunci"}
+                      </button>
+                    )}
+                    {Boolean(eligibilityMap[key.id]?.canReturn) && (
+                      <button
+                        className="flex-1 py-2 text-xs bg-green-500 text-white neo-border-sm rounded-lg font-bold transition-all hover:brightness-110 hover:shadow-[2px_2px_0px_#1a1a1a]"
+                        disabled={actionLoadingId === key.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReturnKey(key.id);
+                        }}
+                      >
+                        {actionLoadingId === key.id ? "Memproses..." : "Kembalikan"}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </motion.div>
         ))}
       </div>
@@ -408,6 +430,14 @@ export default function KeysPage() {
                   <div className="flex justify-between">
                     <span className="text-sm text-[#5a5a5a]">Peminjam:</span>
                     <span className="text-sm font-bold">{selectedKey.currentHolder.name}</span>
+                  </div>
+                )}
+                {selectedKey.takenAt && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#5a5a5a]">Waktu Ambil:</span>
+                    <span className="text-sm font-bold">
+                      {new Date(selectedKey.takenAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB"}
+                    </span>
                   </div>
                 )}
               </div>

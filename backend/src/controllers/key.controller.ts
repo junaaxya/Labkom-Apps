@@ -94,7 +94,7 @@ export class KeyController {
   static async saveReturnEvidence(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const evidence = await KeyService.saveReturnEvidence(getParam(req.params.id), req.user.userId, photoUrls(req.body));
+      const evidence = await KeyService.saveReturnEvidence(getParam(req.params.id), req.user.userId, photoUrls(req.body), req.user.role);
       res.json({ success: true, data: evidence });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
@@ -108,6 +108,8 @@ export class KeyController {
         getParam(req.params.id),
         req.user.userId,
         optionalBodyText(req.body, "notes"),
+        undefined,
+        req.user.role,
       );
       res.json({ success: true, message: "Kunci berhasil dikembalikan", data: key });
     } catch (error: any) {

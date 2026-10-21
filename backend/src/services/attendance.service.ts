@@ -1,5 +1,5 @@
 import prisma from "../config/database";
-import { AsLabPicketDestination, Prisma, ShiftScheduleStatus } from "@prisma/client";
+import { AsLabPicketDestination, AttendanceStatus, Prisma, Role, ShiftScheduleStatus } from "@prisma/client";
 import { notificationService } from "./notification.service";
 import { RecurringShiftPlanInput, WeeklyShiftPlanInput, WeeklyShiftPreviewInput } from "../validators/attendance.validator";
 import {
@@ -1253,8 +1253,15 @@ export class AttendanceService {
     return { items, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  static async getAllAttendance(filters?: { date?: string; status?: string; userId?: string; page?: number; limit?: number }) {
-    const where: any = {};
+  static async getAllAttendance(filters?: {
+    date?: string;
+    status?: AttendanceStatus;
+    userId?: string;
+    role?: Extract<Role, "ASISTEN_LAB" | "MAGANG">;
+    page?: number;
+    limit?: number;
+  }) {
+    const where: Prisma.AttendanceWhereInput = {};
     if (filters?.date) {
       const d = new Date(filters.date);
       d.setHours(0, 0, 0, 0);
@@ -1264,6 +1271,7 @@ export class AttendanceService {
     }
     if (filters?.status) where.status = filters.status;
     if (filters?.userId) where.userId = filters.userId;
+    if (filters?.role) where.user = { role: filters.role };
 
     const page = filters?.page && filters.page > 0 ? filters.page : 1;
     const limit = filters?.limit && filters.limit > 0 ? Math.min(Math.floor(filters.limit), 100) : 20;
@@ -1273,7 +1281,7 @@ export class AttendanceService {
       prisma.attendance.findMany({
         where,
         include: {
-          user: { select: { id: true, name: true, nim: true } },
+          user: { select: { id: true, name: true, nim: true, role: true } },
           shiftSchedule: {
             include: {
               shift: { select: { name: true, startTime: true, endTime: true } },

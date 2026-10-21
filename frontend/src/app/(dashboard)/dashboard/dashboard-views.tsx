@@ -23,8 +23,6 @@ import {
   TbWifiOff,
   TbSpeakerphone,
   TbPin,
-  TbRobot,
-  TbBook2,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import type { ReactNode } from "react";
@@ -931,6 +929,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
   const stats: StatCardItem[] = [
     { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/schedules" },
     { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange", href: "/tickets/my" },
+    { label: "Pengajuan Saya", value: 0, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/lab-booking" },
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
   ];
   return (
@@ -1047,7 +1046,6 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
 
 export function MagangDashboard({ unreadCount }: { unreadCount: number }) {
   const stats: StatCardItem[] = [
-    { label: "Pengajuan Saya", value: 0, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/lab-booking" },
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
   ];
 
@@ -1057,26 +1055,40 @@ export function MagangDashboard({ unreadCount }: { unreadCount: number }) {
       <div className="grid grid-cols-2 gap-2 sm:gap-4">{stats.map((item, idx) => <StatCard key={item.label} item={item} index={idx} />)}</div>
 
       <QuickActions items={[
-        { label: "Ajukan Lab", href: "/lab-booking", icon: TbCalendarEvent },
-        { label: "FAQ", href: "/faq", icon: TbRobot },
-        { label: "Panduan", href: "/guide", icon: TbBook2 },
+        { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone },
+        { label: "Absensi", href: "/attendance", icon: TbCircleCheck },
+        { label: "AI Assistant", href: "/ai-assistant", icon: TbBrain },
       ]} />
 
       <Section title="Akses Magang" icon={TbUserCode} delay={0.1}>
         <div className="space-y-3">
-          <p className="text-sm font-medium text-[#1a1a1a]">Akun magang dipakai untuk pengajuan akses, melihat notifikasi, membaca panduan, dan mengikuti alur yang disetujui admin/Aslab.</p>
+          <p className="text-sm font-medium text-[#1a1a1a]">Gunakan pintasan berikut untuk melihat jadwal, mengelola akses kunci, dan menemukan informasi lab.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Link href="/lab-booking" prefetch={true} className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
+            <Link href="/schedules" prefetch={true} className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
               <div>
-                <p className="font-bold text-[#1a1a1a]">Ajukan Peminjaman Lab</p>
-                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Kirim pengajuan baru atau cek riwayat booking.</p>
+                <p className="font-bold text-[#1a1a1a]">Jadwal Lab</p>
+                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Lihat jadwal penggunaan lab terbaru.</p>
+              </div>
+              <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
+            </Link>
+            <Link href="/keys" prefetch={true} className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
+              <div>
+                <p className="font-bold text-[#1a1a1a]">Kunci Lab</p>
+                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Lihat informasi akses kunci lab.</p>
               </div>
               <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
             </Link>
             <Link href="/faq" prefetch={true} className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
               <div>
-                <p className="font-bold text-[#1a1a1a]">Baca FAQ & Panduan</p>
-                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Lihat aturan penggunaan lab dan jawaban cepat.</p>
+                <p className="font-bold text-[#1a1a1a]">FAQ</p>
+                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Temukan jawaban cepat seputar lab.</p>
+              </div>
+              <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
+            </Link>
+            <Link href="/guide" prefetch={true} className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
+              <div>
+                <p className="font-bold text-[#1a1a1a]">Panduan Lab</p>
+                <p className="text-xs text-[#5a5a5a] font-medium mt-1">Baca panduan penggunaan fasilitas.</p>
               </div>
               <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
             </Link>

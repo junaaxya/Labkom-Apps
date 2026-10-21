@@ -9,6 +9,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
 
   "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
@@ -20,10 +21,10 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
 
   "/logbook": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/logbook/condition": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/tickets": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/attendance": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAGANG"],
-  "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAGANG"],
+  "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/settings": ["KOORDINATOR_LAB"],
   "/attendance/monitoring": ["KOORDINATOR_LAB"],
   "/shifts": ["KOORDINATOR_LAB"],
@@ -43,7 +44,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/predictive": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/smart-scheduling": ["KOORDINATOR_LAB"],
 
-  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/access-requests": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],

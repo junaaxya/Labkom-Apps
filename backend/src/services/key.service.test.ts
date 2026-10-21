@@ -353,3 +353,26 @@ test("findKeyByQR returns key matching keyCode or qrCode", async () => {
     restoreAll(restores);
   }
 });
+
+test("MAGANG role is rejected from taking or returning keys and eligibility reflects read-only restriction", async () => {
+  const eligibility = await KeyService.getEligibility("key-1", "user-magang", "MAGANG");
+  assert.equal(eligibility.canTake, false);
+  assert.equal(eligibility.canReturn, false);
+  assert.match(eligibility.takeReason || "", /MAGANG/);
+  assert.match(eligibility.returnReason || "", /MAGANG/);
+
+  await assert.rejects(
+    KeyService.takeKey("key-1", "user-magang", "MAGANG"),
+    /Peran MAGANG tidak memiliki izin mengambil kunci lab/
+  );
+
+  await assert.rejects(
+    KeyService.returnKey("key-1", "user-magang", "Selesai", now, "MAGANG"),
+    /Peran MAGANG tidak memiliki izin mengembalikan kunci lab/
+  );
+
+  await assert.rejects(
+    KeyService.saveReturnEvidence("key-1", "user-magang", ["/uploads/conditions/photo.png"], "MAGANG"),
+    /Peran MAGANG tidak memiliki izin mengembalikan kunci lab/
+  );
+});

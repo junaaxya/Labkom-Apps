@@ -45,7 +45,7 @@ import type {
   TaskCategoryConfig,
 } from "@/types/index";
 
-type MonitoringTab = "TODAY" | "TASKS" | "SHIFTS" | "LEAVES" | "CORRECTIONS" | "CATEGORIES";
+type MonitoringTab = "TODAY" | "MAGANG" | "TASKS" | "SHIFTS" | "LEAVES" | "CORRECTIONS" | "CATEGORIES";
 type VerifyAction = "APPROVED" | "REJECTED";
 type ReviewAction = "APPROVED" | "REJECTED" | "NEED_REVISION";
 
@@ -61,6 +61,11 @@ type TodayMonitoringData = {
   summary: TodaySummary;
   attendances: AttendanceEntry[];
   notCheckedInUsers: User[];
+};
+
+type AttendanceHistoryResponse = {
+  items: AttendanceEntry[];
+  pagination?: { total: number };
 };
 
 type ShiftCreatePayload = {
@@ -128,6 +133,7 @@ interface LeaveRequestItem {
 
 const TABS: Array<{ key: MonitoringTab; label: string; icon: typeof TbCalendarStats }> = [
   { key: "TODAY", label: "Kehadiran", icon: TbCalendarStats },
+  { key: "MAGANG", label: "MAGANG", icon: TbUserCheck },
   { key: "TASKS", label: "Verifikasi Task", icon: TbChecklist },
   { key: "SHIFTS", label: "Shift", icon: TbClockCog },
   { key: "LEAVES", label: "Izin / Sakit", icon: TbNotes },
@@ -270,6 +276,13 @@ function formatDate(dateString?: string): string {
   return date.toLocaleDateString("id-ID", { dateStyle: "medium" });
 }
 
+function formatTime(dateString?: string): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
 function formatDuration(minutes?: number): string {
   if (!minutes || minutes <= 0) return "-";
   const h = Math.floor(minutes / 60);
@@ -294,6 +307,9 @@ export default function AttendanceMonitoringPage() {
   const [todaySummary, setTodaySummary] = useState<TodaySummary>(defaultTodaySummary);
   const [todayAttendances, setTodayAttendances] = useState<AttendanceEntry[]>([]);
   const [notCheckedInUsers, setNotCheckedInUsers] = useState<User[]>([]);
+
+  const [magangLoading, setMagangLoading] = useState(false);
+  const [magangAttendances, setMagangAttendances] = useState<AttendanceEntry[]>([]);
 
   const [tasksLoading, setTasksLoading] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<DailyTaskLog[]>([]);
@@ -391,6 +407,22 @@ export default function AttendanceMonitoringPage() {
     }
   }, [toast]);
 
+  const loadMagangAttendance = useCallback(async () => {
+    setMagangLoading(true);
+    try {
+      const response = await api.get<ApiMaybeWrapped<AttendanceHistoryResponse> | Record<string, unknown>>(
+        "/attendance/all?role=MAGANG&limit=100"
+      );
+      const data = unwrapData<AttendanceHistoryResponse>(response, { items: [] });
+      setMagangAttendances(safeArray<AttendanceEntry>(data.items));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal memuat riwayat MAGANG.");
+      setMagangAttendances([]);
+    } finally {
+      setMagangLoading(false);
+    }
+  }, [toast]);
+
   const loadTaskVerifications = useCallback(async () => {
     setTasksLoading(true);
     try {
@@ -455,6 +487,10 @@ export default function AttendanceMonitoringPage() {
   useEffect(() => {
     queueMicrotask(() => void loadShiftSchedules());
   }, [loadShiftSchedules]);
+
+  useEffect(() => {
+    if (activeTab === "MAGANG") queueMicrotask(() => void loadMagangAttendance());
+  }, [activeTab, loadMagangAttendance]);
 
   const loadPendingLeaves = useCallback(async () => {
     setLeavesLoading(true);
@@ -1140,6 +1176,73 @@ export default function AttendanceMonitoringPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === "MAGANG" && (
+            <div className="neo-card p-3 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-heading text-base sm:text-lg md:text-xl font-black text-[#1a1a1a]">Riwayat Absensi MAGANG</h2>
+                {magangLoading && (
+                  <span className="inline-flex items-center gap-2 text-sm text-[#5a5a5a]">
+                    <TbLoader2 className="h-4 w-4 animate-spin" /> Loading...
+                  </span>
+                )}
+              </div>
+              {magangLoading ? (
+                <div className="py-12 text-center text-[#5a5a5a] font-semibold">Memuat riwayat MAGANG...</div>
+              ) : magangAttendances.length === 0 ? (
+                <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada riwayat absensi MAGANG.</div>
+              ) : (
+                <>
+                  <div className="space-y-3 md:hidden">
+                    {magangAttendances.map((attendance) => {
+                      const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                      return (
+                        <MobileCard
+                          key={attendance.id}
+                          title={attendance.user?.name ?? "-"}
+                          badge={<span className={`rounded-full px-2 py-1 text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>{statusCfg?.label ?? attendance.status}</span>}
+                          fields={[
+                            { label: "Nama", value: attendance.user?.name ?? "-" },
+                            { label: "Tanggal", value: formatDate(attendance.checkinAt ?? attendance.createdAt) },
+                            { label: "Jam Masuk", value: formatTime(attendance.checkinAt) },
+                            { label: "Jam Pulang", value: formatTime(attendance.checkoutAt) },
+                            { label: "Status", value: statusCfg?.label ?? attendance.status },
+                          ]}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[720px] border-collapse">
+                      <thead>
+                        <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
+                          <th className="p-3 text-left text-sm font-black">Nama</th>
+                          <th className="p-3 text-left text-sm font-black">Tanggal</th>
+                          <th className="p-3 text-left text-sm font-black">Jam Masuk</th>
+                          <th className="p-3 text-left text-sm font-black">Jam Pulang</th>
+                          <th className="p-3 text-left text-sm font-black">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {magangAttendances.map((attendance) => {
+                          const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                          return (
+                            <tr key={attendance.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
+                              <td className="p-3 font-semibold text-[#1a1a1a]">{attendance.user?.name ?? "-"}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatDate(attendance.checkinAt ?? attendance.createdAt)}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatTime(attendance.checkinAt)}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatTime(attendance.checkoutAt)}</td>
+                              <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>{statusCfg?.label ?? attendance.status}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

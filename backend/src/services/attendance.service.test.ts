@@ -76,6 +76,32 @@ test("today schedule falls back to earliest shift when none has started yet", ()
   assert.equal(selected?.id, "shift-1");
 });
 
+test("getAllAttendance filters by user role and selects role", async () => {
+  let findManyQuery: { where?: unknown; include?: unknown } | undefined;
+  const restores = [
+    replaceMethod(prisma.attendance, "findMany", async (query: { where?: unknown; include?: unknown }) => {
+      findManyQuery = query;
+      return [];
+    }),
+    replaceMethod(prisma.attendance, "count", async () => 0),
+    replaceMethod(prisma, "$transaction", async () => {
+      return [[], 0];
+    }),
+  ];
+
+  try {
+    await AttendanceService.getAllAttendance({ role: "MAGANG", limit: 100 });
+    assert.deepEqual(findManyQuery?.where, { user: { role: "MAGANG" } });
+    assert.deepEqual(findManyQuery?.include, {
+      user: { select: { id: true, name: true, nim: true, role: true } },
+      shiftSchedule: { include: { shift: { select: { name: true, startTime: true, endTime: true } } } },
+      dailyTasks: { select: { id: true, task: true, status: true } },
+    });
+  } finally {
+    restoreAll(restores);
+  }
+});
+
 function activeSchedule(userId = "magang-1") {
   return {
     id: "shift-schedule-1",
