@@ -10,6 +10,7 @@ Rules:
 
 ## Entries
 
+- 2026-10-22 10:43 WIB — Sisyphus: coordinator Smart Scheduling adds optional target-date input; dated suggestions truthfully include approved bookings, remain advisory, and keep Schedule/Booking services as final write authority. Real seed-coordinator browser QA passed -> `frontend/src/app/(dashboard)/smart-scheduling/page.tsx`
 - 2026-10-21 15:57 WIB — Sisyphus: real isolated MAGANG form-login, GPS-geofence UI check-in, and UI checkout passed without a shift; returned attendance row has `shiftScheduleId: null`, then `WAITING_VERIFICATION` with a completed duration -> `frontend/src/app/(dashboard)/attendance/page.tsx`
 - 2026-10-21 12:13 WIB — Sisyphus: added coordinator-only MAGANG attendance-history tab; it lazily loads role-filtered normal attendance rows and shows name, date, check-in, check-out, and status in responsive cards/table while personal MAGANG attendance and shared shift assignment remain unchanged; backend/frontend focused guards, typechecks, builds, and browser QA passed -> `frontend/src/app/(dashboard)/attendance/monitoring/page.tsx`
 - 2026-10-19 WIB — Sisyphus: release gate stopped before PR because dev CI passed for `327bd87516e80e286d7c33970cc8dede017ea6ad`, but no approved MAGANG password/account exists in non-secret seed or source fixtures; no credential guessing, merge, deployment, or production mutation performed -> real-login gate remains blocked
