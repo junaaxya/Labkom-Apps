@@ -156,7 +156,8 @@ export const suggestSlots = async (req: Request, res: Response, next: NextFuncti
     const slots = await smartSchedulingService.suggestOptimalSlots(
       parsed.data.duration,
       parsed.data.day,
-      parsed.data.labId
+      parsed.data.labId,
+      parsed.data.targetDate
     );
     res.json({ success: true, data: slots });
   } catch (error) {
