@@ -18,8 +18,17 @@ datasource db {
 enum Role {
   KOORDINATOR_LAB // Mengatur lab, jadwal, user, asleb, laporan, misi, verifikasi, audit, fallback check-in
   ASISTEN_LAB // Absensi, logbook, kunci, ticketing, misi, peta lab, check-in/out sesi
+  DOSEN // Membaca penawaran dan laporan akademik miliknya
   MAHASISWA // Melihat jadwal, melapor kerusakan, validasi kondisi akhir (jika ketua kelas), peminjaman lab
   MAGANG // Akun internal magang dengan akses terbatas
+}
+
+enum AcademicReportStatus {
+  TATAP_MUKA
+  ONLINE
+  TIDAK_MASUK
+  PINDAH_JADWAL
+  BELUM_PASTI
 }
 
 enum AccessRequestType {
@@ -333,6 +342,11 @@ model User {
   accessRequests           AccessRequest[]                 @relation("AccessRequestApplicant")
   accessRequestsReviewed   AccessRequest[]                 @relation("AccessRequestReviewer")
   magangEmailVerification  MagangEmailVerification?        @relation("MagangVerificationUser")
+  academicMemberships      AcademicClassMembership[]
+  academicOfferingsAsDosen AcademicOffering[]              @relation("AcademicOfferingDosen")
+  academicReportsCreated   AcademicReport[]                @relation("AcademicReportCreator")
+  academicReportsUpdated   AcademicReport[]                @relation("AcademicReportUpdater")
+  academicReportRevisions  AcademicReportRevision[]        @relation("AcademicReportRevisionActor")
 
   @@map("users")
 }
@@ -590,6 +604,171 @@ model PcWarning {
 // ============================================
 // SCHEDULING
 // ============================================
+
+model AcademicTerm {
+  id                String                  @id @default(cuid())
+  code              String                  @unique
+  name              String
+  startDate         DateTime?               @db.Date
+  endDate           DateTime?               @db.Date
+  isActive          Boolean                 @default(true)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  memberships       AcademicClassMembership[]
+  leaderAssignments AcademicClassLeader[]
+  offerings         AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_terms")
+}
+
+model AcademicCourse {
+  id        String             @id @default(cuid())
+  code      String             @unique
+  name      String
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  offerings AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_courses")
+}
+
+model AcademicClass {
+  id                String                  @id @default(cuid())
+  code              String                  @unique
+  name              String
+  isActive          Boolean                 @default(true)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  memberships       AcademicClassMembership[]
+  leaderAssignments AcademicClassLeader[]
+  offerings         AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_classes")
+}
+
+model AcademicClassMembership {
+  id              String                     @id @default(cuid())
+  termId          String
+  classId         String
+  userId          String
+  isActive        Boolean                    @default(true)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  term            AcademicTerm               @relation(fields: [termId], references: [id], onDelete: Restrict)
+  academicClass   AcademicClass              @relation(fields: [classId], references: [id], onDelete: Restrict)
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  leaderAssignment AcademicClassLeader?
+  pjAssignments   AcademicOfferingPJ[]
+
+  @@unique([termId, classId, userId])
+  @@index([userId, isActive])
+  @@index([termId, classId, isActive])
+  @@map("academic_class_memberships")
+}
+
+model AcademicClassLeader {
+  id         String                  @id @default(cuid())
+  termId     String
+  classId    String
+  membershipId String                @unique
+  isActive   Boolean                 @default(true)
+  assignedAt DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  term       AcademicTerm            @relation(fields: [termId], references: [id], onDelete: Restrict)
+  academicClass AcademicClass        @relation(fields: [classId], references: [id], onDelete: Restrict)
+  membership AcademicClassMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@index([termId, classId, isActive])
+  @@map("academic_class_leaders")
+}
+
+model AcademicOffering {
+  id        String              @id @default(cuid())
+  termId    String
+  courseId  String
+  classId   String
+  dosenId   String
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  term          AcademicTerm      @relation(fields: [termId], references: [id], onDelete: Restrict)
+  course        AcademicCourse    @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  academicClass AcademicClass     @relation(fields: [classId], references: [id], onDelete: Restrict)
+  dosen         User              @relation("AcademicOfferingDosen", fields: [dosenId], references: [id], onDelete: Restrict)
+  pjs           AcademicOfferingPJ[]
+  reports       AcademicReport[]
+
+  @@unique([termId, courseId, classId])
+  @@index([dosenId, isActive])
+  @@index([termId, classId, isActive])
+  @@map("academic_offerings")
+}
+
+model AcademicOfferingPJ {
+  id           String                     @id @default(cuid())
+  offeringId   String
+  membershipId String
+  isActive     Boolean                    @default(true)
+  assignedAt   DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  offering     AcademicOffering           @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  membership   AcademicClassMembership    @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@unique([offeringId, membershipId])
+  @@index([offeringId, isActive])
+  @@index([membershipId, isActive])
+  @@map("academic_offering_pjs")
+}
+
+model AcademicReport {
+  id          String               @id @default(cuid())
+  offeringId  String
+  reportDate  DateTime             @db.Date
+  status      AcademicReportStatus
+  notes       String?
+  revision    Int                  @default(1)
+  createdById String
+  updatedById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  offering    AcademicOffering     @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  createdBy   User                 @relation("AcademicReportCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User                 @relation("AcademicReportUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  revisions   AcademicReportRevision[]
+
+  @@unique([offeringId, reportDate])
+  @@index([offeringId, reportDate])
+  @@map("academic_reports")
+}
+
+model AcademicReportRevision {
+  id          String               @id @default(cuid())
+  reportId    String
+  revision    Int
+  status      AcademicReportStatus
+  notes       String?
+  changedById String
+  createdAt   DateTime             @default(now())
+
+  report      AcademicReport       @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  changedBy   User                 @relation("AcademicReportRevisionActor", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@unique([reportId, revision])
+  @@index([reportId, createdAt])
+  @@map("academic_report_revisions")
+}
 
 model Schedule {
   id           String         @id @default(cuid())
