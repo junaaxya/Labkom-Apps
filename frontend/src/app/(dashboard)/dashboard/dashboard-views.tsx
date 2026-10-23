@@ -23,6 +23,7 @@ import {
   TbWifiOff,
   TbSpeakerphone,
   TbPin,
+  TbSchool,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import type { ReactNode } from "react";
@@ -33,7 +34,7 @@ export interface LocalUser {
   userId?: string;
   id?: string;
   name?: string;
-  role?: "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
+  role?: "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG" | "DOSEN";
   email?: string;
   semester?: string;
   className?: string;
@@ -1094,6 +1095,26 @@ export function MagangDashboard({ unreadCount }: { unreadCount: number }) {
             </Link>
           </div>
         </div>
+      </Section>
+    </div>
+  );
+}
+
+export function DosenDashboard({ unreadCount }: { unreadCount: number }) {
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <PinnedAnnouncementsBanner />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <StatCard item={{ label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" }} index={0} />
+      </div>
+      <Section title="Ruang Akademik" icon={TbSchool} delay={0.1}>
+        <Link href="/academic" className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
+          <div>
+            <p className="font-bold text-[#1a1a1a]">Penawaran dan laporan akademik</p>
+            <p className="text-xs text-[#5a5a5a] font-medium mt-1">Lihat penawaran yang menjadi tanggung jawab Anda dan status laporan.</p>
+          </div>
+          <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
+        </Link>
       </Section>
     </div>
   );

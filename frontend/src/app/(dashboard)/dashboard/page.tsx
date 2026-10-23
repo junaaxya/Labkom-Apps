@@ -9,6 +9,7 @@ import type { Role } from "@/types";
 import {
   AsistenDashboard,
   DashboardHeader,
+  DosenDashboard,
   KoordinatorDashboard,
   MagangDashboard,
   MahasiswaDashboard,
@@ -76,14 +77,16 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    const [labsRes, schedulesRes, keysRes] = await Promise.all([
-      api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
-      api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
-      api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
-    ]);
-    setLabs(asArray<LabInfo>(labsRes.data));
-    setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
-    setKeys(asArray<KeyItem>(keysRes.data));
+    if (role !== "DOSEN") {
+      const [labsRes, schedulesRes, keysRes] = await Promise.all([
+        api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
+        api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
+        api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
+      ]);
+      setLabs(asArray<LabInfo>(labsRes.data));
+      setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
+      setKeys(asArray<KeyItem>(keysRes.data));
+    }
 
     if (role === "KOORDINATOR_LAB") {
       const [ticketRes, ticketStatsRes, attendanceRes, aiRes, healthRes, logbookRes, pcAnalyticsRes] = await Promise.all([
@@ -125,6 +128,11 @@ export default function DashboardPage() {
       setPicketSchedules(myPicketSchedules);
       setLeaderboard(asArray<LeaderboardEntry>(leaderboardRes.data));
       setAttendanceMonthCount(attendanceThisMonth.length);
+    }
+
+    if (role === "DOSEN") {
+      const notifRes = await api.get<{ data: { count: number } }>("/notifications/unread-count").catch(() => ({ data: { count: 0 } }));
+      setUnreadCount(notifRes.data?.count || 0);
     }
 
     if (role === "MAHASISWA") {
@@ -218,6 +226,8 @@ export default function DashboardPage() {
         />
       ) : role === "MAGANG" ? (
         <MagangDashboard unreadCount={unreadCount} />
+      ) : role === "DOSEN" ? (
+        <DosenDashboard unreadCount={unreadCount} />
       ) : (
         <MahasiswaDashboard
           schedules={mahasiswaSchedules}

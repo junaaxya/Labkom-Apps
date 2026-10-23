@@ -16,6 +16,7 @@ import {
   TbMenu2,
   TbBuildingWarehouse,
   TbKey,
+  TbSchool,
 } from "react-icons/tb";
 import { useSidebar } from "@/providers/sidebar-context";
 import type { Role } from "@/types";
@@ -57,6 +58,12 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Absensi", href: "/attendance", icon: TbChecklist, match: (p) => p.startsWith("/attendance") },
     { label: "Kunci", href: "/keys", icon: TbKey, match: (p) => p.startsWith("/keys") },
     { label: "AI", href: "/ai-assistant", icon: TbRobot, match: (p) => p.startsWith("/ai-assistant") },
+  ],
+  DOSEN: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
+    { label: "Pengumuman", href: "/announcements", icon: TbCalendarEvent },
+    { label: "Profil", href: "/profile", icon: TbKey },
   ],
 };
 

@@ -1,4 +1,4 @@
-export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
+export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG" | "DOSEN";
 
 export type LabStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
