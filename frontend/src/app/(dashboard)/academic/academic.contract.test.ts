@@ -26,6 +26,14 @@ test("academic UI reads occurrence release state and submits releases through ac
   assert.match(page, /Ajukan penggunaan slot rilis/);
 });
 
+test("academic UI reads actual occurrences and submits scoped swaps", () => {
+  assert.match(page, /\/academic\/actual-schedules\?date=/);
+  assert.match(page, /\/academic\/occurrence-swaps/);
+  assert.match(page, /Konfirmasi kelas/);
+  assert.match(page, /occurrence-swaps\/\$\{swapId\}\/cancel/);
+  assert.match(page, /Jadwal praktikum resmi tidak diubah/);
+});
+
 test("DOSEN route surface excludes legacy operational flows", () => {
   assert.match(guard, /"\/academic": \["KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\]/);
   assert.match(sidebar, /DOSEN: \[/);
