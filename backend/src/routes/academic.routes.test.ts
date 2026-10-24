@@ -17,7 +17,15 @@ test("academic master data remains coordinator-managed and reports have no appro
   assert.match(routes, /router\.get\("\/reports", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\), AcademicController\.listReports\);/);
   assert.match(routes, /router\.post\("\/reports", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\), AcademicController\.createReport\);/);
   assert.match(routes, /router\.post\("\/offerings\/:offeringId\/pjs", authorize\("KOORDINATOR_LAB", "MAHASISWA"\), AcademicController\.assignPj\);/);
-  assert.doesNotMatch(routes, /approve|approval/i);
+  assert.doesNotMatch(routes, /\/reports(?:\/[^\"]+)?\/approve/);
+});
+
+test("swap routes keep representative confirmation separate from coordinator review", () => {
+  const source = readFileSync(path.join(__dirname, "academic.routes.ts"), "utf8");
+  assert.match(source, /router\.post\("\/occurrence-swaps", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\)/);
+  assert.match(source, /router\.post\("\/occurrence-swaps\/:id\/confirm", authorize\("DOSEN", "MAHASISWA"\)/);
+  assert.match(source, /router\.post\("\/occurrence-swaps\/:id\/cancel", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\)/);
+  assert.match(source, /router\.patch\("\/occurrence-swaps\/:id\/review", authorize\("KOORDINATOR_LAB"\)/);
 });
 
 test("academic migration is additive and does not backfill legacy schedule text", () => {

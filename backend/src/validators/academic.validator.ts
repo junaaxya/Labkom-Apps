@@ -174,6 +174,22 @@ export const reviewAcademicSlotRequestSchema = z.object({
   }
 });
 
+export const createAcademicOccurrenceSwapSchema = z.object({
+  sourceOfferingId: idSchema,
+  targetOfferingId: idSchema,
+  occurrenceDate: z.coerce.date(),
+  reason: optionalTextSchema,
+}).strict();
+
+export const reviewAcademicOccurrenceSwapSchema = z.object({
+  approved: z.boolean(),
+  rejectionReason: optionalTextSchema,
+}).superRefine((value, ctx) => {
+  if (!value.approved && !value.rejectionReason?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi" });
+  }
+});
+
 export type CreateAcademicDosenInput = z.infer<typeof createAcademicDosenSchema>;
 export type UpdateAcademicDosenInput = z.infer<typeof updateAcademicDosenSchema>;
 export type CreateAcademicTermInput = z.infer<typeof createAcademicTermSchema>;
@@ -200,3 +216,5 @@ export type UpdateAcademicReportInput = z.infer<typeof updateAcademicReportSchem
 export type CreateAcademicOccurrenceReleaseInput = z.infer<typeof createAcademicOccurrenceReleaseSchema>;
 export type CreateAcademicSlotRequestInput = z.infer<typeof createAcademicSlotRequestSchema>;
 export type ReviewAcademicSlotRequestInput = z.infer<typeof reviewAcademicSlotRequestSchema>;
+export type CreateAcademicOccurrenceSwapInput = z.infer<typeof createAcademicOccurrenceSwapSchema>;
+export type ReviewAcademicOccurrenceSwapInput = z.infer<typeof reviewAcademicOccurrenceSwapSchema>;

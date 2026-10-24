@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { AcademicAuthorizationError, AcademicConflictError, AcademicService } from "../services/academic.service";
 import { AcademicBindingService } from "../services/academic-binding.service";
 import { AcademicOccurrenceService } from "../services/academic-occurrence.service";
+import { AcademicSwapService } from "../services/academic-swap.service";
 import {
   academicLeaderQuerySchema,
   academicMembershipQuerySchema,
@@ -15,6 +16,7 @@ import {
   bindAcademicScheduleSchema,
   createAcademicOccurrenceReleaseSchema,
   createAcademicSlotRequestSchema,
+  createAcademicOccurrenceSwapSchema,
   createAcademicClassSchema,
   createAcademicCourseSchema,
   createAcademicDosenSchema,
@@ -32,6 +34,7 @@ import {
   updateAcademicReportSchema,
   updateAcademicTermSchema,
   reviewAcademicSlotRequestSchema,
+  reviewAcademicOccurrenceSwapSchema,
 } from "../validators/academic.validator";
 
 function getParam(req: Request, name: string): string {
@@ -367,6 +370,58 @@ export class AcademicController {
       res.json({ success: true, data: await AcademicOccurrenceService.reviewRequest(getParam(req, "id"), input, getActor(req)) });
     } catch (error) {
       sendError(res, error, "Gagal meninjau pengajuan slot");
+    }
+  }
+
+  static async listOccurrenceSwaps(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicSwapService.list(getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil pertukaran pertemuan");
+    }
+  }
+
+  static async createOccurrenceSwap(req: Request, res: Response): Promise<void> {
+    try {
+      const input = createAcademicOccurrenceSwapSchema.parse(req.body);
+      res.status(201).json({ success: true, data: await AcademicSwapService.request(input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengajukan pertukaran pertemuan");
+    }
+  }
+
+  static async confirmOccurrenceSwap(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicSwapService.confirm(getParam(req, "id"), getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengonfirmasi pertukaran pertemuan");
+    }
+  }
+
+  static async cancelOccurrenceSwap(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicSwapService.cancel(getParam(req, "id"), getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal membatalkan pertukaran pertemuan");
+    }
+  }
+
+  static async reviewOccurrenceSwap(req: Request, res: Response): Promise<void> {
+    try {
+      const input = reviewAcademicOccurrenceSwapSchema.parse(req.body);
+      res.json({ success: true, data: await AcademicSwapService.review(getParam(req, "id"), input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal meninjau pertukaran pertemuan");
+    }
+  }
+
+  static async listActualSchedules(req: Request, res: Response): Promise<void> {
+    try {
+      const date = new Date(typeof req.query.date === "string" ? req.query.date : "");
+      if (Number.isNaN(date.getTime())) throw new ZodError([{ code: "custom", path: ["date"], message: "Tanggal wajib valid" }]);
+      res.json({ success: true, data: await AcademicSwapService.listActualSchedules(date, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil jadwal aktual");
     }
   }
 }

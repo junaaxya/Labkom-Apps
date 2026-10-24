@@ -44,6 +44,14 @@ enum AcademicSlotRequestStatus {
   CANCELLED
 }
 
+enum AcademicOccurrenceSwapStatus {
+  PENDING_CONFIRMATION
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum AccessRequestType {
   PEMINJAMAN_LAB
   MAGANG
@@ -309,60 +317,63 @@ model User {
   updatedAt           DateTime @updatedAt
 
   // Relations
-  schedulesAsAssistant       Schedule[]                     @relation("ScheduleAssistant")
-  logbooksCheckinBy          Logbook[]                      @relation("LogbookCheckinBy")
-  logbooksCheckoutBy         Logbook[]                      @relation("LogbookCheckoutBy")
-  conditionsSubmitted        LogbookCondition[]             @relation("ConditionSubmitter")
-  conditionsVerified         LogbookCondition[]             @relation("ConditionVerifier")
-  keysCurrentHolder          Key[]                          @relation("KeyCurrentHolder")
+  schedulesAsAssistant       Schedule[]                           @relation("ScheduleAssistant")
+  logbooksCheckinBy          Logbook[]                            @relation("LogbookCheckinBy")
+  logbooksCheckoutBy         Logbook[]                            @relation("LogbookCheckoutBy")
+  conditionsSubmitted        LogbookCondition[]                   @relation("ConditionSubmitter")
+  conditionsVerified         LogbookCondition[]                   @relation("ConditionVerifier")
+  keysCurrentHolder          Key[]                                @relation("KeyCurrentHolder")
   keyLogs                    KeyLog[]
-  keyBorrowCycles            KeyBorrowCycle[]               @relation("KeyBorrower")
-  keyBorrowCyclesReturned    KeyBorrowCycle[]               @relation("KeyReturnedBy")
-  keyBorrowCyclesForced      KeyBorrowCycle[]               @relation("KeyForceReturnedBy")
-  keyBorrowEvidence          KeyBorrowEvidence[]            @relation("KeyBorrowEvidenceSubmitter")
-  conditionPhotoUploads      ConditionPhotoUpload[]         @relation("ConditionPhotoOwner")
-  ticketsReported            Ticket[]                       @relation("TicketReporter")
-  ticketsAssigned            Ticket[]                       @relation("TicketAssignee")
-  missionsCreated            Mission[]                      @relation("MissionCreator")
-  missionClaims              MissionClaim[]                 @relation("MissionClaimant")
-  missionClaimsVerified      MissionClaim[]                 @relation("MissionVerifier")
+  keyBorrowCycles            KeyBorrowCycle[]                     @relation("KeyBorrower")
+  keyBorrowCyclesReturned    KeyBorrowCycle[]                     @relation("KeyReturnedBy")
+  keyBorrowCyclesForced      KeyBorrowCycle[]                     @relation("KeyForceReturnedBy")
+  keyBorrowEvidence          KeyBorrowEvidence[]                  @relation("KeyBorrowEvidenceSubmitter")
+  conditionPhotoUploads      ConditionPhotoUpload[]               @relation("ConditionPhotoOwner")
+  ticketsReported            Ticket[]                             @relation("TicketReporter")
+  ticketsAssigned            Ticket[]                             @relation("TicketAssignee")
+  missionsCreated            Mission[]                            @relation("MissionCreator")
+  missionClaims              MissionClaim[]                       @relation("MissionClaimant")
+  missionClaimsVerified      MissionClaim[]                       @relation("MissionVerifier")
   attendances                Attendance[]
   dailyTaskLogs              DailyTaskLog[]
-  reviewedTasks              DailyTaskLog[]                 @relation("TaskVerifier")
+  reviewedTasks              DailyTaskLog[]                       @relation("TaskVerifier")
   points                     Point[]
-  certificatesOwned          Certificate[]                  @relation("CertificateOwner")
-  certificatesIssued         Certificate[]                  @relation("CertificateIssuer")
+  certificatesOwned          Certificate[]                        @relation("CertificateOwner")
+  certificatesIssued         Certificate[]                        @relation("CertificateIssuer")
   notifications              Notification[]
   pushSubscriptions          PushSubscription[]
-  shifts                     Shift[]                        @relation("ShiftAsleb")
-  bookingsRequested          LabBooking[]                   @relation("BookingRequester")
-  bookingsApproved           LabBooking[]                   @relation("BookingApprover")
-  scheduleChangeRequests     ScheduleChangeRequest[]        @relation("ScheduleChangeRequester")
-  scheduleChangeApprovals    ScheduleChangeRequest[]        @relation("ScheduleChangeApprover")
-  leaveRequests              LeaveRequest[]                 @relation("LeaveRequester")
-  leaveReviews               LeaveRequest[]                 @relation("LeaveReviewer")
-  shiftSchedules             AsLabShiftSchedule[]           @relation("ShiftScheduleUser")
-  shiftSchedulesAssigned     AsLabShiftSchedule[]           @relation("ShiftScheduleAssigner")
-  picketPatternsCreated      AsLabPicketPattern[]           @relation("PicketPatternCreator")
-  picketPatternAssignments   AsLabPicketPatternAssignment[] @relation("PicketPatternAssistant")
-  attendancesVerified        Attendance[]                   @relation("AttendanceVerifier")
-  correctionRequests         AttendanceCorrectionRequest[]  @relation("CorrectionRequester")
-  correctionReviews          AttendanceCorrectionRequest[]  @relation("CorrectionReviewer")
+  shifts                     Shift[]                              @relation("ShiftAsleb")
+  bookingsRequested          LabBooking[]                         @relation("BookingRequester")
+  bookingsApproved           LabBooking[]                         @relation("BookingApprover")
+  scheduleChangeRequests     ScheduleChangeRequest[]              @relation("ScheduleChangeRequester")
+  scheduleChangeApprovals    ScheduleChangeRequest[]              @relation("ScheduleChangeApprover")
+  leaveRequests              LeaveRequest[]                       @relation("LeaveRequester")
+  leaveReviews               LeaveRequest[]                       @relation("LeaveReviewer")
+  shiftSchedules             AsLabShiftSchedule[]                 @relation("ShiftScheduleUser")
+  shiftSchedulesAssigned     AsLabShiftSchedule[]                 @relation("ShiftScheduleAssigner")
+  picketPatternsCreated      AsLabPicketPattern[]                 @relation("PicketPatternCreator")
+  picketPatternAssignments   AsLabPicketPatternAssignment[]       @relation("PicketPatternAssistant")
+  attendancesVerified        Attendance[]                         @relation("AttendanceVerifier")
+  correctionRequests         AttendanceCorrectionRequest[]        @relation("CorrectionRequester")
+  correctionReviews          AttendanceCorrectionRequest[]        @relation("CorrectionReviewer")
   auditLogs                  AuditLog[]
-  announcements              Announcement[]                 @relation("AnnouncementCreator")
+  announcements              Announcement[]                       @relation("AnnouncementCreator")
   announcementReads          AnnouncementRead[]
   assetAuditLogs             AssetAuditLog[]
-  accessRequests             AccessRequest[]                @relation("AccessRequestApplicant")
-  accessRequestsReviewed     AccessRequest[]                @relation("AccessRequestReviewer")
-  magangEmailVerification    MagangEmailVerification?       @relation("MagangVerificationUser")
+  accessRequests             AccessRequest[]                      @relation("AccessRequestApplicant")
+  accessRequestsReviewed     AccessRequest[]                      @relation("AccessRequestReviewer")
+  magangEmailVerification    MagangEmailVerification?             @relation("MagangVerificationUser")
   academicMemberships        AcademicClassMembership[]
-  academicOfferingsAsDosen   AcademicOffering[]             @relation("AcademicOfferingDosen")
-  academicReportsCreated     AcademicReport[]               @relation("AcademicReportCreator")
-  academicReportsUpdated     AcademicReport[]               @relation("AcademicReportUpdater")
-  academicReportRevisions    AcademicReportRevision[]       @relation("AcademicReportRevisionActor")
-  academicOccurrenceReleases AcademicOccurrenceRelease[]    @relation("AcademicOccurrenceReleaseActor")
-  academicSlotRequests       AcademicSlotRequest[]          @relation("AcademicSlotRequestRequester")
-  academicSlotReviews        AcademicSlotRequest[]          @relation("AcademicSlotRequestReviewer")
+  academicOfferingsAsDosen   AcademicOffering[]                   @relation("AcademicOfferingDosen")
+  academicReportsCreated     AcademicReport[]                     @relation("AcademicReportCreator")
+  academicReportsUpdated     AcademicReport[]                     @relation("AcademicReportUpdater")
+  academicReportRevisions    AcademicReportRevision[]             @relation("AcademicReportRevisionActor")
+  academicOccurrenceReleases AcademicOccurrenceRelease[]          @relation("AcademicOccurrenceReleaseActor")
+  academicSlotRequests       AcademicSlotRequest[]                @relation("AcademicSlotRequestRequester")
+  academicSlotReviews        AcademicSlotRequest[]                @relation("AcademicSlotRequestReviewer")
+  academicSwapsRequested     AcademicOccurrenceSwap[]             @relation("AcademicSwapRequester")
+  academicSwapsReviewed      AcademicOccurrenceSwap[]             @relation("AcademicSwapReviewer")
+  academicSwapConfirmations  AcademicOccurrenceSwapConfirmation[]
 
   @@map("users")
 }
@@ -633,9 +644,9 @@ model AcademicTerm {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  memberships        AcademicClassMembership[]
-  leaderAssignments  AcademicClassLeader[]
-  offerings          AcademicOffering[]
+  memberships       AcademicClassMembership[]
+  leaderAssignments AcademicClassLeader[]
+  offerings         AcademicOffering[]
 
   @@index([isActive])
   @@map("academic_terms")
@@ -720,16 +731,19 @@ model AcademicOffering {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  term          AcademicTerm                @relation(fields: [termId], references: [id], onDelete: Restrict)
-  course        AcademicCourse              @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  academicClass AcademicClass               @relation(fields: [classId], references: [id], onDelete: Restrict)
-  dosen         User                        @relation("AcademicOfferingDosen", fields: [dosenId], references: [id], onDelete: Restrict)
-  schedule      Schedule?                   @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
-  logbooks      Logbook[]
-  pjs           AcademicOfferingPJ[]
-  reports       AcademicReport[]
-  releases      AcademicOccurrenceRelease[] @relation("AcademicOfferingRelease")
-  slotRequests  AcademicSlotRequest[]       @relation("AcademicSlotRequestTargetOffering")
+  term              AcademicTerm                         @relation(fields: [termId], references: [id], onDelete: Restrict)
+  course            AcademicCourse                       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  academicClass     AcademicClass                        @relation(fields: [classId], references: [id], onDelete: Restrict)
+  dosen             User                                 @relation("AcademicOfferingDosen", fields: [dosenId], references: [id], onDelete: Restrict)
+  schedule          Schedule?                            @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  logbooks          Logbook[]
+  pjs               AcademicOfferingPJ[]
+  reports           AcademicReport[]
+  releases          AcademicOccurrenceRelease[]          @relation("AcademicOfferingRelease")
+  slotRequests      AcademicSlotRequest[]                @relation("AcademicSlotRequestTargetOffering")
+  swapsAsSource     AcademicOccurrenceSwap[]             @relation("AcademicSwapSourceOffering")
+  swapsAsTarget     AcademicOccurrenceSwap[]             @relation("AcademicSwapTargetOffering")
+  swapConfirmations AcademicOccurrenceSwapConfirmation[]
 
   @@unique([termId, courseId, classId])
   @@index([dosenId, isActive])
@@ -793,12 +807,12 @@ model AcademicOccurrenceRelease {
   createdAt      DateTime                        @default(now())
   updatedAt      DateTime                        @updatedAt
 
-  offering       AcademicOffering      @relation("AcademicOfferingRelease", fields: [offeringId], references: [id], onDelete: Restrict)
-  schedule       Schedule              @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
-  report         AcademicReport        @relation(fields: [reportId], references: [id], onDelete: Restrict)
-  lab            Lab                   @relation(fields: [labId], references: [id], onDelete: Restrict)
-  releasedBy     User                  @relation("AcademicOccurrenceReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
-  requests       AcademicSlotRequest[]
+  offering   AcademicOffering      @relation("AcademicOfferingRelease", fields: [offeringId], references: [id], onDelete: Restrict)
+  schedule   Schedule              @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  report     AcademicReport        @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  lab        Lab                   @relation(fields: [labId], references: [id], onDelete: Restrict)
+  releasedBy User                  @relation("AcademicOccurrenceReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
+  requests   AcademicSlotRequest[]
 
   @@unique([scheduleId, occurrenceDate])
   @@index([labId, occurrenceDate, status])
@@ -830,6 +844,77 @@ model AcademicSlotRequest {
   @@index([targetOfferingId, status])
   @@index([requestedById, status])
   @@map("academic_slot_requests")
+}
+
+model AcademicOccurrenceSwap {
+  id               String                       @id @default(cuid())
+  sourceOfferingId String
+  targetOfferingId String
+  sourceScheduleId String
+  targetScheduleId String
+  occurrenceDate   DateTime                     @db.Date
+  sourceLabId      String
+  targetLabId      String
+  sourceStartTime  String
+  sourceEndTime    String
+  targetStartTime  String
+  targetEndTime    String
+  status           AcademicOccurrenceSwapStatus @default(PENDING_CONFIRMATION)
+  reason           String?
+  requestedById    String
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  sourceOffering AcademicOffering                     @relation("AcademicSwapSourceOffering", fields: [sourceOfferingId], references: [id], onDelete: Restrict)
+  targetOffering AcademicOffering                     @relation("AcademicSwapTargetOffering", fields: [targetOfferingId], references: [id], onDelete: Restrict)
+  sourceSchedule Schedule                             @relation("AcademicSwapSourceSchedule", fields: [sourceScheduleId], references: [id], onDelete: Restrict)
+  targetSchedule Schedule                             @relation("AcademicSwapTargetSchedule", fields: [targetScheduleId], references: [id], onDelete: Restrict)
+  requestedBy    User                                 @relation("AcademicSwapRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy     User?                                @relation("AcademicSwapReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  confirmations  AcademicOccurrenceSwapConfirmation[]
+  reservations   AcademicOccurrenceSwapReservation[]
+
+  @@index([sourceScheduleId, occurrenceDate, status])
+  @@index([targetScheduleId, occurrenceDate, status])
+  @@index([sourceOfferingId, occurrenceDate])
+  @@index([targetOfferingId, occurrenceDate])
+  @@map("academic_occurrence_swaps")
+}
+
+model AcademicOccurrenceSwapReservation {
+  id             String                       @id @default(cuid())
+  swapId         String
+  scheduleId     String
+  occurrenceDate DateTime                     @db.Date
+  status         AcademicOccurrenceSwapStatus @default(PENDING_CONFIRMATION)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  swap     AcademicOccurrenceSwap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  schedule Schedule               @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@unique([swapId, scheduleId])
+  @@index([scheduleId, occurrenceDate, status])
+  @@map("academic_occurrence_swap_reservations")
+}
+
+model AcademicOccurrenceSwapConfirmation {
+  id            String   @id @default(cuid())
+  swapId        String
+  offeringId    String
+  confirmedById String
+  confirmedAt   DateTime @default(now())
+
+  swap        AcademicOccurrenceSwap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  offering    AcademicOffering       @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  confirmedBy User                   @relation(fields: [confirmedById], references: [id], onDelete: Restrict)
+
+  @@unique([swapId, offeringId])
+  @@index([confirmedById])
+  @@map("academic_occurrence_swap_confirmations")
 }
 
 model AcademicReportRevision {
@@ -867,13 +952,16 @@ model Schedule {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  lab                Lab                         @relation(fields: [labId], references: [id])
-  assistant          User?                       @relation("ScheduleAssistant", fields: [assistantId], references: [id])
+  lab                Lab                                 @relation(fields: [labId], references: [id])
+  assistant          User?                               @relation("ScheduleAssistant", fields: [assistantId], references: [id])
   changeRequests     ScheduleChangeRequest[]
   keyBorrowCycles    KeyBorrowCycle[]
   academicOffering   AcademicOffering?
   logbooks           Logbook[]
   occurrenceReleases AcademicOccurrenceRelease[]
+  swapsAsSource      AcademicOccurrenceSwap[]            @relation("AcademicSwapSourceSchedule")
+  swapsAsTarget      AcademicOccurrenceSwap[]            @relation("AcademicSwapTargetSchedule")
+  swapReservations   AcademicOccurrenceSwapReservation[]
 
   @@index([labId, startTime])
   @@index([status, startTime])
