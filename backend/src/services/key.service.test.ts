@@ -21,6 +21,7 @@ const key = { id: "key-1", labId: "lab-1", status: "AVAILABLE", currentHolderId:
 const chair = { id: "chair-1", role: "MAHASISWA", isKetuaKelas: true, semester: "3", className: "TI-3A" };
 const schedule = {
   id: "schedule-1", labId: "lab-1", className: "TI-3A", semester: "3", specificDate: null, startTime: "00:00", endTime: "23:59",
+  day: "SELASA", type: "PRAKTIKUM", status: "SCHEDULED", isActive: true, title: "Praktikum", academicOffering: null, occurrenceReleases: [],
 };
 
 test("student take creates occurrence cycle and linked TAKEN log atomically", async () => {
@@ -191,6 +192,8 @@ test("student self-service profile update cannot escalate className or isKetuaKe
     replace(prisma, "$transaction", async (operation: (client: object) => Promise<unknown>) => operation({
       key: { findUnique: async () => key },
       user: { findUnique: async () => user },
+      schedule: { findMany: async () => [schedule] },
+      labBooking: { findMany: async () => [] },
     })),
   ];
   try {

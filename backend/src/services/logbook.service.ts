@@ -1,4 +1,5 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { DayOfWeek } from "@prisma/client";
 import { TicketService } from "./ticket.service";
 import {
@@ -11,10 +12,32 @@ import {
 import { OPERATIONAL_SCHEDULE_STATUSES, withSerializableRetry } from "./schedule-availability";
 import { checkinLogbook } from "./logbook-checkin";
 import { LOGBOOK_INCLUDE } from "./logbook-include";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 function todayRange(now = new Date()) {
   return dateOnlyRange(getJakartaClock(now).date);
 }
+
+type DisplaySchedule = {
+  id: string;
+  labId: string;
+  title: string;
+  lecturerName: string | null;
+  className: string | null;
+  semester: string | null;
+  startTime: string;
+  endTime: string;
+  type: string;
+};
+
+type DisplayKeyLog = {
+  id: string;
+  action: string;
+  createdAt: Date;
+  notes: string | null;
+  user: { id: string; name: string };
+  key: { labId: string; keyCode: string };
+};
 
 export class LogbookService {
   static async getAllLogbooks(filters?: {
@@ -67,25 +90,22 @@ export class LogbookService {
     if (labIds.length === 0) return logbook;
 
     const logbookDate = canonicalDateOnly(logbook.date);
-    const logbookDay = weekdayForDateOnly(logbookDate);
     const keyLogRange = jakartaTimestampRangeForDateOnly(logbookDate);
 
-    const [schedules, keyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          labId: { in: labIds },
-          ...(logbook.scheduleId ? { id: logbook.scheduleId } : {}),
-          isActive: true,
-          OR: [
-            { specificDate: logbookDate },
-            { specificDate: null, day: logbookDay as DayOfWeek },
-          ],
-        },
-        select: {
-          id: true, labId: true, title: true, lecturerName: true,
-          className: true, semester: true, startTime: true, endTime: true, type: true,
-        },
-      }),
+    const [schedules, keyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, logbookDate, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => labIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: labIds },
+              isActive: true,
+              OR: [{ specificDate: logbookDate }, { specificDate: null, day: weekdayForDateOnly(logbookDate) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: labIds } },
@@ -99,7 +119,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof schedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of schedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);
@@ -122,7 +142,7 @@ export class LogbookService {
   static checkin = checkinLogbook;
 
   static async getTodayLogbook(userId: string, now = new Date()) {
-    const { date, day } = getJakartaClock(now);
+    const { date } = getJakartaClock(now);
     const keyLogRange = jakartaTimestampRangeForDateOnly(date);
     const logbook = await prisma.logbook.findFirst({
       where: { officialCheckinById: userId, date },
@@ -134,30 +154,21 @@ export class LogbookService {
     const allLabIds = !logbook.labId && labIds.length === 0 ? await prisma.lab.findMany({ select: { id: true } }) : [];
     const relevantLabIds = logbook.labId ? [logbook.labId] : labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
 
-    const [todaySchedules, todayKeyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          labId: { in: relevantLabIds },
-          ...(logbook.scheduleId ? { id: logbook.scheduleId } : {}),
-          isActive: true,
-          status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
-          OR: [
-            { specificDate: date },
-            { specificDate: null, day: day as DayOfWeek },
-          ],
-        },
-        select: {
-          id: true,
-          labId: true,
-          title: true,
-          lecturerName: true,
-          className: true,
-          semester: true,
-          startTime: true,
-          endTime: true,
-          type: true,
-        },
-      }),
+    const [todaySchedules, todayKeyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => relevantLabIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: relevantLabIds },
+              isActive: true,
+              status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
+              OR: [{ specificDate: date }, { specificDate: null, day: weekdayForDateOnly(date) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: relevantLabIds } },
@@ -171,7 +182,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof todaySchedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of todaySchedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);

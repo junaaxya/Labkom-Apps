@@ -26,10 +26,11 @@ test("check-in HTTP requires valid identity and persisted staff role", async () 
       create: async ({ data }: { data: Record<string, unknown> }) => { writes.push(data); return { id: "logbook-1", ...data }; },
     },
     schedule: {
-      findUnique: async () => ({
+      findMany: async () => [{
         id: "schedule-1", labId: "lab-1", type: "PRAKTIKUM", status: "ONGOING", isActive: true,
-        day: clock.day, specificDate: null, academicOffering: { id: "offering-1", isActive: true },
-      }),
+        day: clock.day, specificDate: null, title: "Praktikum", startTime: "08:00", endTime: "10:00",
+        academicOffering: { id: "offering-1", isActive: true }, occurrenceReleases: [],
+      }],
     },
   };
   const restores = [

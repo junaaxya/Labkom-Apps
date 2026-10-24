@@ -24,9 +24,9 @@ function fakeTransaction(options: { schedule?: typeof schedule | null; existing?
       findFirst: async (query: unknown) => { lookups.push(query); return options.existing ? { id: "old-logbook" } : null; },
       create: async ({ data }: { data: Record<string, unknown> }) => { writes.push(data); return { id: "logbook-1", ...data }; },
     },
-    schedule: { findUnique: async ({ where }: { where: { id: string } }) => {
+    schedule: { findMany: async ({ where }: { where?: { id?: string } }) => {
       const found = options.schedule === undefined ? schedule : options.schedule;
-      return found?.id === where.id ? found : null;
+      return found && (!where?.id || found.id === where.id) ? [found] : [];
     } },
   };
   let attempts = 0;

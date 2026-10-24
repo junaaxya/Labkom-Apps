@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { canonicalDateOnly } from "./jakarta-time";
+import { notifyAcademicOffering } from "./academic-notification.service";
 import type {
   AcademicLeaderQueryInput,
   AcademicMembershipQueryInput,
@@ -679,7 +680,7 @@ export class AcademicService {
   }
 
   static async createReport(input: CreateAcademicReportInput, actor: UserContext) {
-    return prisma.$transaction(async (tx) => {
+    const report = await prisma.$transaction(async (tx) => {
       const offering = await tx.academicOffering.findUnique({
         where: { id: input.offeringId },
         select: { id: true, isActive: true, termId: true, classId: true, dosenId: true, scheduleId: true },
@@ -719,10 +720,22 @@ export class AcademicService {
       });
       return tx.academicReport.findUniqueOrThrow({ where: { id: report.id }, include: reportInclude });
     });
+    if (["ONLINE", "TIDAK_MASUK", "PINDAH_JADWAL"].includes(report.status)) {
+      void notifyAcademicOffering({
+        offeringId: report.offeringId,
+        actorId: actor.userId,
+        event: "report",
+        eventId: `${report.id}:r${report.revision}`,
+        title: "Status pertemuan akademik diperbarui",
+        message: `Status pertemuan ${report.status} untuk ${report.offering.course.code}.`,
+        metadata: { academicReportId: report.id, status: report.status, reportDate: report.reportDate.toISOString() },
+      }).catch(() => undefined);
+    }
+    return report;
   }
 
   static async updateReport(id: string, input: UpdateAcademicReportInput, actor: UserContext) {
-    return prisma.$transaction(async (tx) => {
+    const report = await prisma.$transaction(async (tx) => {
       const current = await tx.academicReport.findUnique({
         where: { id },
         include: {
@@ -771,5 +784,17 @@ export class AcademicService {
       });
       return tx.academicReport.findUniqueOrThrow({ where: { id }, include: reportInclude });
     });
+    if (["ONLINE", "TIDAK_MASUK", "PINDAH_JADWAL"].includes(report.status)) {
+      void notifyAcademicOffering({
+        offeringId: report.offeringId,
+        actorId: actor.userId,
+        event: "report",
+        eventId: `${report.id}:r${report.revision}`,
+        title: "Status pertemuan akademik direvisi",
+        message: `Revisi ${report.revision}: status pertemuan ${report.status} untuk ${report.offering.course.code}.`,
+        metadata: { academicReportId: report.id, status: report.status, reportDate: report.reportDate.toISOString() },
+      }).catch(() => undefined);
+    }
+    return report;
   }
 }

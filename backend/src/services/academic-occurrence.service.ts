@@ -3,6 +3,7 @@ import prisma from "../config/database";
 import { canonicalDateOnly, weekdayForDateOnly } from "./jakarta-time";
 import { findOccupancyConflict, withSerializableRetry } from "./schedule-availability";
 import { notificationService } from "./notification.service";
+import { notifyAcademicOffering } from "./academic-notification.service";
 import { AcademicAuthorizationError, AcademicConflictError } from "./academic.service";
 
 type Actor = { userId: string; role: string; ipAddress?: string };
@@ -87,7 +88,7 @@ export class AcademicOccurrenceService {
   }
 
   static async release(reportId: string, actor: Actor) {
-    return withSerializableRetry(async (tx) => {
+    const release = await withSerializableRetry(async (tx) => {
       const report = await tx.academicReport.findUnique({ where: { id: reportId }, include: { offering: { include: { schedule: true } } } });
       if (!report) throw new AcademicConflictError("Laporan akademik tidak ditemukan");
       if (report.status !== "ONLINE" && report.status !== "TIDAK_MASUK") throw new AcademicConflictError("Hanya laporan ONLINE atau TIDAK_MASUK yang dapat melepas slot");
@@ -110,6 +111,16 @@ export class AcademicOccurrenceService {
       await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_OCCURRENCE_RELEASED", targetType: "AcademicOccurrenceRelease", targetId: release.id, description: `${schedule.id}:${date.toISOString().slice(0, 10)}`, ipAddress: actor.ipAddress } });
       return release;
     });
+    void notifyAcademicOffering({
+      offeringId: release.offeringId,
+      actorId: actor.userId,
+      event: "release",
+      eventId: release.id,
+      title: "Slot pertemuan akademik dirilis",
+      message: "Slot praktikum dirilis setelah status ONLINE atau TIDAK_MASUK.",
+      metadata: { academicOccurrenceReleaseId: release.id, occurrenceDate: release.occurrenceDate.toISOString() },
+    }).catch(() => undefined);
+    return release;
   }
 
   static async requestSlot(input: { releaseId: string; targetOfferingId: string; reason?: string | null }, actor: Actor) {
@@ -170,7 +181,7 @@ export class AcademicOccurrenceService {
       await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_APPROVED", targetType: "AcademicSlotRequest", targetId: id, description: booking.id, ipAddress: actor.ipAddress } });
       return approved;
     });
-    void notificationService.create({ userId: result.requestedById, type: "SYSTEM", title: input.approved ? "Pengajuan slot disetujui" : "Pengajuan slot ditolak", message: input.approved ? "Slot lab akademik telah dialokasikan." : "Pengajuan slot lab akademik ditolak.", metadata: { academicSlotRequestId: result.id } }).catch(() => undefined);
+    void notificationService.create({ userId: result.requestedById, type: "SYSTEM", title: input.approved ? "Pengajuan slot disetujui" : "Pengajuan slot ditolak", message: input.approved ? "Slot lab akademik telah dialokasikan." : "Pengajuan slot lab akademik ditolak.", metadata: { academicSlotRequestId: result.id }, reminderKey: `academic:allocation:${result.id}:${result.requestedById}` }).catch(() => undefined);
     return result;
   }
 }

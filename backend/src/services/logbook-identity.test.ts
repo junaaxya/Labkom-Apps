@@ -123,7 +123,7 @@ test("bound today lookup uses only recorded schedule and lab before condition su
     assert.equal(result?.scheduleId, "schedule-1");
     assert.equal(labQueries, 0);
     assert.equal(scheduleQueries[0]?.where.id, "schedule-1");
-    assert.deepEqual(scheduleQueries[0]?.where.labId, { in: ["lab-1"] });
+    assert.equal(scheduleQueries[0]?.where.labId, undefined);
     assert.deepEqual(keyQueries[0]?.where.key, { labId: { in: ["lab-1"] } });
   } finally { restores.reverse().forEach((restore) => restore()); }
 });
