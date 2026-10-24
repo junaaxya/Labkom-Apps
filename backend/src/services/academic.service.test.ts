@@ -132,7 +132,7 @@ test("report update uses expected revision then appends revision and audit log",
     );
     assert.deepEqual(result, { id: ids.report, revision: 3 });
     assert.deepEqual(reportUpdates, [{
-      where: { id: ids.report, revision: 2 },
+      where: { id: ids.report, revision: 2, release: null },
       data: {
         status: "ONLINE",
         notes: "Kuliah daring",

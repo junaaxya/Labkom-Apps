@@ -1,5 +1,7 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { getJakartaClock } from "./jakarta-time";
+import { withSerializableRetry } from "./schedule-availability";
 
 const STAFF_ROLES = new Set(["KOORDINATOR_LAB", "ASISTEN_LAB"]);
 
@@ -29,10 +31,10 @@ function dateOnly(value: Date): Date {
 }
 
 export class KeyService {
-  private static async resolveOccurrence(keyId: string, userId: string, role: string, now: Date): Promise<Occurrence> {
+  private static async resolveOccurrence(client: Prisma.TransactionClient, keyId: string, userId: string, role: string, now: Date): Promise<Occurrence> {
     const [key, user] = await Promise.all([
-      prisma.key.findUnique({ where: { id: keyId }, select: { id: true, labId: true } }),
-      prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, isKetuaKelas: true, semester: true, className: true } }),
+      client.key.findUnique({ where: { id: keyId }, select: { id: true, labId: true } }),
+      client.user.findUnique({ where: { id: userId }, select: { id: true, role: true, isKetuaKelas: true, semester: true, className: true } }),
     ]);
     if (!key) throw new Error("Kunci tidak ditemukan");
     if (!user) throw new Error("User tidak ditemukan");
@@ -42,20 +44,26 @@ export class KeyService {
     }
 
     const clock = getJakartaClock(now);
-    const schedules = await prisma.schedule.findMany({
+    const schedules = await client.schedule.findMany({
       where: {
         labId: key.labId,
         isActive: true,
         status: { in: ["SCHEDULED", "ONGOING"] },
         OR: [{ specificDate: clock.date }, { specificDate: null, day: clock.day as never }],
       },
-      select: { id: true, labId: true, className: true, semester: true, specificDate: true, startTime: true, endTime: true },
+      select: {
+        id: true, labId: true, className: true, semester: true, specificDate: true, startTime: true, endTime: true,
+        occurrenceReleases: { where: { occurrenceDate: clock.date, status: { in: ["RELEASED", "ALLOCATED"] } }, select: { id: true } },
+      },
     });
     const active = schedules.filter((schedule) => isWithinTakeWindow(clock.time, schedule.startTime, schedule.endTime));
     if (active.length === 0) throw new Error("Tidak ada sesi lab aktif yang memenuhi waktu pengambilan kunci.");
     if (active.length !== 1) throw new Error("Jadwal lab aktif ambigu. Hubungi Koordinator Lab.");
 
     const schedule = active[0];
+    if (schedule.occurrenceReleases?.length) {
+      throw new Error("Pertemuan ini sudah dilepas atau dialokasikan; kunci jadwal asal tidak dapat diambil.");
+    }
     if (!STAFF_ROLES.has(role)) {
       const scheduleClass = normalize(schedule.className);
       const userClass = normalize(user.className);
@@ -69,7 +77,7 @@ export class KeyService {
       }
     }
 
-    const booking = await prisma.labBooking.findMany({
+    const booking = await client.labBooking.findMany({
       where: { labId: key.labId, date: clock.date, startTime: schedule.startTime, endTime: schedule.endTime, status: "APPROVED" },
       select: { id: true },
       take: 2,
@@ -138,7 +146,7 @@ export class KeyService {
     let occurrence: { scheduleId: string; occurrenceDate: Date } | undefined;
     if (key.status === "AVAILABLE") {
       try {
-        const resolved = await KeyService.resolveOccurrence(keyId, userId, userRole, now);
+        const resolved = await KeyService.resolveOccurrence(prisma, keyId, userId, userRole, now);
         const completed = await prisma.keyBorrowCycle.findUnique({
           where: { keyId_scheduleId_occurrenceDate: { keyId, scheduleId: resolved.schedule.id, occurrenceDate: resolved.occurrenceDate } },
           select: { id: true },
@@ -167,8 +175,8 @@ export class KeyService {
     if (userRole === "MAGANG") {
       throw new Error("Peran MAGANG tidak memiliki izin mengambil kunci lab.");
     }
-    const occurrence = await KeyService.resolveOccurrence(keyId, userId, userRole, now);
-    return prisma.$transaction(async (tx) => {
+    return withSerializableRetry(async (tx) => {
+      const occurrence = await KeyService.resolveOccurrence(tx, keyId, userId, userRole, now);
       const key = await tx.key.findUnique({ where: { id: keyId }, select: { status: true } });
       if (!key || key.status !== "AVAILABLE") throw new Error("Kunci tidak tersedia");
       const existingCycle = await tx.keyBorrowCycle.findUnique({

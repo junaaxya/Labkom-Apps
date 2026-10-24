@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { KeyService } from "./key.service";
 
@@ -26,6 +27,9 @@ test("student take creates occurrence cycle and linked TAKEN log atomically", as
   const writes: unknown[] = [];
   const tx = {
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => [schedule] },
+    labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async (args: any) => ({ id: "cycle-1", ...args.data }) },
     keyLog: { create: async (args: any) => { writes.push(args.data); return { id: "log-1" }; } },
   };
@@ -44,11 +48,73 @@ test("student take creates occurrence cycle and linked TAKEN log atomically", as
   }
 });
 
+test("take re-resolves occurrence inside Serializable transaction before writing", async () => {
+  let writes = 0;
+  let isolation: unknown;
+  const tx = {
+    key: { findUnique: async () => key, updateMany: async () => { writes += 1; return { count: 1 }; } },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => [] },
+    labBooking: { findMany: async () => [] },
+    keyBorrowCycle: { findUnique: async () => null, create: async () => { writes += 1; return { id: "cycle-1" }; } },
+    keyLog: { create: async () => { writes += 1; return { id: "log-1" }; } },
+  };
+  const restores = [
+    replace(prisma.key, "findUnique", async () => key),
+    replace(prisma.user, "findUnique", async () => chair),
+    replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma.labBooking, "findMany", async () => []),
+    replace(prisma, "$transaction", async (operation: (client: typeof tx) => Promise<unknown>, options: unknown) => {
+      isolation = options;
+      return operation(tx);
+    }),
+  ];
+  try {
+    await assert.rejects(KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now), /Tidak ada sesi lab aktif/);
+    assert.deepEqual(isolation, { isolationLevel: "Serializable" });
+    assert.equal(writes, 0);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("take retries serialization failures and re-resolves occurrence before retrying writes", async () => {
+  let attempts = 0;
+  let scheduleReads = 0;
+  const tx = {
+    key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => { scheduleReads += 1; return attempts === 1 ? [schedule] : []; } },
+    labBooking: { findMany: async () => [] },
+    keyBorrowCycle: { findUnique: async () => null, create: async () => ({ id: "cycle-1" }) },
+    keyLog: { create: async () => ({ id: "log-1" }) },
+  };
+  const restore = replace(prisma, "$transaction", async (operation: (client: typeof tx) => Promise<unknown>, options: { isolationLevel: string }) => {
+    assert.equal(options.isolationLevel, "Serializable");
+    attempts += 1;
+    const result = await operation(tx);
+    if (attempts === 1) throw new Prisma.PrismaClientKnownRequestError("serialization failure", { code: "P2034", clientVersion: "test" });
+    return result;
+  });
+  try {
+    await assert.rejects(KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now), /Tidak ada sesi lab aktif/);
+    assert.equal(attempts, 2);
+    assert.equal(scheduleReads, 2);
+  } finally {
+    restore();
+  }
+});
+
 test("student take rejects missing or mismatched trusted class authority", async () => {
   const restores = [
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => ({ ...chair, className: "TI-3B" })),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma, "$transaction", async (operation: (client: object) => Promise<unknown>) => operation({
+      key: { findUnique: async () => key },
+      user: { findUnique: async () => ({ ...chair, className: "TI-3B" }) },
+      schedule: { findMany: async () => [schedule] },
+    })),
   ];
   try {
     await assert.rejects(KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now), /Otoritas ketua kelas tidak cocok/);
@@ -122,6 +188,10 @@ test("student self-service profile update cannot escalate className or isKetuaKe
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => user),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma, "$transaction", async (operation: (client: object) => Promise<unknown>) => operation({
+      key: { findUnique: async () => key },
+      user: { findUnique: async () => user },
+    })),
   ];
   try {
     await assert.rejects(
@@ -143,6 +213,9 @@ test("concurrent student take requests allow exactly one claim to succeed", asyn
         return { count: claims === 1 ? 1 : 0 };
       },
     },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => [schedule] },
+    labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async (args: any) => ({ id: "cycle-1", ...args.data }) },
     keyLog: { create: async () => ({ id: "log-1" }) },
   };
@@ -170,6 +243,9 @@ test("concurrent student take requests allow exactly one claim to succeed", asyn
 test("same student cannot retake same occurrence after return", async () => {
   const tx = {
     key: { findUnique: async () => key },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => [schedule] },
+    labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => ({ id: "cycle-completed", status: "RETURNED" }) },
   };
   const restores = [
@@ -193,6 +269,9 @@ test("distinct class leader cannot take key for completed occurrence of differen
   const distinctChair = { ...chair, id: "chair-2", className: "TI-3A" };
   const tx = {
     key: { findUnique: async () => key },
+    user: { findUnique: async () => distinctChair },
+    schedule: { findMany: async () => [schedule] },
+    labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => ({ id: "cycle-completed", status: "RETURNED" }) },
   };
   const restores = [

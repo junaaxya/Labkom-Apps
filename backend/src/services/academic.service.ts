@@ -682,7 +682,7 @@ export class AcademicService {
     return prisma.$transaction(async (tx) => {
       const offering = await tx.academicOffering.findUnique({
         where: { id: input.offeringId },
-        select: { id: true, isActive: true, termId: true, classId: true, dosenId: true },
+        select: { id: true, isActive: true, termId: true, classId: true, dosenId: true, scheduleId: true },
       });
       if (!offering) throw new Error("Penawaran akademik tidak ditemukan");
       await assertReportWriteAuthority(tx, actor, offering);
@@ -725,15 +725,21 @@ export class AcademicService {
     return prisma.$transaction(async (tx) => {
       const current = await tx.academicReport.findUnique({
         where: { id },
-        include: { offering: { select: { id: true, isActive: true, termId: true, classId: true, dosenId: true } } },
+        include: {
+          offering: { select: { id: true, isActive: true, termId: true, classId: true, dosenId: true, scheduleId: true } },
+          release: { select: { status: true } },
+        },
       });
       if (!current) throw new Error("Laporan akademik tidak ditemukan");
       await assertReportWriteAuthority(tx, actor, current.offering);
+      if (current.release) {
+        throw new AcademicConflictError("Laporan tidak dapat diubah setelah slot pertemuan dilepas atau dialokasikan.");
+      }
 
       const nextRevision = input.expectedRevision + 1;
       const notes = input.notes === undefined ? current.notes : cleanNullableText(input.notes);
       const updated = await tx.academicReport.updateMany({
-        where: { id, revision: input.expectedRevision },
+        where: { id, revision: input.expectedRevision, release: null },
         data: {
           status: input.status,
           notes,

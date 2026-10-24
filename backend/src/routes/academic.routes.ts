@@ -33,6 +33,7 @@ router.patch("/leaders/:id", authorize("KOORDINATOR_LAB"), AcademicController.up
 router.get("/offerings", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listOfferings);
 router.post("/offerings", authorize("KOORDINATOR_LAB"), AcademicController.createOffering);
 router.patch("/offerings/:id", authorize("KOORDINATOR_LAB"), AcademicController.updateOffering);
+router.post("/offerings/:id/schedule", authorize("KOORDINATOR_LAB"), AcademicController.bindSchedule);
 
 router.get("/pjs", authorize("KOORDINATOR_LAB"), AcademicController.listPjs);
 router.post("/offerings/:offeringId/pjs", authorize("KOORDINATOR_LAB", "MAHASISWA"), AcademicController.assignPj);
@@ -42,5 +43,10 @@ router.get("/reports", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), Acade
 router.post("/reports", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.createReport);
 router.get("/reports/:id", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.getReport);
 router.patch("/reports/:id", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.updateReport);
+router.get("/occurrence-releases", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listOccurrenceReleases);
+router.post("/occurrence-releases", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.releaseOccurrence);
+router.get("/slot-requests", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listSlotRequests);
+router.post("/slot-requests", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.createSlotRequest);
+router.patch("/slot-requests/:id/review", authorize("KOORDINATOR_LAB"), AcademicController.reviewSlotRequest);
 
 export default router;

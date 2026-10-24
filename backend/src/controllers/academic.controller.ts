@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { AcademicAuthorizationError, AcademicConflictError, AcademicService } from "../services/academic.service";
+import { AcademicBindingService } from "../services/academic-binding.service";
+import { AcademicOccurrenceService } from "../services/academic-occurrence.service";
 import {
   academicLeaderQuerySchema,
   academicMembershipQuerySchema,
@@ -10,6 +12,9 @@ import {
   academicReportQuerySchema,
   assignAcademicLeaderSchema,
   assignAcademicPjSchema,
+  bindAcademicScheduleSchema,
+  createAcademicOccurrenceReleaseSchema,
+  createAcademicSlotRequestSchema,
   createAcademicClassSchema,
   createAcademicCourseSchema,
   createAcademicDosenSchema,
@@ -26,6 +31,7 @@ import {
   updateAcademicPjSchema,
   updateAcademicReportSchema,
   updateAcademicTermSchema,
+  reviewAcademicSlotRequestSchema,
 } from "../validators/academic.validator";
 
 function getParam(req: Request, name: string): string {
@@ -249,6 +255,16 @@ export class AcademicController {
     }
   }
 
+  static async bindSchedule(req: Request, res: Response): Promise<void> {
+    try {
+      const input = bindAcademicScheduleSchema.parse(req.body);
+      const data = await AcademicBindingService.bindSchedule(getParam(req, "id"), input.scheduleId, getActor(req));
+      res.json({ success: true, data });
+    } catch (error) {
+      sendError(res, error, "Gagal menghubungkan jadwal");
+    }
+  }
+
   static async listPjs(req: Request, res: Response): Promise<void> {
     try {
       const query = academicPjQuerySchema.parse(req.query);
@@ -308,6 +324,49 @@ export class AcademicController {
       res.json({ success: true, data: await AcademicService.updateReport(getParam(req, "id"), data, getActor(req)) });
     } catch (error) {
       sendError(res, error, "Gagal mengubah laporan akademik");
+    }
+  }
+
+  static async releaseOccurrence(req: Request, res: Response): Promise<void> {
+    try {
+      const input = createAcademicOccurrenceReleaseSchema.parse(req.body);
+      res.status(201).json({ success: true, data: await AcademicOccurrenceService.release(input.reportId, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal melepas slot pertemuan");
+    }
+  }
+
+  static async listOccurrenceReleases(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicOccurrenceService.listReleases(getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil slot rilis");
+    }
+  }
+
+  static async createSlotRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const input = createAcademicSlotRequestSchema.parse(req.body);
+      res.status(201).json({ success: true, data: await AcademicOccurrenceService.requestSlot(input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal membuat pengajuan slot");
+    }
+  }
+
+  static async listSlotRequests(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicOccurrenceService.listRequests(getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil pengajuan slot");
+    }
+  }
+
+  static async reviewSlotRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const input = reviewAcademicSlotRequestSchema.parse(req.body);
+      res.json({ success: true, data: await AcademicOccurrenceService.reviewRequest(getParam(req, "id"), input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal meninjau pengajuan slot");
     }
   }
 }

@@ -122,6 +122,8 @@ export const updateAcademicOfferingSchema = z.object({
   isActive: z.boolean().optional(),
 }).refine(hasFields, "Data perubahan wajib diisi");
 
+export const bindAcademicScheduleSchema = z.object({ scheduleId: idSchema }).strict();
+
 export const academicPjQuerySchema = z.object({
   offeringId: idSchema.optional(),
   membershipId: idSchema.optional(),
@@ -157,6 +159,21 @@ export const updateAcademicReportSchema = z.object({
   notes: optionalTextSchema,
 });
 
+export const createAcademicOccurrenceReleaseSchema = z.object({ reportId: idSchema }).strict();
+export const createAcademicSlotRequestSchema = z.object({
+  releaseId: idSchema,
+  targetOfferingId: idSchema,
+  reason: optionalTextSchema,
+}).strict();
+export const reviewAcademicSlotRequestSchema = z.object({
+  approved: z.boolean(),
+  rejectionReason: optionalTextSchema,
+}).superRefine((value, ctx) => {
+  if (!value.approved && !value.rejectionReason?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi" });
+  }
+});
+
 export type CreateAcademicDosenInput = z.infer<typeof createAcademicDosenSchema>;
 export type UpdateAcademicDosenInput = z.infer<typeof updateAcademicDosenSchema>;
 export type CreateAcademicTermInput = z.infer<typeof createAcademicTermSchema>;
@@ -180,3 +197,6 @@ export type UpdateAcademicPjInput = z.infer<typeof updateAcademicPjSchema>;
 export type AcademicReportQueryInput = z.infer<typeof academicReportQuerySchema>;
 export type CreateAcademicReportInput = z.infer<typeof createAcademicReportSchema>;
 export type UpdateAcademicReportInput = z.infer<typeof updateAcademicReportSchema>;
+export type CreateAcademicOccurrenceReleaseInput = z.infer<typeof createAcademicOccurrenceReleaseSchema>;
+export type CreateAcademicSlotRequestInput = z.infer<typeof createAcademicSlotRequestSchema>;
+export type ReviewAcademicSlotRequestInput = z.infer<typeof reviewAcademicSlotRequestSchema>;
