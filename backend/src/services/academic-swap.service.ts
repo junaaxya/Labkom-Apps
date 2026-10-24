@@ -4,6 +4,7 @@ import { canonicalDateOnly, getJakartaClock, weekdayForDateOnly } from "./jakart
 import { operationalScheduleWhere, withSerializableRetry } from "./schedule-availability";
 import { notificationService } from "./notification.service";
 import { AcademicAuthorizationError, AcademicConflictError } from "./academic.service";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 type Actor = { userId: string; role: string; ipAddress?: string };
 type CreateInput = { sourceOfferingId: string; targetOfferingId: string; occurrenceDate: Date; reason?: string | null };
@@ -274,13 +275,14 @@ export class AcademicSwapService {
       : [];
     const where: Prisma.AcademicOfferingWhereInput = user.role === "KOORDINATOR_LAB" ? { isActive: true } : user.role === "DOSEN" ? { isActive: true, dosenId: user.id } : user.role === "MAHASISWA" ? { isActive: true, OR: [{ pjs: { some: { isActive: true, membership: { userId: user.id, isActive: true } } } }, ...memberScopes.map(({ termId, classId }) => ({ termId, classId }))] } : { id: { in: [] } };
     const offerings = await prisma.academicOffering.findMany({ where, include: { course: true, academicClass: true, schedule: { select: occurrenceScheduleSelect } } });
-    const swaps = await prisma.academicOccurrenceSwap.findMany({ where: { status: "APPROVED", occurrenceDate: date }, select: { id: true, sourceOfferingId: true, targetOfferingId: true, sourceScheduleId: true, targetScheduleId: true, sourceLabId: true, targetLabId: true, sourceStartTime: true, sourceEndTime: true, targetStartTime: true, targetEndTime: true } });
+    const occurrences = await resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date);
+    const byScheduleId = new Map(occurrences.map((occurrence) => [occurrence.schedule.id, occurrence]));
     return offerings.flatMap((offering) => {
       const schedule = offering.schedule;
-      if (!schedule || !scheduleMatchesOccurrence(schedule, date)) return [];
-      const swap = swaps.find((item) => item.sourceOfferingId === offering.id || item.targetOfferingId === offering.id);
-      const actual = swap?.sourceOfferingId === offering.id ? { labId: swap.targetLabId, startTime: swap.targetStartTime, endTime: swap.targetEndTime, swapId: swap.id } : swap?.targetOfferingId === offering.id ? { labId: swap.sourceLabId, startTime: swap.sourceStartTime, endTime: swap.sourceEndTime, swapId: swap.id } : { labId: schedule.labId, startTime: schedule.startTime, endTime: schedule.endTime, swapId: null };
-      return [{ offeringId: offering.id, course: offering.course, academicClass: offering.academicClass, scheduleId: schedule.id, occurrenceDate: date, ...actual }];
+      if (!schedule) return [];
+      const actual = byScheduleId.get(schedule.id);
+      if (!actual) return [];
+      return [{ offeringId: offering.id, course: offering.course, academicClass: offering.academicClass, scheduleId: schedule.id, occurrenceDate: actual.occurrenceDate, labId: actual.labId, startTime: actual.startTime, endTime: actual.endTime, swapId: actual.swapId }];
     }).sort((left, right) => left.startTime.localeCompare(right.startTime));
   }
 }

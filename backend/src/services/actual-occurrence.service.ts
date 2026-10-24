@@ -24,6 +24,19 @@ const scheduleSelect = {
       isActive: true,
     },
   },
+  lab: {
+    select: {
+      id: true,
+      name: true,
+      location: true,
+    },
+  },
+  assistant: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
   occurrenceReleases: {
     select: { id: true, status: true },
   },

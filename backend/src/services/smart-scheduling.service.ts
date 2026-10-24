@@ -2,6 +2,7 @@ import prisma from "../config/database";
 import { Prisma } from "@prisma/client";
 import { operationalScheduleWhere } from "./schedule-availability";
 import { canonicalDateOnly, weekdayForDateOnly } from "./jakarta-time";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 interface UsagePattern {
   day: string;
@@ -81,7 +82,7 @@ class SmartSchedulingService {
         ? { OR: [{ specificDate: date }, { specificDate: null, day: targetDay }] }
         : { specificDate: null }),
     };
-    const [existingSchedules, approvedBookings] = await Promise.all([
+    const [existingSchedules, approvedBookings, actualOccurrences] = await Promise.all([
       prisma.schedule.findMany({
         where: scheduleWhere,
         select: { labId: true, day: true, startTime: true, endTime: true },
@@ -92,10 +93,20 @@ class SmartSchedulingService {
             select: { labId: true, startTime: true, endTime: true },
           })
         : Promise.resolve([]),
+      date
+        ? resolveActualOccurrences(prisma as never, date, { labId: preferredLab })
+        : Promise.resolve([]),
     ]);
 
     const existingIntervals = [
-      ...existingSchedules.map((schedule) => ({ ...schedule, day: schedule.day })),
+      ...(date
+        ? actualOccurrences.map((occurrence) => ({
+            labId: occurrence.labId,
+            day: targetDay!,
+            startTime: occurrence.startTime,
+            endTime: occurrence.endTime,
+          }))
+        : existingSchedules.map((schedule) => ({ ...schedule, day: schedule.day }))),
       ...approvedBookings.map((booking) => ({ ...booking, day: targetDay! })),
     ];
 
