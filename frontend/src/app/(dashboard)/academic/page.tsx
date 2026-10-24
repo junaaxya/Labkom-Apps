@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { TbBook2, TbRefresh, TbSend, TbSchool } from "react-icons/tb";
+import { TbBook2, TbLockOpen, TbRefresh, TbSend, TbSchool } from "react-icons/tb";
 import api from "@/services/api";
 import { useCurrentRole } from "@/providers/current-user-context";
 
@@ -25,6 +25,8 @@ type AcademicReport = {
   offering?: AcademicOffering;
 };
 type ApiList<T> = { data?: T[] };
+type OccurrenceRelease = { id: string; reportId: string; status: "RELEASED" | "ALLOCATED" | "REVOKED"; occurrenceDate?: string; startTime?: string; endTime?: string; offering?: AcademicOffering };
+type SlotRequest = { id: string; status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"; releaseId: string; targetOffering?: AcademicOffering };
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
   TATAP_MUKA: "Tatap muka",
@@ -50,7 +52,10 @@ export default function AcademicPage() {
   const canWrite = role === "MAHASISWA" || role === "DOSEN";
   const [offerings, setOfferings] = useState<AcademicOffering[]>([]);
   const [reports, setReports] = useState<AcademicReport[]>([]);
+  const [releases, setReleases] = useState<OccurrenceRelease[]>([]);
+  const [slotRequests, setSlotRequests] = useState<SlotRequest[]>([]);
   const [selectedOfferingId, setSelectedOfferingId] = useState("");
+  const [targetOfferingId, setTargetOfferingId] = useState("");
   const [status, setStatus] = useState<ReportStatus>("TATAP_MUKA");
   const [notes, setNotes] = useState("");
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -61,12 +66,16 @@ export default function AcademicPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [offeringResponse, reportResponse] = await Promise.all([
+    const [offeringResponse, reportResponse, releaseResponse, requestResponse] = await Promise.all([
       api.get<ApiList<AcademicOffering>>("/academic/offerings").catch(() => ({ data: [] })),
       api.get<ApiList<AcademicReport>>("/academic/reports").catch(() => ({ data: [] })),
+      api.get<ApiList<OccurrenceRelease>>("/academic/occurrence-releases").catch(() => ({ data: [] })),
+      api.get<ApiList<SlotRequest>>("/academic/slot-requests").catch(() => ({ data: [] })),
     ]);
     setOfferings(Array.isArray(offeringResponse.data) ? offeringResponse.data : []);
     setReports(Array.isArray(reportResponse.data) ? reportResponse.data : []);
+    setReleases(Array.isArray(releaseResponse.data) ? releaseResponse.data : []);
+    setSlotRequests(Array.isArray(requestResponse.data) ? requestResponse.data : []);
     setLoading(false);
   }, []);
 
@@ -82,6 +91,55 @@ export default function AcademicPage() {
     setReportDate(report.reportDate?.slice(0, 10) || new Date().toISOString().slice(0, 10));
     setMessage("");
   }
+
+  async function releaseOccurrence(report: AcademicReport) {
+    setSaving(true);
+    setMessage("");
+    try {
+      await api.post("/academic/occurrence-releases", { reportId: report.id });
+      setMessage("Slot pertemuan dilepas sesuai laporan.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Slot gagal dilepas.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestSlot(releaseId: string) {
+    if (!targetOfferingId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await api.post("/academic/slot-requests", { releaseId, targetOfferingId });
+      setTargetOfferingId("");
+      setMessage("Pengajuan slot dikirim ke koordinator.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Pengajuan slot gagal dibuat.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reviewSlotRequest(requestId: string, approved: boolean) {
+    setSaving(true);
+    setMessage("");
+    try {
+      await api.patch(`/academic/slot-requests/${requestId}/review`, {
+        approved,
+        ...(approved ? {} : { rejectionReason: "Ditolak koordinator" }),
+      });
+      setMessage(approved ? "Pengajuan slot disetujui." : "Pengajuan slot ditolak.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Pengajuan slot gagal ditinjau.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const releasesByReport = useMemo(() => new Map(releases.map((release) => [release.reportId, release])), [releases]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,10 +193,14 @@ export default function AcademicPage() {
         </form>
       )}
 
-      <section className="space-y-3">
+       <section className="space-y-3">
         <div className="flex items-center gap-2"><TbSchool className="text-[#4b607f]" /><h2 className="font-heading text-2xl font-bold">Penawaran Anda</h2></div>
-        {offerings.length === 0 ? <div className="neo-card bg-white p-6 text-sm text-[#5a5a5a]">Belum ada penawaran akademik yang dapat ditampilkan.</div> : <div className="grid gap-4 lg:grid-cols-2">{offerings.map((offering) => { const report = reportsByOffering.get(offering.id); return <article key={offering.id} className="neo-card bg-white p-4 sm:p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-[#5a5a5a]">{offering.term?.code || offering.term?.name || "Term"}</p><h3 className="mt-1 font-heading text-xl font-bold">{offeringLabel(offering)}</h3><p className="mt-1 text-sm text-[#5a5a5a]">{offering.academicClass?.code || offering.academicClass?.name || "Kelas belum tersedia"}</p></div><span className="neo-badge shrink-0 bg-[#e8d8c9]">{report ? STATUS_LABEL[report.status] : "Belum ada laporan"}</span></div><dl className="mt-5 grid grid-cols-1 gap-3 border-t-2 border-[#1a1a1a]/10 pt-4 text-sm sm:grid-cols-3"><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Laporan terakhir</dt><dd className="mt-1 font-medium">{formatDate(report?.updatedAt)}</dd></div><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Diperbarui oleh</dt><dd className="mt-1 font-medium">{report?.updatedBy?.name || "Belum ada"}</dd></div><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Revisi</dt><dd className="mt-1 font-medium">{report?.revision ?? "-"}</dd></div></dl>{canWrite && report && <button type="button" onClick={() => startEdit(report)} className="neo-btn mt-4 min-h-[44px] bg-[#4b607f] px-4 py-2 font-bold text-white">Revisi laporan</button>}</article>; })}</div>}
-      </section>
+         {offerings.length === 0 ? <div className="neo-card bg-white p-6 text-sm text-[#5a5a5a]">Belum ada penawaran akademik yang dapat ditampilkan.</div> : <div className="grid gap-4 lg:grid-cols-2">{offerings.map((offering) => { const report = reportsByOffering.get(offering.id); const release = report ? releasesByReport.get(report.id) : undefined; return <article key={offering.id} className="neo-card bg-white p-4 sm:p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-[#5a5a5a]">{offering.term?.code || offering.term?.name || "Term"}</p><h3 className="mt-1 font-heading text-xl font-bold">{offeringLabel(offering)}</h3><p className="mt-1 text-sm text-[#5a5a5a]">{offering.academicClass?.code || offering.academicClass?.name || "Kelas belum tersedia"}</p></div><span className="neo-badge shrink-0 bg-[#e8d8c9]">{report ? STATUS_LABEL[report.status] : "Belum ada laporan"}</span></div><dl className="mt-5 grid grid-cols-1 gap-3 border-t-2 border-[#1a1a1a]/10 pt-4 text-sm sm:grid-cols-3"><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Laporan terakhir</dt><dd className="mt-1 font-medium">{formatDate(report?.updatedAt)}</dd></div><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Diperbarui oleh</dt><dd className="mt-1 font-medium">{report?.updatedBy?.name || "Belum ada"}</dd></div><div><dt className="text-xs font-bold uppercase text-[#5a5a5a]">Revisi</dt><dd className="mt-1 font-medium">{report?.revision ?? "-"}</dd></div></dl>{release ? <p className="mt-4 text-sm font-bold text-[#4b607f]">Slot: {release.status}</p> : canWrite && report && (report.status === "ONLINE" || report.status === "TIDAK_MASUK") ? <button type="button" onClick={() => void releaseOccurrence(report)} disabled={saving} className="neo-btn mt-4 min-h-[44px] bg-[#f3701e] px-4 py-2 font-bold text-white"><TbLockOpen /> Lepaskan slot</button> : null}{canWrite && report && !release && <button type="button" onClick={() => startEdit(report)} className="neo-btn mt-4 min-h-[44px] bg-[#4b607f] px-4 py-2 font-bold text-white">Revisi laporan</button>}</article>; })}</div>}
+       </section>
+
+       {slotRequests.length > 0 && <section className="neo-card bg-white p-4 sm:p-6"><h2 className="font-heading text-xl font-bold">Pengajuan slot</h2><div className="mt-3 space-y-2">{slotRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#1a1a1a]/10 pt-2 text-sm"><p><strong>{offeringLabel(request.targetOffering)}</strong>: {request.status}</p>{role === "KOORDINATOR_LAB" && request.status === "PENDING" && <div className="flex gap-2"><button type="button" onClick={() => void reviewSlotRequest(request.id, true)} disabled={saving} className="neo-btn min-h-[40px] bg-[#4b607f] px-3 py-1 font-bold text-white">Setujui</button><button type="button" onClick={() => void reviewSlotRequest(request.id, false)} disabled={saving} className="neo-btn min-h-[40px] bg-white px-3 py-1 font-bold">Tolak</button></div>}</div>)}</div></section>}
+
+       {canWrite && releases.some((release) => release.status === "RELEASED") && <section className="neo-card bg-[#f5ede6] p-4 sm:p-6"><h2 className="font-heading text-xl font-bold">Ajukan penggunaan slot rilis</h2><p className="mt-2 text-sm text-[#5a5a5a]">Koordinator tetap memeriksa bentrok jadwal, booking, penggunaan lab, dan kunci sebelum menyetujui.</p><label className="mt-4 block text-sm font-bold">Penawaran target<select value={targetOfferingId} onChange={(event) => setTargetOfferingId(event.target.value)} className="neo-input mt-1 min-h-[44px] w-full"><option value="">Pilih penawaran</option>{offerings.map((offering) => <option key={offering.id} value={offering.id}>{offeringLabel(offering)} - {offering.academicClass?.code || "Kelas"}</option>)}</select></label><div className="mt-3 flex flex-wrap gap-2">{releases.filter((release) => release.status === "RELEASED").map((release) => <button key={release.id} type="button" disabled={saving || !targetOfferingId} onClick={() => void requestSlot(release.id)} className="neo-btn min-h-[44px] bg-[#4b607f] px-4 py-2 font-bold text-white">Ajukan {release.occurrenceDate?.slice(0, 10) || "slot"}</button>)}</div></section>}
 
       <section className="neo-card bg-[#f5ede6] p-4 text-sm"><div className="flex items-center gap-2 font-bold"><TbBook2 /> Catatan akses</div><p className="mt-2 text-[#5a5a5a]">{role === "DOSEN" ? "Laporan baru dan revisi hanya tersedia untuk penawaran dosen yang diizinkan backend." : role === "MAHASISWA" ? "Laporan baru dan revisi hanya tersedia untuk penawaran yang diizinkan backend." : "Mode baca koordinator. Master data akademik belum tersedia di halaman ini."}</p></section>
     </div>

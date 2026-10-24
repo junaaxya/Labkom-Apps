@@ -17,6 +17,15 @@ test("academic UI uses only scoped academic routes and optimistic report revisio
   assert.doesNotMatch(page, /\/(?:schedules|keys|lab-booking|logbooks|bookings)(?:["`?])/);
 });
 
+test("academic UI reads occurrence release state and submits releases through academic routes", () => {
+  assert.match(page, /api\.get<ApiList<OccurrenceRelease>>\("\/academic\/occurrence-releases"\)/);
+  assert.match(page, /api\.get<ApiList<SlotRequest>>\("\/academic\/slot-requests"\)/);
+  assert.match(page, /api\.post\("\/academic\/occurrence-releases", \{ reportId: report\.id \}\)/);
+  assert.match(page, /api\.post\("\/academic\/slot-requests", \{ releaseId, targetOfferingId \}\)/);
+  assert.match(page, /Lepaskan slot/);
+  assert.match(page, /Ajukan penggunaan slot rilis/);
+});
+
 test("DOSEN route surface excludes legacy operational flows", () => {
   assert.match(guard, /"\/academic": \["KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\]/);
   assert.match(sidebar, /DOSEN: \[/);
