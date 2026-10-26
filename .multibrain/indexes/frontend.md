@@ -10,6 +10,7 @@ Rules:
 
 ## Entries
 
+- 2026-10-24 WIB — Sisyphus: release-readiness direct Chromium QA completed a real isolated coordinator form login, dashboard redirect, and `/academic` actual-schedule view; no hydration source defect. Playwright MCP/Google Chrome SIGTRAP remains environment-only -> `/mnt/data/tmp/opencode/release-readiness-academic.png`
 - 2026-10-24 WIB — Sisyphus: Smart Schedule Stage 6 verified real coordinator form login and academic actual-schedule screen through direct Chromium; login source needed no hydration patch. Playwright MCP/Google Chrome SIGTRAP before page load is environment-only. Dashboard keeps Stage 5 scoped actual schedule cards with legacy fallback -> `frontend/src/app/(auth)/login/page.tsx`, `frontend/src/app/(dashboard)/academic/page.tsx`
 - 2026-10-24 WIB — Sisyphus: dashboard loads scoped `/academic/actual-schedules` for DOSEN and MAHASISWA, shows actual practical cards when structured data exists, and falls back to legacy schedules otherwise; `/academic` remains coordinator actual-schedule view -> `frontend/src/app/(dashboard)/dashboard/{page,dashboard-views,dashboard.contract.test}.tsx`
 - 2026-10-24 WIB — Sisyphus: `/academic` now shows exact-date actual schedule overlays plus scoped swap request, class confirmation, pending cancellation, and coordinator decision controls; UI states that official practical schedules stay unchanged and backend remains authority. Real isolated DOSEN form-login browser QA passed -> `frontend/src/app/(dashboard)/academic/page.tsx`
