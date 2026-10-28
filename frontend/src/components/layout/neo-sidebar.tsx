@@ -110,6 +110,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
+    { label: "Akademik", href: "/academic", icon: TbSchool, group: "Academic" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Support" },
     { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbAlertTriangle, group: "Support" },
     { label: "Riwayat Laporan", href: "/tickets/my", icon: TbClipboardList, group: "Support" },
