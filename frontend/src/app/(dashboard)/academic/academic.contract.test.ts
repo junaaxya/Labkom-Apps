@@ -48,3 +48,23 @@ test("DOSEN can submit reports only through scoped academic routes", () => {
   assert.match(page, /role === "MAHASISWA" \|\| role === "DOSEN"/);
   assert.match(page, /Laporan baru dan revisi hanya tersedia untuk penawaran dosen/);
 });
+
+test("academic workspace exposes named sections and name-first course presentation", () => {
+  for (const label of ["Ringkasan", "Mata Kuliah", "Kelola PJ", "Laporan", "Ketersediaan Lab", "Perubahan Jadwal", "Riwayat"]) {
+    assert.match(page, new RegExp(label));
+  }
+  assert.match(page, /offering\.course\?\.name \|\| offering\.course\?\.code/);
+  assert.match(page, /offering\.academicClass\?\.name \|\| offering\.academicClass\?\.code/);
+  assert.match(page, /offering\.term\?\.name \|\| offering\.term\?\.code/);
+  assert.match(page, /offering\.dosen\?\.name/);
+});
+
+test("PJ management stays scoped and never reads global student management routes", () => {
+  assert.match(page, /academic\/offerings\/\$\{selectedOfferingId\}\/memberships/);
+  assert.match(page, /academic\/offerings\/\$\{selectedOfferingId\}\/pjs/);
+  assert.match(page, /api\.post\(`\/academic\/offerings\/\$\{selectedOfferingId\}\/pjs`/);
+  assert.match(page, /api\.patch\(`\/academic\/pjs\/\$\{pj\.id\}`/);
+  assert.match(page, /isActive: false/);
+  assert.doesNotMatch(page, /api\.get[^\n]*\/academic\/memberships/);
+  assert.doesNotMatch(page, /api\.get[^\n]*\/academic\/pjs["`]/);
+});
