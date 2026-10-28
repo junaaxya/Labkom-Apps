@@ -1,10 +1,13 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { getJakartaClock } from "./jakarta-time";
+import { withSerializableRetry } from "./schedule-availability";
+import { resolveActualOccurrences, type ActualOccurrence } from "./actual-occurrence.service";
 
 const STAFF_ROLES = new Set(["KOORDINATOR_LAB", "ASISTEN_LAB"]);
 
 type Occurrence = {
-  schedule: { id: string; labId: string; className: string | null; semester: string | null; specificDate: Date | null; startTime: string; endTime: string };
+  schedule: ActualOccurrence["schedule"];
   occurrenceDate: Date;
   bookingId: string | null;
 };
@@ -29,48 +32,67 @@ function dateOnly(value: Date): Date {
 }
 
 export class KeyService {
-  private static async resolveOccurrence(keyId: string, userId: string, role: string, now: Date): Promise<Occurrence> {
+  private static async assertStructuredBorrower(
+    client: Prisma.TransactionClient,
+    userId: string,
+    occurrence: ActualOccurrence
+  ): Promise<void> {
+    const offering = occurrence.schedule.academicOffering;
+    if (!offering) return;
+    const membership = await client.academicClassMembership.findFirst({
+      where: { userId, termId: offering.termId, classId: offering.classId, isActive: true, user: { role: "MAHASISWA", isActive: true } },
+      select: { id: true },
+    });
+    if (!membership) throw new Error("Otoritas mahasiswa tidak cocok dengan kelas pada occurrence aktual.");
+    const [leader, pj] = await Promise.all([
+      client.academicClassLeader.findFirst({ where: { termId: offering.termId, classId: offering.classId, membership: { userId, isActive: true }, isActive: true }, select: { id: true } }),
+      client.academicOfferingPJ.findFirst({ where: { offeringId: offering.id, membership: { userId, isActive: true }, isActive: true }, select: { id: true } }),
+    ]);
+    if (!leader && !pj) throw new Error("Ketua kelas atau PJ aktif untuk occurrence aktual diperlukan.");
+  }
+
+  private static async resolveOccurrence(client: Prisma.TransactionClient, keyId: string, userId: string, role: string, now: Date): Promise<Occurrence> {
     const [key, user] = await Promise.all([
-      prisma.key.findUnique({ where: { id: keyId }, select: { id: true, labId: true } }),
-      prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, isKetuaKelas: true, semester: true, className: true } }),
+      client.key.findUnique({ where: { id: keyId }, select: { id: true, labId: true } }),
+      client.user.findUnique({ where: { id: userId }, select: { id: true, role: true, isKetuaKelas: true, semester: true, className: true } }),
     ]);
     if (!key) throw new Error("Kunci tidak ditemukan");
     if (!user) throw new Error("User tidak ditemukan");
     if (user.role !== role) throw new Error("Peran akun tidak valid");
-    if (!STAFF_ROLES.has(role) && (role !== "MAHASISWA" || !user.isKetuaKelas)) {
-      throw new Error("Hanya Koordinator Lab, Asisten Lab, atau ketua kelas yang diizinkan mengambil kunci.");
+    if (!STAFF_ROLES.has(role) && role !== "MAHASISWA") {
+      throw new Error("Hanya Koordinator Lab, Asisten Lab, ketua kelas, atau PJ aktif yang diizinkan mengambil kunci.");
     }
 
     const clock = getJakartaClock(now);
-    const schedules = await prisma.schedule.findMany({
-      where: {
-        labId: key.labId,
-        isActive: true,
-        status: { in: ["SCHEDULED", "ONGOING"] },
-        OR: [{ specificDate: clock.date }, { specificDate: null, day: clock.day as never }],
-      },
-      select: { id: true, labId: true, className: true, semester: true, specificDate: true, startTime: true, endTime: true },
-    });
-    const active = schedules.filter((schedule) => isWithinTakeWindow(clock.time, schedule.startTime, schedule.endTime));
+    const occurrences = await resolveActualOccurrences(client, clock.date, { labId: key.labId });
+    const active = occurrences.filter((occurrence) => isWithinTakeWindow(clock.time, occurrence.startTime, occurrence.endTime));
     if (active.length === 0) throw new Error("Tidak ada sesi lab aktif yang memenuhi waktu pengambilan kunci.");
     if (active.length !== 1) throw new Error("Jadwal lab aktif ambigu. Hubungi Koordinator Lab.");
 
-    const schedule = active[0];
+    const actual = active[0];
+    const schedule = actual.schedule;
     if (!STAFF_ROLES.has(role)) {
-      const scheduleClass = normalize(schedule.className);
-      const userClass = normalize(user.className);
-      if (!scheduleClass || !userClass || scheduleClass !== userClass) {
-        throw new Error("Otoritas ketua kelas tidak cocok dengan kelas pada jadwal aktif.");
-      }
-      const scheduleSemester = normalize(schedule.semester).replace(/^semester\s*/, "");
-      const userSemester = normalize(user.semester).replace(/^semester\s*/, "");
-      if (!scheduleSemester || !userSemester || scheduleSemester !== userSemester) {
-        throw new Error("Otoritas ketua kelas tidak cocok dengan semester pada jadwal aktif.");
+      if (schedule.academicOffering) {
+        await KeyService.assertStructuredBorrower(client, userId, actual);
+      } else {
+        if (!user.isKetuaKelas) {
+          throw new Error("Hanya Koordinator Lab, Asisten Lab, atau ketua kelas yang diizinkan mengambil kunci.");
+        }
+        const scheduleClass = normalize(schedule.className);
+        const userClass = normalize(user.className);
+        if (!scheduleClass || !userClass || scheduleClass !== userClass) {
+          throw new Error("Otoritas ketua kelas tidak cocok dengan kelas pada jadwal aktif.");
+        }
+        const scheduleSemester = normalize(schedule.semester).replace(/^semester\s*/, "");
+        const userSemester = normalize(user.semester).replace(/^semester\s*/, "");
+        if (!scheduleSemester || !userSemester || scheduleSemester !== userSemester) {
+          throw new Error("Otoritas ketua kelas tidak cocok dengan semester pada jadwal aktif.");
+        }
       }
     }
 
-    const booking = await prisma.labBooking.findMany({
-      where: { labId: key.labId, date: clock.date, startTime: schedule.startTime, endTime: schedule.endTime, status: "APPROVED" },
+    const booking = await client.labBooking.findMany({
+      where: { labId: key.labId, date: clock.date, startTime: actual.startTime, endTime: actual.endTime, status: "APPROVED" },
       select: { id: true },
       take: 2,
     });
@@ -138,7 +160,7 @@ export class KeyService {
     let occurrence: { scheduleId: string; occurrenceDate: Date } | undefined;
     if (key.status === "AVAILABLE") {
       try {
-        const resolved = await KeyService.resolveOccurrence(keyId, userId, userRole, now);
+        const resolved = await KeyService.resolveOccurrence(prisma, keyId, userId, userRole, now);
         const completed = await prisma.keyBorrowCycle.findUnique({
           where: { keyId_scheduleId_occurrenceDate: { keyId, scheduleId: resolved.schedule.id, occurrenceDate: resolved.occurrenceDate } },
           select: { id: true },
@@ -167,8 +189,8 @@ export class KeyService {
     if (userRole === "MAGANG") {
       throw new Error("Peran MAGANG tidak memiliki izin mengambil kunci lab.");
     }
-    const occurrence = await KeyService.resolveOccurrence(keyId, userId, userRole, now);
-    return prisma.$transaction(async (tx) => {
+    return withSerializableRetry(async (tx) => {
+      const occurrence = await KeyService.resolveOccurrence(tx, keyId, userId, userRole, now);
       const key = await tx.key.findUnique({ where: { id: keyId }, select: { status: true } });
       if (!key || key.status !== "AVAILABLE") throw new Error("Kunci tidak tersedia");
       const existingCycle = await tx.keyBorrowCycle.findUnique({

@@ -12,6 +12,7 @@ import {
   type OccupancyCandidate,
 } from "./schedule-availability";
 import { getJakartaClock } from "./jakarta-time";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 type ScheduleConflictType = "LAB" | "DOSEN" | "ASISTEN";
 
@@ -199,24 +200,23 @@ export class ScheduleService {
   }
 
   static async getTodaySchedules(labId?: string, now = new Date()) {
-    const { date, day } = getJakartaClock(now);
+    const { date } = getJakartaClock(now);
+    const occurrences = await resolveActualOccurrences(
+      prisma as unknown as Prisma.TransactionClient,
+      date,
+      { labId }
+    );
 
-    return prisma.schedule.findMany({
-      where: {
-        isActive: true,
-        status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
-        OR: [
-          { specificDate: date },
-          { specificDate: null, day: day as any },
-        ],
-        ...(labId ? { labId } : {}),
-      },
-      include: {
-        lab: { select: { id: true, name: true, location: true } },
-        assistant: { select: { id: true, name: true } },
-      },
-      orderBy: { startTime: "asc" },
-    });
+    return occurrences
+      .map((occurrence) => ({
+        ...occurrence.schedule,
+        labId: occurrence.labId,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
+        lab: occurrence.schedule.lab,
+        assistant: occurrence.schedule.assistant,
+      }))
+      .sort((left, right) => left.startTime.localeCompare(right.startTime));
   }
 
   static async getStats(now = new Date()) {

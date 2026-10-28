@@ -1,5 +1,8 @@
 import prisma from "../config/database";
+import { Prisma } from "@prisma/client";
 import { operationalScheduleWhere } from "./schedule-availability";
+import { canonicalDateOnly, weekdayForDateOnly } from "./jakarta-time";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 interface UsagePattern {
   day: string;
@@ -63,22 +66,54 @@ class SmartSchedulingService {
   async suggestOptimalSlots(
     duration: number = 120,
     preferredDay?: string,
-    preferredLab?: string
+    preferredLab?: string,
+    targetDate?: Date
   ): Promise<OptimalSlot[]> {
     const labs = await prisma.lab.findMany({
       where: { status: "ACTIVE", ...(preferredLab ? { id: preferredLab } : {}) },
       select: { id: true, name: true },
     });
 
-    const existingSchedules = await prisma.schedule.findMany({
-      where: operationalScheduleWhere,
-      select: { labId: true, day: true, startTime: true, endTime: true },
-    });
+    const date = targetDate ? canonicalDateOnly(targetDate) : undefined;
+    const targetDay = date ? weekdayForDateOnly(date) : undefined;
+    const scheduleWhere: Prisma.ScheduleWhereInput = {
+      ...operationalScheduleWhere,
+      ...(date
+        ? { OR: [{ specificDate: date }, { specificDate: null, day: targetDay }] }
+        : { specificDate: null }),
+    };
+    const [existingSchedules, approvedBookings, actualOccurrences] = await Promise.all([
+      prisma.schedule.findMany({
+        where: scheduleWhere,
+        select: { labId: true, day: true, startTime: true, endTime: true },
+      }),
+      date
+        ? prisma.labBooking.findMany({
+            where: { date, status: "APPROVED" },
+            select: { labId: true, startTime: true, endTime: true },
+          })
+        : Promise.resolve([]),
+      date
+        ? resolveActualOccurrences(prisma as never, date, { labId: preferredLab })
+        : Promise.resolve([]),
+    ]);
+
+    const existingIntervals = [
+      ...(date
+        ? actualOccurrences.map((occurrence) => ({
+            labId: occurrence.labId,
+            day: targetDay!,
+            startTime: occurrence.startTime,
+            endTime: occurrence.endTime,
+          }))
+        : existingSchedules.map((schedule) => ({ ...schedule, day: schedule.day }))),
+      ...approvedBookings.map((booking) => ({ ...booking, day: targetDay! })),
+    ];
 
     const slots: OptimalSlot[] = [];
-    const daysToCheck = preferredDay ? [preferredDay] : this.DAYS;
+    const daysToCheck = date ? [targetDay!] : preferredDay ? [preferredDay] : this.DAYS;
     const durationMinutes = Math.max(this.SLOT_SIZE_MINUTES, duration);
-    const schedulesByLabDay = this.groupBy(existingSchedules, (schedule) => `${schedule.labId}:${schedule.day}`);
+    const schedulesByLabDay = this.groupBy(existingIntervals, (schedule) => `${schedule.labId}:${schedule.day}`);
 
     for (const lab of labs) {
       for (const day of daysToCheck) {

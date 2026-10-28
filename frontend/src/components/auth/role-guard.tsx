@@ -6,11 +6,12 @@ import type { Role } from "@/types";
 import { TbShieldX } from "react-icons/tb";
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/academic": ["KOORDINATOR_LAB", "DOSEN", "MAHASISWA"],
 
   "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
@@ -46,7 +47,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
 
   "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/access-requests": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
-  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
 };
 

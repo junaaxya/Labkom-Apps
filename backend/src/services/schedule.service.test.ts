@@ -124,10 +124,10 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
     ],
   };
   const rows = [
-    { id: "exact", isActive: true, status: "SCHEDULED", specificDate: date, day: "SENIN" },
-    { id: "recurring", isActive: true, status: "ONGOING", specificDate: null, day: "SELASA" },
-    { id: "historic", isActive: true, status: "SCHEDULED", specificDate: new Date("2026-10-06T00:00:00.000Z"), day: "SELASA" },
-    { id: "finished", isActive: true, status: "FINISHED", specificDate: null, day: "SELASA" },
+    { id: "exact", isActive: true, status: "SCHEDULED", specificDate: date, day: "SENIN", labId: "lab-1", title: "Exact", lecturerName: null, className: null, semester: null, startTime: "08:00", endTime: "10:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "recurring", isActive: true, status: "ONGOING", specificDate: null, day: "SELASA", labId: "lab-1", title: "Recurring", lecturerName: null, className: null, semester: null, startTime: "10:00", endTime: "12:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "historic", isActive: true, status: "SCHEDULED", specificDate: new Date("2026-10-06T00:00:00.000Z"), day: "SELASA", labId: "lab-1", title: "Historic", lecturerName: null, className: null, semester: null, startTime: "13:00", endTime: "15:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "finished", isActive: true, status: "FINISHED", specificDate: null, day: "SELASA", labId: "lab-1", title: "Finished", lecturerName: null, className: null, semester: null, startTime: "15:00", endTime: "17:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
   ];
   const scheduleQueries: unknown[] = [];
   const countQueries: unknown[] = [];

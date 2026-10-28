@@ -5,6 +5,7 @@ import Image from "next/image";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
+import { jakartaDateKey } from "@/utils/jakarta-date";
 import {
   TbArrowRight,
   TbBook2,
@@ -34,6 +35,7 @@ type LabLite = {
 
 type ScheduleInfo = {
   id: string;
+  labId: string;
   title: string;
   lecturerName?: string | null;
   className?: string | null;
@@ -41,6 +43,13 @@ type ScheduleInfo = {
   startTime: string;
   endTime: string;
   type?: string | null;
+  specificDate?: string | null;
+};
+
+type CheckinSchedule = ScheduleInfo & {
+  lab?: LabLite | null;
+  isActive?: boolean;
+  status?: string;
 };
 
 type KeyLogInfo = {
@@ -324,6 +333,11 @@ export default function LogbookPage() {
 
   const [todayLogbook, setTodayLogbook] = useState<Logbook | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [checkinLabs, setCheckinLabs] = useState<LabLite[]>([]);
+  const [checkinSchedules, setCheckinSchedules] = useState<CheckinSchedule[]>([]);
+  const [checkinLabId, setCheckinLabId] = useState("");
+  const [checkinScheduleId, setCheckinScheduleId] = useState("");
+  const [occurrenceDate, setOccurrenceDate] = useState(() => jakartaDateKey(new Date()));
   const [checkingOut, setCheckingOut] = useState(false);
   const [confirmCheckout, setConfirmCheckout] = useState(false);
   const [verifyingConditionId, setVerifyingConditionId] = useState<string | null>(null);
@@ -362,6 +376,20 @@ export default function LogbookPage() {
     }
   }, []);
 
+  const fetchCheckinOptions = useCallback(async () => {
+    const [labsResponse, schedulesResponse] = await Promise.all([
+      api.get<{ data?: LabLite[] }>("/labs"),
+      api.get<{ data?: CheckinSchedule[] }>("/schedules/today"),
+    ]);
+    const labs = labsResponse.data || [];
+    const schedules = (schedulesResponse.data || []).filter((schedule) => schedule.type === "PRAKTIKUM");
+    setCheckinLabs(labs);
+    setCheckinSchedules(schedules);
+    setCheckinLabId((current) => current && labs.some((lab) => lab.id === current) ? current : schedules[0]?.labId || "");
+    setCheckinScheduleId((current) => current && schedules.some((schedule) => schedule.id === current) ? current : schedules[0]?.id || "");
+    setOccurrenceDate(jakartaDateKey(new Date()));
+  }, []);
+
   const fetchLogbookList = useCallback(async (page = 1) => {
     const response = await api.get<PaginatedLogbookResponse>(`/logbooks?page=${page}&limit=10`);
     const payload = response?.data as unknown as PaginatedLogbookResponse;
@@ -389,7 +417,7 @@ export default function LogbookPage() {
     setLoading(true);
     try {
       if (isAsleb) {
-        await fetchTodayLogbook();
+        await Promise.all([fetchTodayLogbook(), fetchCheckinOptions()]);
       } else if (isKoordinator) {
         await fetchLogbookList(1);
       }
@@ -398,7 +426,7 @@ export default function LogbookPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchLogbookList, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
+  }, [fetchCheckinOptions, fetchLogbookList, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
 
   useEffect(() => {
     queueMicrotask(() => void loadData());
@@ -447,9 +475,18 @@ export default function LogbookPage() {
   }, [activeDetail, allConditionsVerified, keyReturned]);
 
   const handleCheckin = async () => {
+    const today = jakartaDateKey(new Date());
+    if (!checkinLabId || !checkinScheduleId || occurrenceDate !== today) {
+      toast.error("Pilih lab, jadwal praktikum, dan tanggal Jakarta hari ini.");
+      return;
+    }
     setCheckingIn(true);
     try {
-      await api.post("/logbooks/checkin", {});
+      await api.post("/logbooks/checkin", {
+        labId: checkinLabId,
+        scheduleId: checkinScheduleId,
+        occurrenceDate,
+      });
       await fetchTodayLogbook();
     } catch (err) {
       toast.error(errMsg(err, "Gagal check-in hari ini."));
@@ -508,14 +545,65 @@ export default function LogbookPage() {
         </div>
       ) : isAsleb ? (
         <section className="space-y-4">
-          {!todayLogbook ? (
-            <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-6 shadow-[4px_4px_0px_#1a1a1a]">
-              <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
-                Belum ada sesi logbook untuk hari ini.
-              </p>
-              <button
-                type="button"
-                disabled={checkingIn}
+           {!todayLogbook ? (
+             <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-6 shadow-[4px_4px_0px_#1a1a1a]">
+               <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
+                 Belum ada sesi logbook untuk hari ini.
+               </p>
+               <div className="grid gap-3 sm:grid-cols-2">
+                 <label className="text-sm font-bold text-[#1a1a1a]">
+                   Lab
+                   <select
+                     aria-label="Pilih lab untuk check-in"
+                     value={checkinLabId}
+                     onChange={(event) => {
+                       const labId = event.target.value;
+                       const firstSchedule = checkinSchedules.find((schedule) => schedule.labId === labId);
+                       setCheckinLabId(labId);
+                       setCheckinScheduleId(firstSchedule?.id || "");
+                     }}
+                     className="neo-input mt-1 min-h-[44px] w-full"
+                   >
+                     <option value="">Pilih lab</option>
+                     {checkinLabs.filter((lab) => checkinSchedules.some((schedule) => schedule.labId === lab.id)).map((lab) => (
+                       <option key={lab.id} value={lab.id}>{lab.name || lab.id}</option>
+                     ))}
+                   </select>
+                 </label>
+                 <label className="text-sm font-bold text-[#1a1a1a]">
+                   Jadwal praktikum
+                   <select
+                     aria-label="Pilih jadwal praktikum untuk check-in"
+                     value={checkinScheduleId}
+                     onChange={(event) => setCheckinScheduleId(event.target.value)}
+                     className="neo-input mt-1 min-h-[44px] w-full"
+                     disabled={!checkinLabId}
+                   >
+                     <option value="">Pilih jadwal</option>
+                     {checkinSchedules.filter((schedule) => schedule.labId === checkinLabId).map((schedule) => (
+                       <option key={schedule.id} value={schedule.id}>
+                         {schedule.title} ({schedule.startTime} - {schedule.endTime})
+                       </option>
+                     ))}
+                   </select>
+                 </label>
+                 <label className="text-sm font-bold text-[#1a1a1a] sm:col-span-2">
+                   Tanggal pertemuan (WIB)
+                   <input
+                     aria-label="Tanggal pertemuan Jakarta"
+                     type="date"
+                     value={occurrenceDate}
+                     min={jakartaDateKey(new Date())}
+                     max={jakartaDateKey(new Date())}
+                     onChange={(event) => setOccurrenceDate(event.target.value)}
+                     className="neo-input mt-1 min-h-[44px] w-full sm:w-auto"
+                   />
+                   <span className="mt-1 block text-xs font-medium text-[#5a5a5a]">Check-in hanya untuk tanggal hari ini di Jakarta.</span>
+                 </label>
+               </div>
+               <button
+                 type="button"
+                 disabled={checkingIn || !checkinLabId || !checkinScheduleId || occurrenceDate !== jakartaDateKey(new Date())}
                 onClick={handleCheckin}
                 className="inline-flex items-center gap-2 rounded-xl border-2 border-[#1a1a1a] bg-[#4b607f] px-4 py-2 font-bold text-white shadow-[4px_4px_0px_#1a1a1a] disabled:opacity-60"
               >

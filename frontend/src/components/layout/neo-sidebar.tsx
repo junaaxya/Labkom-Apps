@@ -38,6 +38,8 @@ import {
   TbSpeakerphone,
   TbClock,
   TbClockCog,
+  TbBell,
+  TbSchool,
   TbX,
 } from "react-icons/tb";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -108,6 +110,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "Main" },
+    { label: "Akademik", href: "/academic", icon: TbSchool, group: "Academic" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Support" },
     { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbAlertTriangle, group: "Support" },
     { label: "Riwayat Laporan", href: "/tickets/my", icon: TbClipboardList, group: "Support" },
@@ -124,6 +127,15 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Status Kunci Lab", href: "/keys", icon: TbKey, group: "Support" },
     { label: "Asisten AI Lab", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
     { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Resources" },
+    { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
+  ],
+  DOSEN: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
+    { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
+    { label: "Penawaran Akademik", href: "/academic", icon: TbSchool, group: "Academic" },
+    { label: "Profil", href: "/profile", icon: TbUsers, group: "System" },
+    { label: "Notifikasi", href: "/notifications", icon: TbBell, group: "System" },
+    { label: "FAQ", href: "/faq", icon: TbMessageCircle, group: "Resources" },
     { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
   ],
 };

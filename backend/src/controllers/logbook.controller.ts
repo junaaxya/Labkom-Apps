@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
+import { ZodError } from "zod";
 import { LogbookService } from "../services/logbook.service";
+import { checkinLogbookSchema } from "../validators/logbook.validator";
 
 const getParam = (param: string | string[]) => (Array.isArray(param) ? param[0] : param);
 
@@ -33,10 +35,15 @@ export class LogbookController {
   static async checkin(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const logbook = await LogbookService.checkin(req.user.userId);
+      const input = checkinLogbookSchema.parse(req.body);
+      const logbook = await LogbookService.checkin(req.user.userId, input);
       res.status(201).json({ success: true, message: "Check-in berhasil", data: logbook });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "labId, scheduleId, dan occurrenceDate (YYYY-MM-DD) wajib diisi dengan benar", errors: error.issues });
+        return;
+      }
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : "Check-in gagal" });
     }
   }
 

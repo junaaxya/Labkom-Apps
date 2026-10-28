@@ -6,20 +6,12 @@ import { PCService } from "./pc.service";
 import { MissionService } from "./mission.service";
 import { AttendanceService, AttendanceSettingsService, ShiftScheduleService } from "./attendance.service";
 import { evaluateShiftWindow, jakartaDate } from "./attendance-security";
+import { getJakartaClock as getJakartaBusinessClock } from "./jakarta-time";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 const CRON_OPTIONS = { timezone: "Asia/Jakarta" };
 
-const DAYS_MAP: Record<string, number> = {
-  MINGGU: 0,
-  SENIN: 1,
-  SELASA: 2,
-  RABU: 3,
-  KAMIS: 4,
-  JUMAT: 5,
-  SABTU: 6,
-};
-
-function getJakartaClock(now: Date): { dayIndex: number; hours: number; minutes: number } {
+function getJakartaReminderClock(now: Date): { hours: number; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta",
     hour: "2-digit",
@@ -27,13 +19,7 @@ function getJakartaClock(now: Date): { dayIndex: number; hours: number; minutes:
     hourCycle: "h23",
   }).formatToParts(now);
   const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
-  const dayIndex = new Date(`${jakartaDate(now)}T00:00:00.000Z`).getUTCDay();
-  return { dayIndex, hours: value("hour"), minutes: value("minute") };
-}
-
-function getCurrentDayEnum(now = new Date()): string {
-  const { dayIndex } = getJakartaClock(now);
-  return Object.entries(DAYS_MAP).find(([, v]) => v === dayIndex)?.[0] || "SENIN";
+  return { hours: value("hour"), minutes: value("minute") };
 }
 
 function timeToMinutes(time: string): number {
@@ -50,36 +36,28 @@ function getPicketDestinationLabel(destination: string | null | undefined): stri
 
 async function checkScheduleReminders() {
   const now = new Date();
-  const currentDay = getCurrentDayEnum(now);
-  const jakartaClock = getJakartaClock(now);
+  const jakartaClock = getJakartaReminderClock(now);
   const currentMinutes = jakartaClock.hours * 60 + jakartaClock.minutes;
   const targetMinutes = currentMinutes + 15;
 
-  const schedules = await prisma.schedule.findMany({
-    where: {
-      day: currentDay as any,
-      isActive: true,
-      status: "SCHEDULED",
-    },
-    include: {
-      lab: { select: { name: true } },
-      assistant: { select: { id: true } },
-    },
-  });
+  const schedules = await resolveActualOccurrences(
+    prisma as unknown as Prisma.TransactionClient,
+    getJakartaBusinessClock(now).date
+  );
 
   for (const schedule of schedules) {
     const startMinutes = timeToMinutes(schedule.startTime);
     if (startMinutes >= targetMinutes - 1 && startMinutes <= targetMinutes + 1) {
       const recipients: string[] = [];
-      if (schedule.assistant?.id) recipients.push(schedule.assistant.id);
+      if (schedule.schedule.assistant?.id) recipients.push(schedule.schedule.assistant.id);
 
       for (const userId of recipients) {
         await notificationService.notifyScheduleReminder(
           userId,
-          schedule.title,
-          schedule.lab.name,
+          schedule.schedule.title,
+          schedule.schedule.lab.name,
           schedule.startTime,
-          schedule.id,
+          schedule.schedule.id,
           jakartaDate(now)
         );
       }

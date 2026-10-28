@@ -1,4 +1,5 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { DayOfWeek } from "@prisma/client";
 import { TicketService } from "./ticket.service";
 import {
@@ -8,27 +9,34 @@ import {
   jakartaTimestampRangeForDateOnly,
   weekdayForDateOnly,
 } from "./jakarta-time";
-import { OPERATIONAL_SCHEDULE_STATUSES } from "./schedule-availability";
+import { OPERATIONAL_SCHEDULE_STATUSES, withSerializableRetry } from "./schedule-availability";
+import { checkinLogbook } from "./logbook-checkin";
+import { LOGBOOK_INCLUDE } from "./logbook-include";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 function todayRange(now = new Date()) {
   return dateOnlyRange(getJakartaClock(now).date);
 }
 
-function todayDate(now = new Date()) {
-  return getJakartaClock(now).date;
-}
+type DisplaySchedule = {
+  id: string;
+  labId: string;
+  title: string;
+  lecturerName: string | null;
+  className: string | null;
+  semester: string | null;
+  startTime: string;
+  endTime: string;
+  type: string;
+};
 
-const LOGBOOK_INCLUDE = {
-  officialCheckinBy: { select: { id: true, name: true } },
-  officialCheckoutBy: { select: { id: true, name: true } },
-  conditions: {
-    include: {
-      lab: { select: { id: true, name: true } },
-      submittedBy: { select: { id: true, name: true } },
-      verifiedBy: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" as const },
-  },
+type DisplayKeyLog = {
+  id: string;
+  action: string;
+  createdAt: Date;
+  notes: string | null;
+  user: { id: string; name: string };
+  key: { labId: string; keyCode: string };
 };
 
 export class LogbookService {
@@ -82,24 +90,22 @@ export class LogbookService {
     if (labIds.length === 0) return logbook;
 
     const logbookDate = canonicalDateOnly(logbook.date);
-    const logbookDay = weekdayForDateOnly(logbookDate);
     const keyLogRange = jakartaTimestampRangeForDateOnly(logbookDate);
 
-    const [schedules, keyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          labId: { in: labIds },
-          isActive: true,
-          OR: [
-            { specificDate: logbookDate },
-            { specificDate: null, day: logbookDay as DayOfWeek },
-          ],
-        },
-        select: {
-          id: true, labId: true, title: true, lecturerName: true,
-          className: true, semester: true, startTime: true, endTime: true, type: true,
-        },
-      }),
+    const [schedules, keyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, logbookDate, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => labIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: labIds },
+              isActive: true,
+              OR: [{ specificDate: logbookDate }, { specificDate: null, day: weekdayForDateOnly(logbookDate) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: labIds } },
@@ -113,7 +119,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof schedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of schedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);
@@ -133,27 +139,10 @@ export class LogbookService {
     return { ...logbook, conditions: enrichedConditions };
   }
 
-  static async checkin(userId: string) {
-    const date = todayDate();
-
-    const existing = await prisma.logbook.findFirst({
-      where: { officialCheckinById: userId, date },
-    });
-    if (existing) throw new Error("Anda sudah check-in hari ini.");
-
-    return prisma.logbook.create({
-      data: {
-        date,
-        officialCheckinById: userId,
-        officialCheckinAt: new Date(),
-        status: "CHECKED_IN",
-      },
-      include: LOGBOOK_INCLUDE,
-    });
-  }
+  static checkin = checkinLogbook;
 
   static async getTodayLogbook(userId: string, now = new Date()) {
-    const { date, day } = getJakartaClock(now);
+    const { date } = getJakartaClock(now);
     const keyLogRange = jakartaTimestampRangeForDateOnly(date);
     const logbook = await prisma.logbook.findFirst({
       where: { officialCheckinById: userId, date },
@@ -162,32 +151,24 @@ export class LogbookService {
     if (!logbook) return null;
 
     const labIds = (logbook.conditions || []).map((c) => c.labId);
-    const allLabIds = await prisma.lab.findMany({ select: { id: true } });
-    const relevantLabIds = labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
+    const allLabIds = !logbook.labId && labIds.length === 0 ? await prisma.lab.findMany({ select: { id: true } }) : [];
+    const relevantLabIds = logbook.labId ? [logbook.labId] : labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
 
-    const [todaySchedules, todayKeyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          labId: { in: relevantLabIds },
-          isActive: true,
-          status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
-          OR: [
-            { specificDate: date },
-            { specificDate: null, day: day as DayOfWeek },
-          ],
-        },
-        select: {
-          id: true,
-          labId: true,
-          title: true,
-          lecturerName: true,
-          className: true,
-          semester: true,
-          startTime: true,
-          endTime: true,
-          type: true,
-        },
-      }),
+    const [todaySchedules, todayKeyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => relevantLabIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: relevantLabIds },
+              isActive: true,
+              status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
+              OR: [{ specificDate: date }, { specificDate: null, day: weekdayForDateOnly(date) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: relevantLabIds } },
@@ -201,7 +182,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof todaySchedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of todaySchedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);
@@ -257,6 +238,7 @@ export class LogbookService {
     const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
     if (!logbook) throw new Error("Logbook tidak ditemukan");
     if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
+    if (logbook.labId && logbook.labId !== labId) throw new Error("Kondisi harus untuk lab pada logbook ini.");
 
     const lab = await prisma.lab.findUnique({ where: { id: labId } });
     if (!lab) throw new Error("Lab tidak ditemukan");
@@ -323,45 +305,50 @@ export class LogbookService {
   }
 
   static async checkout(logbookId: string, userId: string) {
-    const logbook = await prisma.logbook.findUnique({
-      where: { id: logbookId },
-      include: { conditions: true },
-    });
-    if (!logbook) throw new Error("Logbook tidak ditemukan");
-    if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
-
-    const conditionLabIds = [...new Set(logbook.conditions.map((condition) => condition.labId))];
-    if (conditionLabIds.length === 0) {
-      throw new Error("Belum ada kondisi lab yang disubmit. Submit kondisi lab sebelum checkout.");
-    }
-
-    const borrowedKeys = await prisma.key.findMany({
-      where: { status: "BORROWED", labId: { in: conditionLabIds } },
-      include: { lab: { select: { name: true } } },
-    });
-    if (borrowedKeys.length > 0) {
-      const labNames = borrowedKeys.map((k) => k.lab.name).join(", ");
-      throw new Error(`Masih ada kunci yang belum dikembalikan: ${labNames}. Semua kunci harus dikembalikan sebelum checkout.`);
-    }
-
-    const unverified = logbook.conditions.filter((c) => !c.verified);
-    if (unverified.length > 0) {
-      const unverifiedLabs = await prisma.lab.findMany({
-        where: { id: { in: unverified.map((c) => c.labId) } },
-        select: { name: true },
+    return withSerializableRetry(async (tx) => {
+      const logbook = await tx.logbook.findUnique({
+        where: { id: logbookId },
+        include: { conditions: true },
       });
-      const names = unverifiedLabs.map((l) => l.name).join(", ");
-      throw new Error(`Masih ada kondisi lab yang belum diverifikasi: ${names}. Verifikasi semua kondisi sebelum checkout.`);
-    }
+      if (!logbook) throw new Error("Logbook tidak ditemukan");
+      if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
 
-    return prisma.logbook.update({
-      where: { id: logbookId },
-      data: {
-        officialCheckoutById: userId,
-        officialCheckoutAt: new Date(),
-        status: "COMPLETED",
-      },
-      include: LOGBOOK_INCLUDE,
+      const conditionLabIds = [...new Set(logbook.conditions.map((condition) => condition.labId))];
+      if (conditionLabIds.length === 0) {
+        throw new Error("Belum ada kondisi lab yang disubmit. Submit kondisi lab sebelum checkout.");
+      }
+      if (logbook.labId && (conditionLabIds.length !== 1 || conditionLabIds[0] !== logbook.labId)) {
+        throw new Error("Kondisi harus untuk lab pada logbook ini sebelum checkout.");
+      }
+
+      const borrowedKeys = await tx.key.findMany({
+        where: { status: "BORROWED", labId: { in: conditionLabIds } },
+        include: { lab: { select: { name: true } } },
+      });
+      if (borrowedKeys.length > 0) {
+        const labNames = borrowedKeys.map((k) => k.lab.name).join(", ");
+        throw new Error(`Masih ada kunci yang belum dikembalikan: ${labNames}. Semua kunci harus dikembalikan sebelum checkout.`);
+      }
+
+      const unverified = logbook.conditions.filter((c) => !c.verified);
+      if (unverified.length > 0) {
+        const unverifiedLabs = await tx.lab.findMany({
+          where: { id: { in: unverified.map((c) => c.labId) } },
+          select: { name: true },
+        });
+        const names = unverifiedLabs.map((l) => l.name).join(", ");
+        throw new Error(`Masih ada kondisi lab yang belum diverifikasi: ${names}. Verifikasi semua kondisi sebelum checkout.`);
+      }
+
+      return tx.logbook.update({
+        where: { id: logbookId },
+        data: {
+          officialCheckoutById: userId,
+          officialCheckoutAt: new Date(),
+          status: "COMPLETED",
+        },
+        include: LOGBOOK_INCLUDE,
+      });
     });
   }
 

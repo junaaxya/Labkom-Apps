@@ -25,6 +25,7 @@ test("logbook checkout rejects no submitted conditions before key query or updat
   let keyQueries = 0;
   let updates = 0;
   const restores = [
+    replaceMethod(prisma, "$transaction", async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma)),
     replaceMethod(prisma.logbook, "findUnique", async () => ({
       id: "logbook-1",
       status: "CHECKED_IN",
@@ -53,6 +54,7 @@ test("logbook checkout blocks borrowed keys only in submitted condition labs", a
   const keyQueries: any[] = [];
   let updates = 0;
   const restores = [
+    replaceMethod(prisma, "$transaction", async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma)),
     replaceMethod(prisma.logbook, "findUnique", async () => ({
       id: "logbook-1",
       status: "CHECKED_IN",
@@ -85,6 +87,7 @@ test("logbook checkout does not block borrowed keys outside submitted condition 
   const borrowedKeys = [{ labId: "lab-2", lab: { name: "Lab 2" } }];
   let updates = 0;
   const restores = [
+    replaceMethod(prisma, "$transaction", async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma)),
     replaceMethod(prisma.logbook, "findUnique", async () => ({
       id: "logbook-1",
       status: "CHECKED_IN",
@@ -116,6 +119,7 @@ test("logbook checkout scopes borrowed key query to condition labs and still blo
   const keyQueries: any[] = [];
   let updates = 0;
   const restores = [
+    replaceMethod(prisma, "$transaction", async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma)),
     replaceMethod(prisma.logbook, "findUnique", async () => ({
       id: "logbook-1",
       status: "CHECKED_IN",

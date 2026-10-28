@@ -23,6 +23,7 @@ import {
   TbWifiOff,
   TbSpeakerphone,
   TbPin,
+  TbSchool,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import type { ReactNode } from "react";
@@ -33,7 +34,7 @@ export interface LocalUser {
   userId?: string;
   id?: string;
   name?: string;
-  role?: "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
+  role?: "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG" | "DOSEN";
   email?: string;
   semester?: string;
   className?: string;
@@ -59,6 +60,18 @@ export interface ScheduleItem {
   lab?: { id?: string; name?: string };
   createdAt?: string;
   date?: string;
+}
+
+export interface ActualScheduleItem {
+  offeringId: string;
+  scheduleId?: string;
+  occurrenceDate: string;
+  startTime: string;
+  endTime: string;
+  labId?: string;
+  swapId?: string | null;
+  course?: { code?: string; name?: string };
+  academicClass?: { code?: string; name?: string };
 }
 
 export interface TicketItem {
@@ -925,9 +938,18 @@ export function AsistenDashboard({
   );
 }
 
-export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, isKetuaKelas }: { schedules: ScheduleItem[]; myTickets: TicketItem[]; unreadCount: number; keys: KeyItem[]; isKetuaKelas: boolean }) {
+function actualScheduleLabel(schedule: ActualScheduleItem) {
+  return schedule.course?.name || schedule.course?.code || "Mata kuliah";
+}
+
+function actualScheduleClassLabel(schedule: ActualScheduleItem) {
+  return schedule.academicClass?.code || schedule.academicClass?.name || "Kelas";
+}
+
+export function MahasiswaDashboard({ schedules, actualSchedules, myTickets, unreadCount, keys, isKetuaKelas }: { schedules: ScheduleItem[]; actualSchedules: ActualScheduleItem[]; myTickets: TicketItem[]; unreadCount: number; keys: KeyItem[]; isKetuaKelas: boolean }) {
+  const displayedSchedules = actualSchedules.length > 0 ? actualSchedules : schedules;
   const stats: StatCardItem[] = [
-    { label: "Jadwal Hari Ini", value: schedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/schedules" },
+    { label: "Jadwal Hari Ini", value: displayedSchedules.length, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/schedules" },
     { label: "Laporan Saya", value: myTickets.length, icon: TbTicket, tone: "text-[#f3701e]", variant: "orange", href: "/tickets/my" },
     { label: "Pengajuan Saya", value: 0, icon: TbCalendarEvent, tone: "text-[#4b607f]", variant: "blue", href: "/lab-booking" },
     { label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" },
@@ -941,7 +963,7 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
         <Section 
-          title="Jadwal Lab Hari Ini" 
+           title={actualSchedules.length > 0 ? "Jadwal Aktual Hari Ini" : "Jadwal Lab Hari Ini"}
           icon={TbCalendarEvent} 
           delay={0.1}
           action={
@@ -951,24 +973,30 @@ export function MahasiswaDashboard({ schedules, myTickets, unreadCount, keys, is
           }
         >
           <div className="space-y-3">
-            {schedules.map((schedule) => (
-              <Link key={schedule.id} href="/schedules" prefetch={true} aria-label={`Jadwal: ${schedule.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
-                <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
-                  <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{schedule.title}</p>
-                  <p className="text-[11px] text-[#5a5a5a] font-medium">{schedule.startTime} – {schedule.endTime} · {schedule.lab?.name || "Lab"}</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(schedule.status)}`}>{schedule.status}</span>
-                  <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
-                </div>
-              </Link>
-            ))}
-            {schedules.length === 0 && (
-              <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal untuk kelas Anda hari ini.</p>
-            )}
+             {actualSchedules.length > 0 ? actualSchedules.map((schedule) => (
+               <Link key={`${schedule.scheduleId || schedule.offeringId}-${schedule.occurrenceDate}`} href="/academic" prefetch={true} aria-label={`Jadwal aktual: ${actualScheduleLabel(schedule)}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0">
+                   <TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} />
+                 </div>
+                 <div className="min-w-0 flex-1">
+                   <p className="font-bold text-[13px] text-[#1a1a1a] truncate">{actualScheduleLabel(schedule)}</p>
+                   <p className="text-[11px] text-[#5a5a5a] font-medium">{schedule.startTime} – {schedule.endTime} · {actualScheduleClassLabel(schedule)}</p>
+                 </div>
+                 <div className="flex items-center gap-1.5 shrink-0">
+                   <span className="text-[9px] font-bold px-2 py-0.5 rounded-sm bg-[#e8d8c9] text-[#1a1a1a]">AKTUAL</span>
+                   <TbArrowRight className="w-4 h-4 text-[#5a5a5a]" />
+                 </div>
+               </Link>
+             )) : schedules.map((schedule) => (
+               <Link key={schedule.id} href="/schedules" prefetch={true} aria-label={`Jadwal: ${schedule.title}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+                 <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0"><TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} /></div>
+                 <div className="min-w-0 flex-1"><p className="font-bold text-[13px] text-[#1a1a1a] truncate">{schedule.title}</p><p className="text-[11px] text-[#5a5a5a] font-medium">{schedule.startTime} – {schedule.endTime} · {schedule.lab?.name || "Lab"}</p></div>
+                 <div className="flex items-center gap-1.5 shrink-0"><span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm ${statusBadge(schedule.status)}`}>{schedule.status}</span><TbArrowRight className="w-4 h-4 text-[#5a5a5a]" /></div>
+               </Link>
+             ))}
+             {displayedSchedules.length === 0 && (
+               <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal untuk kelas Anda hari ini.</p>
+             )}
           </div>
         </Section>
         
@@ -1093,6 +1121,38 @@ export function MagangDashboard({ unreadCount }: { unreadCount: number }) {
               <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
             </Link>
           </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+export function DosenDashboard({ unreadCount, actualSchedules }: { unreadCount: number; actualSchedules: ActualScheduleItem[] }) {
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <PinnedAnnouncementsBanner />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <StatCard item={{ label: "Notifikasi", value: unreadCount, icon: TbBell, tone: "text-emerald-500", variant: "emerald", href: "/notifications" }} index={0} />
+      </div>
+      <Section title="Ruang Akademik" icon={TbSchool} delay={0.1}>
+        <Link href="/academic" className="neo-card bg-white p-4 flex items-center justify-between gap-3 hover:-translate-y-1 transition-transform">
+          <div>
+            <p className="font-bold text-[#1a1a1a]">Penawaran dan laporan akademik</p>
+            <p className="text-xs text-[#5a5a5a] font-medium mt-1">Lihat penawaran yang menjadi tanggung jawab Anda dan status laporan.</p>
+          </div>
+          <TbArrowRight className="w-5 h-5 text-[#f3701e] shrink-0" />
+        </Link>
+      </Section>
+      <Section title="Jadwal Praktikum Aktual Hari Ini" icon={TbCalendarEvent} delay={0.2}>
+        <div className="space-y-3">
+          {actualSchedules.map((schedule) => (
+            <Link key={`${schedule.scheduleId || schedule.offeringId}-${schedule.occurrenceDate}`} href="/academic" prefetch={true} aria-label={`Jadwal aktual: ${actualScheduleLabel(schedule)}`} className="flex items-center gap-3 min-h-[56px] border-b border-[#e8d8c9] last:border-0 pb-3 last:pb-0 sm:p-3 sm:rounded-xl sm:neo-border-sm sm:bg-white sm:hover:bg-[#fcf8f4] active:bg-[#f5ede6] transition-colors sm:border-0 sm:pb-0 sm:min-h-0">
+              <div className="w-9 h-9 rounded-lg bg-[#f5ede6] flex items-center justify-center text-[#4b607f] shrink-0"><TbCalendarEvent className="w-4 h-4" strokeWidth={2.2} /></div>
+              <div className="min-w-0 flex-1"><p className="font-bold text-[13px] text-[#1a1a1a] truncate">{actualScheduleLabel(schedule)}</p><p className="text-[11px] text-[#5a5a5a] font-medium">{schedule.startTime} – {schedule.endTime} · {actualScheduleClassLabel(schedule)}</p></div>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-sm bg-[#e8d8c9] text-[#1a1a1a]">AKTUAL</span>
+            </Link>
+          ))}
+          {actualSchedules.length === 0 && <p className="text-xs text-[#5a5a5a] py-4 text-center italic">Tidak ada jadwal praktikum aktual hari ini.</p>}
         </div>
       </Section>
     </div>

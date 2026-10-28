@@ -9,6 +9,7 @@ import type { Role } from "@/types";
 import {
   AsistenDashboard,
   DashboardHeader,
+  DosenDashboard,
   KoordinatorDashboard,
   MagangDashboard,
   MahasiswaDashboard,
@@ -20,6 +21,7 @@ import {
   type MissionItem,
   type PCAgentStats,
   type ScheduleItem,
+  type ActualScheduleItem,
   type PicketScheduleItem,
   type TicketItem,
 } from "./dashboard-views";
@@ -44,6 +46,7 @@ export default function DashboardPage() {
 
   const [labs, setLabs] = useState<LabInfo[]>([]);
   const [todaySchedules, setTodaySchedules] = useState<ScheduleItem[]>([]);
+  const [actualSchedules, setActualSchedules] = useState<ActualScheduleItem[]>([]);
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [attendanceToday, setAttendanceToday] = useState(0);
   const [activeTicketCount, setActiveTicketCount] = useState(0);
@@ -76,14 +79,16 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    const [labsRes, schedulesRes, keysRes] = await Promise.all([
-      api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
-      api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
-      api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
-    ]);
-    setLabs(asArray<LabInfo>(labsRes.data));
-    setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
-    setKeys(asArray<KeyItem>(keysRes.data));
+    if (role !== "DOSEN") {
+      const [labsRes, schedulesRes, keysRes] = await Promise.all([
+        api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
+        api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
+        api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
+      ]);
+      setLabs(asArray<LabInfo>(labsRes.data));
+      setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
+      setKeys(asArray<KeyItem>(keysRes.data));
+    }
 
     if (role === "KOORDINATOR_LAB") {
       const [ticketRes, ticketStatsRes, attendanceRes, aiRes, healthRes, logbookRes, pcAnalyticsRes] = await Promise.all([
@@ -127,13 +132,24 @@ export default function DashboardPage() {
       setAttendanceMonthCount(attendanceThisMonth.length);
     }
 
+    if (role === "DOSEN") {
+      const [notifRes, actualScheduleRes] = await Promise.all([
+        api.get<{ data: { count: number } }>("/notifications/unread-count").catch(() => ({ data: { count: 0 } })),
+        api.get<{ data: ActualScheduleItem[] }>(`/academic/actual-schedules?date=${dayjs().format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
+      ]);
+      setUnreadCount(notifRes.data?.count || 0);
+      setActualSchedules(asArray<ActualScheduleItem>(actualScheduleRes.data));
+    }
+
     if (role === "MAHASISWA") {
-      const [ticketRes, notifRes] = await Promise.all([
+      const [ticketRes, notifRes, actualScheduleRes] = await Promise.all([
         api.get<{ data: TicketItem[] }>("/tickets/my").catch(() => ({ data: [] })),
         api.get<{ data: { count: number } }>("/notifications/unread-count").catch(() => ({ data: { count: 0 } })),
+        api.get<{ data: ActualScheduleItem[] }>(`/academic/actual-schedules?date=${dayjs().format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
       ]);
       setTickets(asArray<TicketItem>(ticketRes.data));
       setUnreadCount(notifRes.data?.count || 0);
+      setActualSchedules(asArray<ActualScheduleItem>(actualScheduleRes.data));
     }
 
     setLoading(false);
@@ -218,9 +234,12 @@ export default function DashboardPage() {
         />
       ) : role === "MAGANG" ? (
         <MagangDashboard unreadCount={unreadCount} />
+      ) : role === "DOSEN" ? (
+        <DosenDashboard unreadCount={unreadCount} actualSchedules={actualSchedules} />
       ) : (
         <MahasiswaDashboard
           schedules={mahasiswaSchedules}
+          actualSchedules={actualSchedules}
           myTickets={tickets}
           unreadCount={unreadCount}
           keys={keys}
