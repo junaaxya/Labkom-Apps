@@ -73,6 +73,18 @@ const offeringInclude = {
   course: { select: { id: true, code: true, name: true, isActive: true } },
   academicClass: { select: { id: true, code: true, name: true, isActive: true } },
   dosen: { select: dosenSelect },
+  schedule: {
+    select: {
+      id: true,
+      day: true,
+      startTime: true,
+      endTime: true,
+      type: true,
+      status: true,
+      labId: true,
+      lab: { select: { id: true, name: true, location: true } },
+    },
+  },
   pjs: {
     where: { isActive: true },
     include: {
@@ -203,6 +215,54 @@ async function assertPjManagementAuthority(
   if (!leader) {
     throw new AcademicAuthorizationError("Ketua kelas aktif untuk term dan kelas ini diperlukan");
   }
+}
+
+async function getPjReadOffering(offeringId: string, actor: UserContext) {
+  const [offering, persistedActor] = await Promise.all([
+    prisma.academicOffering.findUnique({
+      where: { id: offeringId },
+      select: {
+        id: true,
+        termId: true,
+        classId: true,
+        isActive: true,
+        term: { select: { isActive: true } },
+        academicClass: { select: { isActive: true } },
+      },
+    }),
+    prisma.user.findUnique({ where: { id: actor.userId }, select: { id: true, role: true, isActive: true } }),
+  ]);
+  if (!persistedActor?.isActive) throw new AcademicAuthorizationError("Akun aktif diperlukan");
+  if (!offering) throw new Error("Penawaran akademik tidak ditemukan");
+  if (persistedActor.role === "KOORDINATOR_LAB") return offering;
+  if (persistedActor.role !== "MAHASISWA") {
+    throw new AcademicAuthorizationError("Hanya Koordinator Lab atau Ketua Kelas aktif yang dapat membaca PJ");
+  }
+  if (!offering.isActive || !offering.term.isActive || !offering.academicClass.isActive) {
+    throw new AcademicAuthorizationError("Penawaran akademik aktif diperlukan");
+  }
+
+  const leader = await prisma.academicClassLeader.findFirst({
+    where: {
+      termId: offering.termId,
+      classId: offering.classId,
+      isActive: true,
+      term: { isActive: true },
+      academicClass: { isActive: true },
+      membership: {
+        userId: persistedActor.id,
+        termId: offering.termId,
+        classId: offering.classId,
+        isActive: true,
+        user: { role: "MAHASISWA", isActive: true },
+      },
+    },
+    select: { id: true },
+  });
+  if (!leader) {
+    throw new AcademicAuthorizationError("Ketua kelas aktif untuk term dan kelas ini diperlukan");
+  }
+  return offering;
 }
 
 async function assertReportWriteAuthority(
@@ -606,6 +666,45 @@ export class AcademicService {
       include: {
         offering: { include: offeringInclude },
         membership: { include: { user: { select: { id: true, name: true, email: true, isActive: true } } } },
+      },
+      orderBy: { assignedAt: "desc" },
+    });
+  }
+
+  static async listPjMemberships(offeringId: string, actor: UserContext) {
+    const offering = await getPjReadOffering(offeringId, actor);
+    return prisma.academicClassMembership.findMany({
+      where: {
+        termId: offering.termId,
+        classId: offering.classId,
+        isActive: true,
+        user: { role: "MAHASISWA", isActive: true },
+      },
+      select: {
+        id: true,
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { user: { name: "asc" } },
+    });
+  }
+
+  static async listOfferingPjs(offeringId: string, actor: UserContext) {
+    const offering = await getPjReadOffering(offeringId, actor);
+    return prisma.academicOfferingPJ.findMany({
+      where: {
+        offeringId: offering.id,
+        isActive: true,
+        membership: {
+          termId: offering.termId,
+          classId: offering.classId,
+          isActive: true,
+          user: { role: "MAHASISWA", isActive: true },
+        },
+      },
+      select: {
+        id: true,
+        membershipId: true,
+        membership: { select: { user: { select: { id: true, name: true } } } },
       },
       orderBy: { assignedAt: "desc" },
     });

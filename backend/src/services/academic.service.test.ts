@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import prisma from "../config/database";
-import { AcademicConflictError, AcademicService } from "./academic.service";
+import { AcademicAuthorizationError, AcademicConflictError, AcademicService } from "./academic.service";
 
 type Restore = () => void;
 
@@ -15,6 +15,12 @@ const ids = {
   student: "cmoseuhxj0005ofz5r10a18l5",
   term: "cmoseuhxj0006ofz5r10a18l6",
   academicClass: "cmoseuhxj0007ofz5r10a18l7",
+  leader: "cmoseuhxj0008ofz5r10a18l8",
+  otherLeader: "cmoseuhxj0009ofz5r10a18l9",
+  ordinaryStudent: "cmoseuhxj0010ofz5r10a18m0",
+  coordinator: "cmoseuhxj0011ofz5r10a18m1",
+  otherTerm: "cmoseuhxj0012ofz5r10a18m2",
+  otherClass: "cmoseuhxj0013ofz5r10a18m3",
 };
 
 function replaceProperty(target: object, property: string, value: unknown): Restore {
@@ -29,6 +35,255 @@ function replaceProperty(target: object, property: string, value: unknown): Rest
 test("academic service never reads legacy isKetuaKelas authority", () => {
   const source = readFileSync(path.join(__dirname, "academic.service.ts"), "utf8");
   assert.doesNotMatch(source, /isKetuaKelas/);
+});
+
+test("active structured leader PJ reads stay inside exact offering class", async () => {
+  const offering = {
+    id: ids.offering,
+    termId: ids.term,
+    classId: ids.academicClass,
+    isActive: true,
+    term: { isActive: true },
+    academicClass: { isActive: true },
+  };
+  const memberships = [{ id: "membership-1", user: { id: "member-user-1", name: "Member One" } }];
+  const pjs = [{
+    id: "pj-1",
+    membershipId: "membership-1",
+    membership: { user: { id: "member-user-1", name: "Member One" } },
+  }];
+  const leaderQueries: unknown[] = [];
+  let membershipQuery: unknown;
+  let pjQuery: unknown;
+  const restores = [
+    replaceProperty(prisma.academicOffering, "findUnique", async () => offering),
+    replaceProperty(prisma.user, "findUnique", async () => ({ id: ids.leader, role: "MAHASISWA", isActive: true })),
+    replaceProperty(prisma.academicClassLeader, "findFirst", async ({ where }: { where: unknown }) => {
+      leaderQueries.push(where);
+      return { id: "leader-assignment-1" };
+    }),
+    replaceProperty(prisma.academicClassMembership, "findMany", async (input: unknown) => {
+      membershipQuery = input;
+      return memberships;
+    }),
+    replaceProperty(prisma.academicOfferingPJ, "findMany", async (input: unknown) => {
+      pjQuery = input;
+      return pjs;
+    }),
+  ];
+
+  const leaderWhere = {
+    termId: ids.term,
+    classId: ids.academicClass,
+    isActive: true,
+    term: { isActive: true },
+    academicClass: { isActive: true },
+    membership: {
+      userId: ids.leader,
+      termId: ids.term,
+      classId: ids.academicClass,
+      isActive: true,
+      user: { role: "MAHASISWA", isActive: true },
+    },
+  };
+
+  try {
+    assert.deepEqual(
+      await AcademicService.listPjMemberships(ids.offering, { userId: ids.leader, role: "MAHASISWA" }),
+      memberships,
+    );
+    assert.deepEqual(
+      await AcademicService.listOfferingPjs(ids.offering, { userId: ids.leader, role: "MAHASISWA" }),
+      pjs,
+    );
+    assert.deepEqual(leaderQueries, [leaderWhere, leaderWhere]);
+    assert.deepEqual(membershipQuery, {
+      where: {
+        termId: ids.term,
+        classId: ids.academicClass,
+        isActive: true,
+        user: { role: "MAHASISWA", isActive: true },
+      },
+      select: { id: true, user: { select: { id: true, name: true } } },
+      orderBy: { user: { name: "asc" } },
+    });
+    assert.deepEqual(pjQuery, {
+      where: {
+        offeringId: ids.offering,
+        isActive: true,
+        membership: {
+          termId: ids.term,
+          classId: ids.academicClass,
+          isActive: true,
+          user: { role: "MAHASISWA", isActive: true },
+        },
+      },
+      select: {
+        id: true,
+        membershipId: true,
+        membership: { select: { user: { select: { id: true, name: true } } } },
+      },
+      orderBy: { assignedAt: "desc" },
+    });
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});
+
+test("ordinary student, other-class leader, and DOSEN cannot read scoped PJ data", async () => {
+  const offering = {
+    id: ids.offering,
+    termId: ids.term,
+    classId: ids.academicClass,
+    isActive: true,
+    term: { isActive: true },
+    academicClass: { isActive: true },
+  };
+  const leaderQueries: unknown[] = [];
+  const activeLeaders = [{ termId: ids.otherTerm, classId: ids.otherClass, userId: ids.otherLeader }];
+  let membershipReads = 0;
+  let pjReads = 0;
+  const restores = [
+    replaceProperty(prisma.academicOffering, "findUnique", async () => offering),
+    replaceProperty(prisma.user, "findUnique", async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      role: where.id === ids.dosen ? "DOSEN" : "MAHASISWA",
+      isActive: true,
+    })),
+    replaceProperty(prisma.academicClassLeader, "findFirst", async ({ where }: { where: unknown }) => {
+      leaderQueries.push(where);
+      const scope = where as { termId: string; classId: string; membership: { userId: string } };
+      return activeLeaders.some(
+        (leader) =>
+          leader.termId === scope.termId &&
+          leader.classId === scope.classId &&
+          leader.userId === scope.membership.userId,
+      ) ? { id: "other-class-leader-assignment" } : null;
+    }),
+    replaceProperty(prisma.academicClassMembership, "findMany", async () => {
+      membershipReads += 1;
+      return [];
+    }),
+    replaceProperty(prisma.academicOfferingPJ, "findMany", async () => {
+      pjReads += 1;
+      return [];
+    }),
+  ];
+
+  try {
+    await assert.rejects(
+      AcademicService.listPjMemberships(ids.offering, { userId: ids.ordinaryStudent, role: "MAHASISWA" }),
+      AcademicAuthorizationError,
+    );
+    await assert.rejects(
+      AcademicService.listOfferingPjs(ids.offering, { userId: ids.otherLeader, role: "MAHASISWA" }),
+      AcademicAuthorizationError,
+    );
+    await assert.rejects(
+      AcademicService.listPjMemberships(ids.offering, { userId: ids.dosen, role: "DOSEN" }),
+      AcademicAuthorizationError,
+    );
+    assert.deepEqual(leaderQueries, [
+      {
+        termId: ids.term,
+        classId: ids.academicClass,
+        isActive: true,
+        term: { isActive: true },
+        academicClass: { isActive: true },
+        membership: {
+          userId: ids.ordinaryStudent,
+          termId: ids.term,
+          classId: ids.academicClass,
+          isActive: true,
+          user: { role: "MAHASISWA", isActive: true },
+        },
+      },
+      {
+        termId: ids.term,
+        classId: ids.academicClass,
+        isActive: true,
+        term: { isActive: true },
+        academicClass: { isActive: true },
+        membership: {
+          userId: ids.otherLeader,
+          termId: ids.term,
+          classId: ids.academicClass,
+          isActive: true,
+          user: { role: "MAHASISWA", isActive: true },
+        },
+      },
+    ]);
+    assert.equal(membershipReads, 0);
+    assert.equal(pjReads, 0);
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});
+
+test("scoped PJ reads use persisted actor role instead of caller role", async () => {
+  const offering = {
+    id: ids.offering,
+    termId: ids.term,
+    classId: ids.academicClass,
+    isActive: true,
+    term: { isActive: true },
+    academicClass: { isActive: true },
+  };
+  let membershipReads = 0;
+  const restores = [
+    replaceProperty(prisma.academicOffering, "findUnique", async () => offering),
+    replaceProperty(prisma.user, "findUnique", async () => ({ id: ids.ordinaryStudent, role: "MAHASISWA", isActive: true })),
+    replaceProperty(prisma.academicClassLeader, "findFirst", async () => null),
+    replaceProperty(prisma.academicClassMembership, "findMany", async () => {
+      membershipReads += 1;
+      return [];
+    }),
+  ];
+
+  try {
+    await assert.rejects(
+      AcademicService.listPjMemberships(ids.offering, { userId: ids.ordinaryStudent, role: "KOORDINATOR_LAB" }),
+      AcademicAuthorizationError,
+    );
+    assert.equal(membershipReads, 0);
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});
+
+test("coordinator scoped PJ reads do not require leader assignment", async () => {
+  const offering = {
+    id: ids.offering,
+    termId: ids.term,
+    classId: ids.academicClass,
+    isActive: false,
+    term: { isActive: false },
+    academicClass: { isActive: false },
+  };
+  const memberships = [{ id: "membership-1", user: { id: "member-user-1", name: "Member One" } }];
+  const pjs = [{ id: "pj-1", membershipId: "membership-1" }];
+  const restores = [
+    replaceProperty(prisma.academicOffering, "findUnique", async () => offering),
+    replaceProperty(prisma.user, "findUnique", async () => ({ id: ids.coordinator, role: "KOORDINATOR_LAB", isActive: true })),
+    replaceProperty(prisma.academicClassLeader, "findFirst", async () => {
+      throw new Error("Coordinator must not require class leader assignment");
+    }),
+    replaceProperty(prisma.academicClassMembership, "findMany", async () => memberships),
+    replaceProperty(prisma.academicOfferingPJ, "findMany", async () => pjs),
+  ];
+
+  try {
+    assert.deepEqual(
+      await AcademicService.listPjMemberships(ids.offering, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      memberships,
+    );
+    assert.deepEqual(
+      await AcademicService.listOfferingPjs(ids.offering, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      pjs,
+    );
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
 });
 
 test("DOSEN offering reads always scope to authenticated dosen", async () => {
