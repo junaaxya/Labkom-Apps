@@ -20,6 +20,13 @@ test("academic master data remains coordinator-managed and reports have no appro
   assert.doesNotMatch(routes, /\/reports(?:\/[^\"]+)?\/approve/);
 });
 
+test("scoped PJ reads admit only coordinators and students while global reads stay coordinator-only", () => {
+  assert.match(routes, /router\.get\("\/memberships", authorize\("KOORDINATOR_LAB"\), AcademicController\.listMemberships\);/);
+  assert.match(routes, /router\.get\("\/pjs", authorize\("KOORDINATOR_LAB"\), AcademicController\.listPjs\);/);
+  assert.match(routes, /router\.get\("\/offerings\/:offeringId\/memberships", authorize\("KOORDINATOR_LAB", "MAHASISWA"\), AcademicController\.listPjMemberships\);/);
+  assert.match(routes, /router\.get\("\/offerings\/:offeringId\/pjs", authorize\("KOORDINATOR_LAB", "MAHASISWA"\), AcademicController\.listOfferingPjs\);/);
+});
+
 test("swap routes keep representative confirmation separate from coordinator review", () => {
   const source = readFileSync(path.join(__dirname, "academic.routes.ts"), "utf8");
   assert.match(source, /router\.post\("\/occurrence-swaps", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\)/);

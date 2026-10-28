@@ -36,6 +36,8 @@ router.patch("/offerings/:id", authorize("KOORDINATOR_LAB"), AcademicController.
 router.post("/offerings/:id/schedule", authorize("KOORDINATOR_LAB"), AcademicController.bindSchedule);
 
 router.get("/pjs", authorize("KOORDINATOR_LAB"), AcademicController.listPjs);
+router.get("/offerings/:offeringId/memberships", authorize("KOORDINATOR_LAB", "MAHASISWA"), AcademicController.listPjMemberships);
+router.get("/offerings/:offeringId/pjs", authorize("KOORDINATOR_LAB", "MAHASISWA"), AcademicController.listOfferingPjs);
 router.post("/offerings/:offeringId/pjs", authorize("KOORDINATOR_LAB", "MAHASISWA"), AcademicController.assignPj);
 router.patch("/pjs/:id", authorize("KOORDINATOR_LAB", "MAHASISWA"), AcademicController.updatePj);
 

@@ -277,6 +277,22 @@ export class AcademicController {
     }
   }
 
+  static async listPjMemberships(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicService.listPjMemberships(getParam(req, "offeringId"), getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil anggota kelas");
+    }
+  }
+
+  static async listOfferingPjs(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicService.listOfferingPjs(getParam(req, "offeringId"), getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil PJ penawaran");
+    }
+  }
+
   static async assignPj(req: Request, res: Response): Promise<void> {
     try {
       const data = assignAcademicPjSchema.parse(req.body);
