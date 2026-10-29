@@ -175,9 +175,9 @@ export class AcademicOccurrenceService {
       });
       if (pendingBooking) throw new AcademicConflictError("Slot masih memiliki pengajuan booking yang belum diputuskan");
       const booking = await tx.labBooking.create({ data: { labId: release.labId, requestedBy: request.requestedById, approvedBy: actor.userId, title: `Akademik: ${request.targetOffering.course.code} ${request.targetOffering.academicClass.code}`, purpose: "Penggunaan slot akademik yang dirilis", date: release.occurrenceDate, startTime: release.startTime, endTime: release.endTime, participants: 1, status: "APPROVED", notes: request.reason } });
-      await tx.schedule.create({ data: { labId: release.labId, title: booking.title, specificDate: release.occurrenceDate, day, startTime: release.startTime, endTime: release.endTime, type: "PEMINJAMAN", status: "SCHEDULED", isActive: true, className: `AcademicSlot:${request.targetOfferingId}`, assistantId: actor.userId } });
+      const allocatedSchedule = await tx.schedule.create({ data: { labId: release.labId, title: booking.title, specificDate: release.occurrenceDate, day, startTime: release.startTime, endTime: release.endTime, type: "PEMINJAMAN", status: "SCHEDULED", isActive: true, className: `AcademicSlot:${request.targetOfferingId}`, assistantId: actor.userId } });
       await tx.academicOccurrenceRelease.update({ where: { id: release.id }, data: { status: "ALLOCATED" } });
-      const approved = await tx.academicSlotRequest.update({ where: { id }, data: { status: "APPROVED", reviewedById: actor.userId, reviewedAt: new Date(), rejectionReason: null, bookingId: booking.id } });
+      const approved = await tx.academicSlotRequest.update({ where: { id }, data: { status: "APPROVED", reviewedById: actor.userId, reviewedAt: new Date(), rejectionReason: null, bookingId: booking.id, allocatedScheduleId: allocatedSchedule.id } });
       await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_APPROVED", targetType: "AcademicSlotRequest", targetId: id, description: booking.id, ipAddress: actor.ipAddress } });
       return approved;
     });
