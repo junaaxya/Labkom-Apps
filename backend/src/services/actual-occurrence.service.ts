@@ -24,6 +24,22 @@ const scheduleSelect = {
       isActive: true,
     },
   },
+  allocatedSlotRequest: {
+    select: {
+      id: true,
+      status: true,
+      bookingId: true,
+      booking: { select: { status: true } },
+      targetOffering: {
+        select: {
+          id: true,
+          termId: true,
+          classId: true,
+          isActive: true,
+        },
+      },
+    },
+  },
   lab: {
     select: {
       id: true,
@@ -49,6 +65,13 @@ export type ActualOccurrence = {
   startTime: string;
   endTime: string;
   swapId: string | null;
+  academicOffering: {
+    id: string;
+    termId: string;
+    classId: string;
+    isActive: boolean;
+  } | null;
+  allocationRequestId: string | null;
 };
 
 function matchesDate(schedule: ActualOccurrence["schedule"], date: Date): boolean {
@@ -82,7 +105,7 @@ export async function resolveActualOccurrences(
     },
   });
   const structuredScheduleIds = schedules
-    .filter((schedule) => Boolean(schedule.academicOffering))
+    .filter((schedule) => Boolean(schedule.academicOffering || schedule.allocatedSlotRequest?.targetOffering))
     .map((schedule) => schedule.id);
   const swapDelegate = (tx as unknown as { academicOccurrenceSwap?: typeof tx.academicOccurrenceSwap }).academicOccurrenceSwap;
   const swaps = structuredScheduleIds.length === 0 || !swapDelegate
@@ -108,6 +131,12 @@ export async function resolveActualOccurrences(
 
   return schedules.flatMap((schedule) => {
     if (!isOperationalSchedule(schedule.status, schedule.isActive) || !matchesDate(schedule, date)) return [];
+    const allocation = schedule.allocatedSlotRequest?.status === "APPROVED"
+      && schedule.allocatedSlotRequest.bookingId
+      && schedule.allocatedSlotRequest.booking?.status === "APPROVED"
+      ? schedule.allocatedSlotRequest
+      : null;
+    const academicOffering = schedule.academicOffering ?? allocation?.targetOffering ?? null;
     const release = schedule.academicOffering
       ? (schedule.occurrenceReleases ?? []).find((item) => item.status === "RELEASED" || item.status === "ALLOCATED")
       : undefined;
@@ -120,7 +149,13 @@ export async function resolveActualOccurrences(
         ? { labId: swap.sourceLabId, startTime: swap.sourceStartTime, endTime: swap.sourceEndTime, swapId: swap.id }
         : { labId: schedule.labId, startTime: schedule.startTime, endTime: schedule.endTime, swapId: null };
     if (options?.labId && projected.labId !== options.labId) return [];
-    return [{ schedule, occurrenceDate: date, ...projected }];
+    return [{
+      schedule,
+      occurrenceDate: date,
+      ...projected,
+      academicOffering,
+      allocationRequestId: allocation?.id ?? null,
+    }];
   });
 }
 
