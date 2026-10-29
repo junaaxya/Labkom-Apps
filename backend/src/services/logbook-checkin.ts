@@ -23,10 +23,10 @@ export async function checkinLogbook(userId: string, input: CheckinLogbookInput,
         throw new LogbookCheckinError("Jadwal tidak ditemukan untuk lab ini.");
       }
       const schedule = occurrence.schedule;
-      if (schedule.type !== "PRAKTIKUM") {
+      if (schedule.type !== "PRAKTIKUM" && !occurrence.allocationRequestId) {
         throw new LogbookCheckinError("Jadwal praktikum aktif diperlukan untuk check-in.");
       }
-      if (!schedule.academicOffering?.isActive) {
+      if (!occurrence.academicOffering?.isActive) {
         throw new LogbookCheckinError("Jadwal harus terhubung dengan penawaran akademik aktif; sesi ad hoc tidak didukung.");
       }
 
@@ -35,7 +35,7 @@ export async function checkinLogbook(userId: string, input: CheckinLogbookInput,
           date: clock.date,
           labId: input.labId,
           scheduleId: schedule.id,
-          academicOfferingId: schedule.academicOffering.id,
+          academicOfferingId: occurrence.academicOffering.id,
           occurrenceDate: clock.date,
           officialCheckinById: userId,
           officialCheckinAt: now,
