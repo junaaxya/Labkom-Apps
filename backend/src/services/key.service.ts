@@ -37,7 +37,7 @@ export class KeyService {
     userId: string,
     occurrence: ActualOccurrence
   ): Promise<void> {
-    const offering = occurrence.schedule.academicOffering;
+    const offering = occurrence.academicOffering;
     if (!offering) return;
     const membership = await client.academicClassMembership.findFirst({
       where: { userId, termId: offering.termId, classId: offering.classId, isActive: true, user: { role: "MAHASISWA", isActive: true } },
@@ -72,7 +72,7 @@ export class KeyService {
     const actual = active[0];
     const schedule = actual.schedule;
     if (!STAFF_ROLES.has(role)) {
-      if (schedule.academicOffering) {
+      if (actual.academicOffering) {
         await KeyService.assertStructuredBorrower(client, userId, actual);
       } else {
         if (!user.isKetuaKelas) {
