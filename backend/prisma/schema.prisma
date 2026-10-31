@@ -821,24 +821,26 @@ model AcademicOccurrenceRelease {
 }
 
 model AcademicSlotRequest {
-  id               String                    @id @default(cuid())
-  releaseId        String
-  targetOfferingId String
-  requestedById    String
-  status           AcademicSlotRequestStatus @default(PENDING)
-  reason           String?
-  reviewedById     String?
-  reviewedAt       DateTime?
-  rejectionReason  String?
-  bookingId        String?                   @unique
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  id                  String                    @id @default(cuid())
+  releaseId           String
+  targetOfferingId    String
+  requestedById       String
+  status              AcademicSlotRequestStatus @default(PENDING)
+  reason              String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  rejectionReason     String?
+  bookingId           String?                   @unique
+  allocatedScheduleId String?                   @unique
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
-  release        AcademicOccurrenceRelease @relation(fields: [releaseId], references: [id], onDelete: Restrict)
-  targetOffering AcademicOffering          @relation("AcademicSlotRequestTargetOffering", fields: [targetOfferingId], references: [id], onDelete: Restrict)
-  requestedBy    User                      @relation("AcademicSlotRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
-  reviewedBy     User?                     @relation("AcademicSlotRequestReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
-  booking        LabBooking?               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  release           AcademicOccurrenceRelease @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+  targetOffering    AcademicOffering          @relation("AcademicSlotRequestTargetOffering", fields: [targetOfferingId], references: [id], onDelete: Restrict)
+  requestedBy       User                      @relation("AcademicSlotRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy        User?                     @relation("AcademicSlotRequestReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  booking           LabBooking?               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  allocatedSchedule Schedule?                 @relation("AcademicSlotRequestAllocatedSchedule", fields: [allocatedScheduleId], references: [id], onDelete: Restrict)
 
   @@index([releaseId, status])
   @@index([targetOfferingId, status])
@@ -952,16 +954,17 @@ model Schedule {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  lab                Lab                                 @relation(fields: [labId], references: [id])
-  assistant          User?                               @relation("ScheduleAssistant", fields: [assistantId], references: [id])
-  changeRequests     ScheduleChangeRequest[]
-  keyBorrowCycles    KeyBorrowCycle[]
-  academicOffering   AcademicOffering?
-  logbooks           Logbook[]
-  occurrenceReleases AcademicOccurrenceRelease[]
-  swapsAsSource      AcademicOccurrenceSwap[]            @relation("AcademicSwapSourceSchedule")
-  swapsAsTarget      AcademicOccurrenceSwap[]            @relation("AcademicSwapTargetSchedule")
-  swapReservations   AcademicOccurrenceSwapReservation[]
+  lab                  Lab                                 @relation(fields: [labId], references: [id])
+  assistant            User?                               @relation("ScheduleAssistant", fields: [assistantId], references: [id])
+  changeRequests       ScheduleChangeRequest[]
+  keyBorrowCycles      KeyBorrowCycle[]
+  academicOffering     AcademicOffering?
+  logbooks             Logbook[]
+  occurrenceReleases   AcademicOccurrenceRelease[]
+  swapsAsSource        AcademicOccurrenceSwap[]            @relation("AcademicSwapSourceSchedule")
+  swapsAsTarget        AcademicOccurrenceSwap[]            @relation("AcademicSwapTargetSchedule")
+  swapReservations     AcademicOccurrenceSwapReservation[]
+  allocatedSlotRequest AcademicSlotRequest?                @relation("AcademicSlotRequestAllocatedSchedule")
 
   @@index([labId, startTime])
   @@index([status, startTime])

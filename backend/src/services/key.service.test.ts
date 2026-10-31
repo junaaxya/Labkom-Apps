@@ -49,6 +49,50 @@ test("student take creates occurrence cycle and linked TAKEN log atomically", as
   }
 });
 
+test("allocated occurrence lets target PJ borrow using allocated schedule and date identity", async () => {
+  const allocated = {
+    ...schedule,
+    id: "schedule-allocation",
+    type: "PEMINJAMAN",
+    specificDate: new Date("2026-10-13T00:00:00.000Z"),
+    academicOffering: null,
+    allocatedSlotRequest: {
+      id: "request-1",
+      status: "APPROVED",
+      bookingId: "booking-1",
+      booking: { status: "APPROVED" },
+      targetOffering: { id: "offering-target", termId: "term-1", classId: "class-target", isActive: true },
+    },
+  };
+  const cycles: any[] = [];
+  const targetPj = { ...chair, id: "pj-target", isKetuaKelas: false, className: null, semester: null };
+  const tx = {
+    key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
+    user: { findUnique: async () => targetPj },
+    schedule: { findMany: async () => [allocated] },
+    academicOccurrenceSwap: { findMany: async () => [] },
+    academicClassMembership: { findFirst: async () => ({ id: "membership-target" }) },
+    academicClassLeader: { findFirst: async () => null },
+    academicOfferingPJ: { findFirst: async () => ({ id: "pj-assignment" }) },
+    labBooking: { findMany: async () => [{ id: "booking-1" }] },
+    keyBorrowCycle: {
+      findUnique: async () => null,
+      create: async (args: any) => { cycles.push(args.data); return { id: "cycle-allocation", ...args.data }; },
+    },
+    keyLog: { create: async () => ({ id: "log-1" }) },
+  };
+  const restore = replace(prisma, "$transaction", async (operation: any) => operation(tx));
+  try {
+    await KeyService.takeKey("key-1", "pj-target", "MAHASISWA", undefined, now);
+    assert.equal(cycles.length, 1);
+    assert.equal(cycles[0].scheduleId, "schedule-allocation");
+    assert.equal(cycles[0].bookingId, "booking-1");
+    assert.equal((cycles[0].occurrenceDate as Date).toISOString().slice(0, 10), "2026-10-13");
+  } finally {
+    restore();
+  }
+});
+
 test("take re-resolves occurrence inside Serializable transaction before writing", async () => {
   let writes = 0;
   let isolation: unknown;

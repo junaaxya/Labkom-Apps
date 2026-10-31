@@ -276,13 +276,11 @@ export class AcademicSwapService {
     const where: Prisma.AcademicOfferingWhereInput = user.role === "KOORDINATOR_LAB" ? { isActive: true } : user.role === "DOSEN" ? { isActive: true, dosenId: user.id } : user.role === "MAHASISWA" ? { isActive: true, OR: [{ pjs: { some: { isActive: true, membership: { userId: user.id, isActive: true } } } }, ...memberScopes.map(({ termId, classId }) => ({ termId, classId }))] } : { id: { in: [] } };
     const offerings = await prisma.academicOffering.findMany({ where, include: { course: true, academicClass: true, schedule: { select: occurrenceScheduleSelect } } });
     const occurrences = await resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date);
-    const byScheduleId = new Map(occurrences.map((occurrence) => [occurrence.schedule.id, occurrence]));
-    return offerings.flatMap((offering) => {
-      const schedule = offering.schedule;
-      if (!schedule) return [];
-      const actual = byScheduleId.get(schedule.id);
-      if (!actual) return [];
-      return [{ offeringId: offering.id, course: offering.course, academicClass: offering.academicClass, scheduleId: schedule.id, occurrenceDate: actual.occurrenceDate, labId: actual.labId, startTime: actual.startTime, endTime: actual.endTime, swapId: actual.swapId }];
+    const byOfferingId = new Map(offerings.map((offering) => [offering.id, offering]));
+    return occurrences.flatMap((actual) => {
+      const offering = actual.academicOffering ? byOfferingId.get(actual.academicOffering.id) : undefined;
+      if (!offering) return [];
+      return [{ offeringId: offering.id, course: offering.course, academicClass: offering.academicClass, scheduleId: actual.schedule.id, occurrenceDate: actual.occurrenceDate, labId: actual.labId, startTime: actual.startTime, endTime: actual.endTime, swapId: actual.swapId }];
     }).sort((left, right) => left.startTime.localeCompare(right.startTime));
   }
 }

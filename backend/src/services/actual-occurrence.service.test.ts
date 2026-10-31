@@ -61,3 +61,32 @@ test("legacy occurrence remains raw when no academic binding exists", async () =
     restore();
   }
 });
+
+test("approved allocation projects the dated schedule as the target offering occurrence", async () => {
+  const allocated = {
+    ...rawSchedule,
+    id: "schedule-allocation",
+    type: "PEMINJAMAN",
+    specificDate: date,
+    academicOffering: null,
+    allocatedSlotRequest: {
+      id: "request-1",
+      status: "APPROVED",
+      bookingId: "booking-1",
+      booking: { status: "APPROVED" },
+      targetOffering: { id: "offering-target", termId: "term-1", classId: "class-2", isActive: true },
+    },
+  };
+  const restores = [
+    replace(prisma.schedule, "findMany", async () => [allocated]),
+    replace(prisma.academicOccurrenceSwap, "findMany", async () => []),
+  ];
+  try {
+    const [actual] = await resolveActualOccurrences(prisma as never, date);
+    assert.equal(actual.schedule.id, "schedule-allocation");
+    assert.equal(actual.academicOffering?.id, "offering-target");
+    assert.equal(actual.allocationRequestId, "request-1");
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});

@@ -47,6 +47,21 @@ function fakeTransaction(options: { schedule?: typeof schedule | null; existing?
   };
 }
 
+const allocatedSchedule = {
+  ...schedule,
+  id: "schedule-allocation",
+  type: "PEMINJAMAN",
+  specificDate: date,
+  academicOffering: null,
+  allocatedSlotRequest: {
+    id: "request-1",
+    status: "APPROVED",
+    bookingId: "booking-1",
+    booking: { status: "APPROVED" },
+    targetOffering: { id: "offering-target", termId: "term-1", classId: "class-2", isActive: true },
+  },
+};
+
 test("check-in records bound identity in a serializable Jakarta-day transaction", async () => {
   const fake = fakeTransaction({ retry: true });
   try {
@@ -66,6 +81,17 @@ test("check-in accepts exact-date schedule even when its stored weekday differs"
   const fake = fakeTransaction({ schedule: { ...schedule, specificDate: date, day: "SENIN" } });
   try {
     assert.equal((await checkinLogbook("assistant-1", input, now)).scheduleId, "schedule-1");
+  } finally { fake.restore(); }
+});
+
+test("check-in accepts an approved allocated occurrence with the same schedule identity", async () => {
+  const fake = fakeTransaction({ schedule: allocatedSchedule as typeof schedule });
+  try {
+    const result = await checkinLogbook("assistant-1", { ...input, scheduleId: "schedule-allocation" }, now);
+    assert.equal(result.scheduleId, "schedule-allocation");
+    assert.equal(result.academicOfferingId, "offering-target");
+    assert.ok(result.occurrenceDate);
+    assert.equal(result.occurrenceDate.getTime(), date.getTime());
   } finally { fake.restore(); }
 });
 
