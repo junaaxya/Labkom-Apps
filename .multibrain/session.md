@@ -11,6 +11,6 @@ Rules:
 ## Buckets
 
 - `agents` — shared notes for agent workflows, prompts, handoff rules, and repository-level execution guidance. Last updated: 2026-06-08 23:40 WIB -> .multibrain/indexes/agents.md
-- `frontend` — UI, Next.js App Router, component structure, and frontend handoff notes. Last updated: 2026-10-24 WIB (Smart Schedule release-readiness browser proof) -> .multibrain/indexes/frontend.md
-- `backend` — Express, Prisma, API, auth, and service-layer handoff notes. Last updated: 2026-10-29 WIB (allocation occurrence identity hotfix) -> .multibrain/indexes/backend.md
+- `frontend` — UI, Next.js App Router, component structure, and frontend handoff notes. Last updated: 2026-11-01 WIB (Ticketing P1–P3 + Academic Onboarding integration) -> .multibrain/indexes/frontend.md
+- `backend` — Express, Prisma, API, auth, and service-layer handoff notes. Last updated: 2026-11-01 WIB (Ticketing P0–P3 + QR WIB + Academic Onboarding integration) -> .multibrain/indexes/backend.md
 - `deploy` — Docker, nginx, production workflow, and environment rollout notes. Last updated: 2026-10-21 12:45 WIB (PR #21 production rollout) -> .multibrain/indexes/deploy.md
