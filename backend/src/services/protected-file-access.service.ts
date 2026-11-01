@@ -1,6 +1,7 @@
 import prisma from "../config/database";
 import redis from "../config/redis";
 import type { UploadCategory } from "../config/upload";
+import { parseUploadUrl } from "../config/upload";
 
 const TEMP_OWNER_PREFIX = "protected-upload-owner:";
 const TEMP_OWNER_TTL_SECONDS = 60 * 60;
@@ -15,6 +16,23 @@ export async function registerTemporaryUploadOwner(
   filename: string,
 ): Promise<void> {
   await redis.set(`${TEMP_OWNER_PREFIX}${category}:${filename}`, userId, "EX", TEMP_OWNER_TTL_SECONDS);
+}
+
+export async function assertTemporaryUploadOwnership(
+  userId: string,
+  urls: readonly string[],
+  category: UploadCategory,
+): Promise<void> {
+  for (const url of urls) {
+    const parsed = parseUploadUrl(url);
+    if (!parsed || parsed.category !== category) {
+      throw new Error("Path file upload tidak valid");
+    }
+    const owner = await redis.get(`${TEMP_OWNER_PREFIX}${parsed.category}:${parsed.filename}`);
+    if (owner !== userId) {
+      throw new Error("File upload tidak dimiliki oleh pengguna ini atau sesi upload sudah kedaluwarsa");
+    }
+  }
 }
 
 export async function authorizeProtectedFileAccess(
