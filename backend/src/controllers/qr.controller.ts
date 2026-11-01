@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { QRService } from "../services/qr.service";
+import { QRService, QRValidationError } from "../services/qr.service";
 
 function getParam(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0];
@@ -89,10 +89,12 @@ export class QRController {
     try {
       const assetCode = getParam(req.params.code);
       if (!assetCode) { res.status(400).json({ success: false, message: "Asset code wajib diisi" }); return; }
-      const pc = await QRService.findPCByAssetCode(assetCode);
+      if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
+      const pc = await QRService.findPCByAssetCode(assetCode, req.user);
       res.json({ success: true, data: pc });
-    } catch (error: any) {
-      res.status(404).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "PC tidak ditemukan";
+      res.status(error instanceof QRValidationError ? 400 : 404).json({ success: false, message });
     }
   }
 
