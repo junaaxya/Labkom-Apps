@@ -217,7 +217,8 @@ test("check-in rejects missing GPS when geofencing is enabled before transaction
   }
 });
 
-test("ASISTEN_LAB check-in rejects duplicate attendance for the same scheduled shift", async () => {
+test("ASISTEN_LAB check-in rejects duplicate attendance for the same scheduled shift", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.UTC(2026, 9, 13, 3, 30) });
   const restores = [
     replaceMethod(prisma.attendanceSettings, "findFirst", async () => ({ isGeofencingEnabled: false, lateToleranceMinutes: 15 })),
     replaceMethod(prisma, "$transaction", async (callback: (transaction: CheckinTransaction) => Promise<unknown>) => callback(checkinTransaction({
