@@ -75,6 +75,32 @@ export type TicketStatus = "OPEN" | "IN_PROGRESS" | "WAITING" | "RESOLVED" | "RE
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
+export type SupportChatStatus = "WAITING" | "HANDLED";
+
+export interface SupportChatMessage {
+  id: string;
+  body: string;
+  senderId: string;
+  chatStatus?: SupportChatStatus;
+  sender?: Pick<User, "id" | "name" | "role">;
+  createdAt: string;
+}
+
+export interface SupportChat {
+  id: string;
+  status: SupportChatStatus;
+  studentId: string;
+  assistantId?: string | null;
+  student?: Pick<User, "id" | "name" | "role">;
+  assistant?: Pick<User, "id" | "name" | "role"> | null;
+  pc: { id: string; pcCode: string; name: string };
+  lab: { id: string; name: string };
+  messages?: SupportChatMessage[];
+  lastMessage?: SupportChatMessage;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type MissionStatus = "OPEN" | "TAKEN" | "SUBMITTED" | "APPROVED" | "REJECTED";
 
 export type AttendanceStatus = "CHECKED_IN" | "LATE" | "CHECKED_OUT" | "WAITING_VERIFICATION" | "APPROVED" | "REJECTED" | "FORGOT_CHECKOUT" | "ABSENT" | "SICK" | "PERMISSION";

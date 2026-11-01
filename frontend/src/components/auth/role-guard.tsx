@@ -48,6 +48,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/access-requests": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/support-chats": ["MAHASISWA", "ASISTEN_LAB"],
 };
 
 function hasAccess(pathname: string, role: Role): boolean {

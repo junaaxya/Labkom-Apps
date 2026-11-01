@@ -70,7 +70,9 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
           .find((msg) => msg.length > 0)
       : undefined;
 
-    throw new Error(firstFieldError || error.message || `HTTP ${response.status}`);
+    const requestError = new Error(firstFieldError || error.message || `HTTP ${response.status}`) as Error & { status?: number };
+    requestError.status = response.status;
+    throw requestError;
   }
 
   return response.json();
