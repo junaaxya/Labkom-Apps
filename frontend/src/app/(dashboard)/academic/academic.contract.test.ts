@@ -65,6 +65,24 @@ test("PJ management stays scoped and never reads global student management route
   assert.match(page, /api\.post\(`\/academic\/offerings\/\$\{selectedOfferingId\}\/pjs`/);
   assert.match(page, /api\.patch\(`\/academic\/pjs\/\$\{pj\.id\}`/);
   assert.match(page, /isActive: false/);
-  assert.doesNotMatch(page, /api\.get[^\n]*\/academic\/memberships/);
+  assert.doesNotMatch(page, /api\.get[^\n]*\/academic\/memberships["`]/);
   assert.doesNotMatch(page, /api\.get[^\n]*\/academic\/pjs["`]/);
+});
+
+test("academic onboarding separates empty state from offering load failure", () => {
+  assert.match(page, /offeringsError/);
+  assert.match(page, /Penawaran akademik gagal dimuat/);
+  assert.match(page, /Belum ada penawaran terhubung/);
+  assert.match(page, /Koordinator Lab perlu menghubungkan Anda/);
+  assert.doesNotMatch(page, /academic\/offerings"\)\.catch\(\(\) => \(\{ data: \[\] \}\)\)/);
+});
+
+test("coordinator onboarding uses explicit setup and filtered schedule candidates", () => {
+  for (const route of ["/academic/dosen", "/academic/terms", "/academic/courses", "/academic/classes", "/academic/memberships", "/academic/leaders", "/academic/offerings", "/academic/onboarding/schedule-candidates"]) {
+    assert.match(page, new RegExp(route.replaceAll("/", "\\/")));
+  }
+  assert.match(page, /offerings\/\$\{selectedOfferingId\}\/schedule/);
+  assert.match(page, /Workspace Koordinator/);
+  assert.match(page, /role !== "KOORDINATOR_LAB"/);
+  assert.doesNotMatch(page, /api\.get[^\n]*\/schedules/);
 });

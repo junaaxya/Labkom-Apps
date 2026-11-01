@@ -24,23 +24,32 @@ test("Google Calendar OAuth uses an opaque one-time Redis state instead of a raw
 test("ticket creation validates input and atomically updates PC, ticket, and mission", () => {
   const controller = read("src/controllers/ticket.controller.ts");
   const service = read("src/services/ticket.service.ts");
+  const reporterService = read("src/services/ticket-reporter.service.ts");
 
   assert.match(controller, /createTicketSchema\.parse\(req\.body\)/);
-  assert.match(service, /prisma\.\$transaction\(async\s*\(tx\)/);
-  assert.match(service, /PC tidak berada di lab yang dipilih/);
-  assert.doesNotMatch(service, /mission\.create\([\s\S]*?\.catch\(\(\)\s*=>\s*\{\}\)/);
+  assert.match(service, /TicketReporterService\.create\(data\)/);
+  assert.match(reporterService, /runTicketTransaction\(async\s*\(tx\)/);
+  assert.match(reporterService, /PC tidak berada di lab yang dipilih/);
+  assert.doesNotMatch(reporterService, /mission\.create\([\s\S]*?\.catch\(\(\)\s*=>\s*\{\}\)/);
 });
 
-test("ticket schema rejects invalid input and strips identity fields supplied by clients", () => {
+test("ticket schema rejects invalid input and strictly forbids identity fields supplied by clients", () => {
   assert.throws(() => createTicketSchema.parse({ labId: "lab-1", category: "INVALID", title: "ok" }));
   assert.throws(() => createTicketSchema.parse({ labId: "lab-1", category: "MOUSE", title: "   " }));
   assert.throws(() => createTicketSchema.parse({ labId: "lab-1", category: "MOUSE", title: "Valid", photo: ["https://example.com/tracker.jpg"] }));
+  assert.throws(() =>
+    createTicketSchema.parse({
+      labId: "lab-1",
+      category: "MOUSE",
+      title: "Mouse tidak berfungsi",
+      reportedBy: "user-palsu",
+    })
+  );
 
   const parsed = createTicketSchema.parse({
     labId: "lab-1",
     category: "MOUSE",
     title: "Mouse tidak berfungsi",
-    reportedBy: "user-palsu",
   });
   assert.equal("reportedBy" in parsed, false);
 });

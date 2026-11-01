@@ -12,6 +12,7 @@ const ids = {
   report: "cmoseuhxj0002ofz5r10a18l2",
   dosen: "cmoseuhxj0003ofz5r10a18l3",
   otherDosen: "cmoseuhxj0004ofz5r10a18l4",
+  course: "cmoseuhxj0004ofz5r10a18m4",
   student: "cmoseuhxj0005ofz5r10a18l5",
   term: "cmoseuhxj0006ofz5r10a18l6",
   academicClass: "cmoseuhxj0007ofz5r10a18l7",
@@ -301,6 +302,150 @@ test("DOSEN offering reads always scope to authenticated dosen", async () => {
     assert.deepEqual(capturedWhere, { dosenId: ids.dosen });
   } finally {
     restore();
+  }
+});
+
+test("student offering reads return empty without active structured membership", async () => {
+  let capturedWhere: unknown;
+  const restores = [
+    replaceProperty(prisma.academicClassLeader, "findMany", async () => []),
+    replaceProperty(prisma.academicOfferingPJ, "findMany", async () => []),
+    replaceProperty(prisma.academicClassMembership, "findMany", async () => []),
+    replaceProperty(prisma.academicOffering, "findMany", async ({ where }: { where: unknown }) => {
+      capturedWhere = where;
+      return [];
+    }),
+  ];
+
+  try {
+    assert.deepEqual(
+      await AcademicService.listOfferings({}, { userId: ids.ordinaryStudent, role: "MAHASISWA" }),
+      [],
+    );
+    assert.deepEqual(capturedWhere, { id: { in: [] } });
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});
+
+test("coordinator schedule candidates use only safe predicate and display fields", async () => {
+  const candidates = [{
+    id: "schedule-1",
+    title: "Praktikum Basis Data",
+    day: "SENIN",
+    specificDate: null,
+    startTime: "08:00",
+    endTime: "10:00",
+    className: "TI-2A",
+    semester: "3",
+    lecturerName: "Dosen Lama",
+    lab: { id: "lab-1", name: "Lab Basis Data", location: "Gedung A" },
+  }];
+  let reads = 0;
+  let capturedQuery: unknown;
+  const restore = replaceProperty(prisma.schedule, "findMany", async (query: unknown) => {
+    reads += 1;
+    capturedQuery = query;
+    return candidates;
+  });
+
+  try {
+    assert.deepEqual(
+      await AcademicService.listScheduleCandidates({ userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      candidates,
+    );
+    assert.deepEqual(capturedQuery, {
+      where: {
+        isActive: true,
+        type: "PRAKTIKUM",
+        status: "SCHEDULED",
+        academicOffering: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        day: true,
+        specificDate: true,
+        startTime: true,
+        endTime: true,
+        className: true,
+        semester: true,
+        lecturerName: true,
+        lab: { select: { id: true, name: true, location: true } },
+      },
+    });
+    await assert.rejects(
+      AcademicService.listScheduleCandidates({ userId: ids.ordinaryStudent, role: "MAHASISWA" }),
+      AcademicAuthorizationError,
+    );
+    assert.equal(reads, 1);
+  } finally {
+    restore();
+  }
+});
+
+test("offering creation requires active structured references and DOSEN", async () => {
+  let inactiveReference: "term" | "course" | "class" | "dosen" | undefined;
+  let creates = 0;
+  const input = { termId: ids.term, courseId: ids.course, classId: ids.academicClass, dosenId: ids.dosen };
+  const restores = [
+    replaceProperty(prisma.academicTerm, "findUnique", async () => ({ id: ids.term, isActive: inactiveReference !== "term" })),
+    replaceProperty(prisma.academicCourse, "findUnique", async () => ({ id: ids.course, isActive: inactiveReference !== "course" })),
+    replaceProperty(prisma.academicClass, "findUnique", async () => ({ id: ids.academicClass, isActive: inactiveReference !== "class" })),
+    replaceProperty(prisma.user, "findUnique", async () => ({ id: ids.dosen, role: "DOSEN", isActive: inactiveReference !== "dosen" })),
+    replaceProperty(prisma.academicOffering, "create", async () => {
+      creates += 1;
+      return { id: ids.offering };
+    }),
+  ];
+
+  try {
+    for (const reference of ["term", "course", "class", "dosen"] as const) {
+      inactiveReference = reference;
+      await assert.rejects(
+        AcademicService.createOffering(input, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+        /aktif diperlukan/,
+      );
+    }
+    assert.equal(creates, 0);
+
+    inactiveReference = undefined;
+    assert.deepEqual(
+      await AcademicService.createOffering(input, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      { id: ids.offering },
+    );
+    assert.equal(creates, 1);
+  } finally {
+    restores.reverse().forEach((restore) => restore());
+  }
+});
+
+test("offering DOSEN reassignment requires an active DOSEN", async () => {
+  let dosenActive = false;
+  let updates = 0;
+  const restores = [
+    replaceProperty(prisma.user, "findUnique", async () => ({ role: "DOSEN", isActive: dosenActive })),
+    replaceProperty(prisma.academicOffering, "update", async () => {
+      updates += 1;
+      return { id: ids.offering, dosenId: ids.dosen };
+    }),
+  ];
+
+  try {
+    await assert.rejects(
+      AcademicService.updateOffering(ids.offering, { dosenId: ids.dosen }, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      /Dosen aktif diperlukan/,
+    );
+    assert.equal(updates, 0);
+
+    dosenActive = true;
+    assert.deepEqual(
+      await AcademicService.updateOffering(ids.offering, { dosenId: ids.dosen }, { userId: ids.coordinator, role: "KOORDINATOR_LAB" }),
+      { id: ids.offering, dosenId: ids.dosen },
+    );
+    assert.equal(updates, 1);
+  } finally {
+    restores.reverse().forEach((restore) => restore());
   }
 });
 

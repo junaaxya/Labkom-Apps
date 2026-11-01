@@ -104,6 +104,27 @@ type PaginatedLogbookResponse = {
   total?: number;
 };
 
+type TicketAutomationAttempt = {
+  id: string;
+  status: "CREATED" | "DUPLICATE" | "FAILED";
+  errorCode?: string | null;
+  message: string;
+  createdAt: string;
+  ticket?: { id: string; title: string; status: string } | null;
+  condition: {
+    id: string;
+    kerusakanBaru?: string | null;
+    lab?: LabLite | null;
+    submittedBy?: UserLite | null;
+    logbook?: { id: string; date?: string | null } | null;
+  };
+};
+
+type TicketAutomationResponse = {
+  items: TicketAutomationAttempt[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+};
+
 function asArray<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
   if (raw && typeof raw === "object") {
@@ -350,6 +371,7 @@ export default function LogbookPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [ticketAutomation, setTicketAutomation] = useState<TicketAutomationResponse | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -399,6 +421,11 @@ export default function LogbookPage() {
     setListTotalPages(payload.totalPages || 1);
   }, []);
 
+  const fetchTicketAutomation = useCallback(async () => {
+    const response = await api.get<{ data?: TicketAutomationResponse }>("/logbooks/ticket-automation?limit=20");
+    setTicketAutomation(response?.data || null);
+  }, []);
+
   const fetchLogbookDetail = async (id: string) => {
     setDetailLoading(true);
     try {
@@ -419,14 +446,14 @@ export default function LogbookPage() {
       if (isAsleb) {
         await Promise.all([fetchTodayLogbook(), fetchCheckinOptions()]);
       } else if (isKoordinator) {
-        await fetchLogbookList(1);
+        await Promise.all([fetchLogbookList(1), fetchTicketAutomation()]);
       }
     } catch (err) {
       toast.error(errMsg(err, "Gagal memuat data logbook."));
     } finally {
       setLoading(false);
     }
-  }, [fetchCheckinOptions, fetchLogbookList, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
+  }, [fetchCheckinOptions, fetchLogbookList, fetchTicketAutomation, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
 
   useEffect(() => {
     queueMicrotask(() => void loadData());
@@ -788,6 +815,32 @@ export default function LogbookPage() {
       ) : isKoordinator ? (
         <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-3">
+            <div className="rounded-xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-4 shadow-[4px_4px_0px_#1a1a1a]">
+              <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Monitoring Otomasi Ticket</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-white p-2 font-bold">Total: {ticketAutomation?.pagination.total ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-green-50 p-2 font-bold text-green-700">Dibuat: {ticketAutomation?.items.filter((item) => item.status === "CREATED").length ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-yellow-50 p-2 font-bold text-yellow-700">Duplikat: {ticketAutomation?.items.filter((item) => item.status === "DUPLICATE").length ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-red-50 p-2 font-bold text-red-700">Gagal: {ticketAutomation?.items.filter((item) => item.status === "FAILED").length ?? 0}</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {(ticketAutomation?.items || []).length > 0 ? ticketAutomation!.items.map((attempt) => (
+                  <div key={attempt.id} className="rounded-lg border border-[#1a1a1a] bg-white p-3 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`rounded-md px-2 py-1 font-bold ${
+                        attempt.status === "CREATED" ? "bg-green-100 text-green-700" :
+                        attempt.status === "DUPLICATE" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                      }`}>{attempt.status === "CREATED" ? "Dibuat" : attempt.status === "DUPLICATE" ? "Duplikat" : "Gagal"}</span>
+                      <span className="font-medium text-[#5a5a5a]">{formatDateTime(attempt.createdAt)}</span>
+                    </div>
+                    <p className="mt-2 font-bold text-[#1a1a1a]">{attempt.condition.lab?.name || "Lab"} · {attempt.condition.submittedBy?.name || "Pelapor"}</p>
+                    <p className="mt-1 text-[#5a5a5a]">{attempt.condition.kerusakanBaru || attempt.message}</p>
+                    <p className="mt-1 font-medium text-[#4b607f]">{attempt.message}</p>
+                    {attempt.ticket?.id && <a href={`/tickets/${attempt.ticket.id}`} className="mt-2 inline-flex min-h-[44px] items-center font-bold text-[#f3701e] underline">Buka ticket</a>}
+                  </div>
+                )) : <p className="rounded-lg border border-dashed border-[#1a1a1a] bg-white p-3 text-sm font-medium text-[#5a5a5a]">Belum ada percobaan ticket otomatis.</p>}
+              </div>
+            </div>
             <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-4 shadow-[4px_4px_0px_#1a1a1a]">
               <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Daftar Logbook</h2>
               <p className="text-xs font-medium text-[#5a5a5a]">
@@ -837,7 +890,7 @@ export default function LogbookPage() {
                 type="button"
                 disabled={listPage <= 1}
                 onClick={() => fetchLogbookList(listPage - 1)}
-                className="rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-1 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
+                className="min-h-[44px] min-w-[64px] rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-2 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
               >
                 Prev
               </button>
@@ -848,7 +901,7 @@ export default function LogbookPage() {
                 type="button"
                 disabled={listPage >= listTotalPages}
                 onClick={() => fetchLogbookList(listPage + 1)}
-                className="rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-1 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
+                className="min-h-[44px] min-w-[64px] rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-2 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
               >
                 Next
               </button>

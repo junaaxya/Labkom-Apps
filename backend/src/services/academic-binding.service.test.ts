@@ -86,7 +86,19 @@ test("binding rejects already allocated schedules and existing different binding
   }
 });
 
-test("binding rejects booking schedules and inactive official schedules", async () => {
+test("binding rejects non-SCHEDULED official schedules", async () => {
+  for (const status of ["ONGOING", "FINISHED", "CANCELLED"]) {
+    const fake = mockTransaction({ schedule: { ...schedule, status } });
+    try {
+      await assert.rejects(AcademicBindingService.bindSchedule("offering-1", "schedule-1", coordinator), AcademicConflictError);
+      assert.equal(fake.audits.length, 0);
+    } finally {
+      fake.restore();
+    }
+  }
+});
+
+test("binding rejects inactive or non-PRAKTIKUM official schedules", async () => {
   for (const invalid of [{ ...schedule, type: "PEMINJAMAN" }, { ...schedule, isActive: false }]) {
     const fake = mockTransaction({ schedule: invalid });
     try {

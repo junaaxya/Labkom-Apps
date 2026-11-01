@@ -2,6 +2,7 @@ import prisma from "../config/database";
 import type { Prisma } from "@prisma/client";
 import { DayOfWeek } from "@prisma/client";
 import { TicketService } from "./ticket.service";
+import { TicketDuplicateError } from "./ticket-workflow.error";
 import {
   canonicalDateOnly,
   dateOnlyRange,
@@ -40,6 +41,54 @@ type DisplayKeyLog = {
 };
 
 export class LogbookService {
+  static async getTicketAutomationAttempts(filters?: {
+    status?: "CREATED" | "DUPLICATE" | "FAILED";
+    page?: number;
+    limit?: number;
+  }) {
+    const page = filters?.page && filters.page > 0 ? filters.page : 1;
+    const limit = Math.min(filters?.limit && filters.limit > 0 ? filters.limit : 20, 100);
+    const where = filters?.status ? { status: filters.status } : {};
+    const [items, total] = await Promise.all([
+      prisma.logbookTicketAutomationAttempt.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          ticket: { select: { id: true, title: true, status: true } },
+          logbookCondition: {
+            select: {
+              id: true,
+              kerusakanBaru: true,
+              createdAt: true,
+              lab: { select: { id: true, name: true } },
+              submittedBy: { select: { id: true, name: true } },
+              logbook: { select: { id: true, date: true } },
+            },
+          },
+        },
+      }),
+      prisma.logbookTicketAutomationAttempt.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        status: item.status,
+        errorCode: item.errorCode,
+        message: item.status === "FAILED"
+          ? "Ticket otomatis gagal dibuat. Tinjau kondisi dan buat ticket manual bila diperlukan."
+          : item.status === "DUPLICATE"
+            ? "Ticket aktif yang sama sudah tersedia."
+            : "Ticket otomatis berhasil dibuat.",
+        createdAt: item.createdAt,
+        ticket: item.ticket,
+        condition: item.logbookCondition,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   static async getAllLogbooks(filters?: {
     status?: string;
     startDate?: string;
@@ -271,22 +320,53 @@ export class LogbookService {
       },
     });
 
+    let ticketAutomation: {
+      readonly status: "CREATED" | "DUPLICATE" | "FAILED";
+      readonly ticketId?: string;
+      readonly message: string;
+    } | null = null;
     if (conditionData.kerusakanBaru && conditionData.kerusakanBaru.trim().length > 0) {
       try {
-        await TicketService.createTicket({
+        const ticket = await TicketService.createTicket({
           labId,
           reportedBy: userId,
           category: "LAINNYA",
           title: `[Logbook] Kerusakan: ${conditionData.kerusakanBaru.substring(0, 80)}`,
           description: `Kerusakan dilaporkan via logbook.\n\nDetail: ${conditionData.kerusakanBaru}\n\nLogbook: ${logbookId}`,
           priority: "MEDIUM",
+          sourceLogbookConditionId: condition.id,
         });
-      } catch {
-        // fire-and-forget
+        await prisma.logbookTicketAutomationAttempt.create({
+          data: {
+            logbookConditionId: condition.id,
+            ticketId: ticket.id,
+            status: "CREATED",
+          },
+        });
+        ticketAutomation = {
+          status: "CREATED",
+          ticketId: ticket.id,
+          message: "Ticket kerusakan berhasil dibuat.",
+        };
+      } catch (error) {
+        const duplicate = error instanceof TicketDuplicateError;
+        const ticketId = duplicate ? error.existingTicket.id : undefined;
+        await prisma.logbookTicketAutomationAttempt.create({
+          data: {
+            logbookConditionId: condition.id,
+            ticketId,
+            status: duplicate ? "DUPLICATE" : "FAILED",
+            errorCode: duplicate ? "ACTIVE_DUPLICATE" : "TICKET_CREATE_FAILED",
+            errorMessage: duplicate ? "Ticket aktif yang sama sudah tersedia." : "Ticket otomatis gagal dibuat.",
+          },
+        });
+        ticketAutomation = duplicate
+          ? { status: "DUPLICATE", ticketId, message: "Ticket aktif untuk kondisi ini sudah tersedia." }
+          : { status: "FAILED", message: "Kondisi tersimpan, tetapi ticket gagal dibuat. Koordinator perlu menindaklanjuti." };
       }
     }
 
-    return condition;
+    return { ...condition, ticketAutomation };
   }
 
   static async verifyCondition(conditionId: string, userId: string) {

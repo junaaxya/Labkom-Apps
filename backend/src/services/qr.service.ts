@@ -1,6 +1,9 @@
 import * as QRCode from "qrcode";
 import prisma from "../config/database";
 import { config } from "../config";
+import { getJakartaClock } from "./jakarta-time";
+
+export class QRValidationError extends Error {}
 
 const HTML_ESCAPE_MAP: Record<string, string> = {
   "&": "&amp;",
@@ -304,7 +307,7 @@ export class QRService {
   /**
    * Find key by keyCode (from scanned QR URL)
    */
-  static async findKeyByCode(keyCode: string) {
+  static async findKeyByCode(keyCode: string, now = new Date()) {
     const key = await prisma.key.findFirst({
       where: { keyCode },
       include: {
@@ -319,15 +322,12 @@ export class QRService {
     });
     if (!key) throw new Error("Kunci tidak ditemukan");
 
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const now = new Date();
-    const today = dayNames[now.getDay()];
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const clock = getJakartaClock(now);
 
     const todaySchedules = await prisma.schedule.findMany({
       where: {
         labId: key.labId,
-        day: today as never,
+        day: clock.day as never,
         isActive: true,
       },
       select: {
@@ -344,30 +344,41 @@ export class QRService {
     });
 
     const activeSchedule = todaySchedules.find((s) => {
-      return currentTime >= s.startTime && currentTime <= s.endTime;
+      return clock.time >= s.startTime && clock.time <= s.endTime;
     });
 
-    return { ...key, todaySchedules, activeSchedule: activeSchedule || null, currentTime };
+    return { ...key, todaySchedules, activeSchedule: activeSchedule || null, currentTime: clock.time };
   }
 
   /**
    * Find PC by assetCode (from scanned QR URL)
    */
-  static async findPCByAssetCode(assetCode: string) {
+  static async findPCByAssetCode(assetCode: string, actor: { userId: string; role: string }) {
+    const normalizedAssetCode = assetCode.trim();
+    if (!/^[A-Za-z0-9._-]{3,80}$/.test(normalizedAssetCode)) {
+      throw new QRValidationError("Asset code tidak valid");
+    }
     const pc = await prisma.pC.findFirst({
-      where: { assetCode },
+      where: { assetCode: normalizedAssetCode },
       include: {
         lab: { select: { id: true, name: true, location: true } },
         tickets: {
           where: { status: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } },
           orderBy: { createdAt: "desc" },
           take: 5,
-          select: { id: true, title: true, status: true, category: true, createdAt: true },
+          select: { id: true, title: true, status: true, category: true, createdAt: true, reportedBy: true },
         },
       },
     });
     if (!pc) throw new Error("PC tidak ditemukan. Asset code tidak valid.");
-    return pc;
+    const staff = actor.role === "KOORDINATOR_LAB" || actor.role === "ASISTEN_LAB";
+    return {
+      ...pc,
+      activeTicketCount: pc.tickets.length,
+      tickets: pc.tickets.map((ticket) => staff || ticket.reportedBy === actor.userId
+        ? ticket
+        : { status: ticket.status, createdAt: ticket.createdAt }),
+    };
   }
 
   // ============================================

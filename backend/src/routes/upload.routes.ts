@@ -8,6 +8,7 @@ import {
   createUploadFilename,
   ensureUploadDirectories,
   getImageExtension,
+  hasImageSignature,
   getUploadCategoryDir,
   getUploadPath,
   isUploadCategory,
@@ -87,12 +88,6 @@ async function rememberOwners(req: Request, category: UploadCategory, files: Exp
 
 const router = Router();
 
-function hasImageSignature(file: Buffer, mimetype: string): boolean {
-  if (mimetype === "image/jpeg") return file.length >= 3 && file[0] === 0xff && file[1] === 0xd8 && file[2] === 0xff;
-  if (mimetype === "image/png") return file.length >= 8 && file.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  return mimetype === "image/webp" && file.length >= 12 && file.subarray(0, 4).toString("ascii") === "RIFF" && file.subarray(8, 12).toString("ascii") === "WEBP";
-}
-
 async function removeFiles(files: Express.Multer.File[]): Promise<void> {
   await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)));
 }
@@ -146,11 +141,19 @@ router.post(
     }
 
     try {
+      await Promise.all(files.map(async (file) => {
+        const content = await fs.readFile(file.path);
+        if (!hasImageSignature(content, file.mimetype)) {
+          throw new Error("Isi file bukan gambar yang valid");
+        }
+      }));
       await rememberOwners(req, category, files);
       const urls = files.map((file) => toUploadUrl(category, file.filename));
       res.json({ success: true, data: { urls } });
     } catch (error) {
-      next(error);
+      await removeFiles(files);
+      const message = error instanceof Error ? error.message : "Upload gagal";
+      res.status(400).json({ success: false, message });
     }
   }
 );
@@ -160,14 +163,22 @@ router.post(
   authenticate,
   avatarUpload.single("photo"),
   handleMulterError,
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response): Promise<void> => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
 
-    res.json({ success: true, data: { url: toUploadUrl("avatars", file.filename) } });
+    try {
+      const content = await fs.readFile(file.path);
+      if (!hasImageSignature(content, file.mimetype)) throw new Error("Isi file bukan gambar yang valid");
+      res.json({ success: true, data: { url: toUploadUrl("avatars", file.filename) } });
+    } catch (error) {
+      await removeFiles([file]);
+      const message = error instanceof Error ? error.message : "Upload gagal";
+      res.status(400).json({ success: false, message });
+    }
   }
 );
 

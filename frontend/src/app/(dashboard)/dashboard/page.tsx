@@ -35,6 +35,15 @@ function asArray<T>(value: unknown): T[] {
   return [];
 }
 
+function ticketItems<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && "items" in value) {
+    const items = (value as { items?: unknown }).items;
+    return Array.isArray(items) ? items as T[] : [];
+  }
+  return [];
+}
+
 function getUserId(user: LocalUser | null): string {
   if (!user) return "";
   return user.userId || user.id || "";
@@ -92,17 +101,17 @@ export default function DashboardPage() {
 
     if (role === "KOORDINATOR_LAB") {
       const [ticketRes, ticketStatsRes, attendanceRes, aiRes, healthRes, logbookRes, pcAnalyticsRes] = await Promise.all([
-        api.get<{ data: TicketItem[] }>("/tickets?limit=10").catch(() => ({ data: [] })),
-        api.get<{ data: { open?: number; inProgress?: number } }>("/tickets/stats").catch(() => ({ data: { open: 0, inProgress: 0 } })),
+        api.get<{ data: { items: TicketItem[] } }>("/tickets?limit=10").catch(() => ({ data: { items: [] } })),
+        api.get<{ data: { open?: number; inProgress?: number; waiting?: number } }>("/tickets/stats").catch(() => ({ data: { open: 0, inProgress: 0, waiting: 0 } })),
         api.get<{ data: { todayCount: number } }>("/attendance/today-count").catch(() => ({ data: { todayCount: 0 } })),
         api.get<{ data: string[] }>("/ai/insights").catch(() => ({ data: [] })),
         api.get<{ data: { score: number; level: string } }>("/ai/predictive/health").catch(() => ({ data: null })),
         api.get<{ data: LogbookItem[] }>("/logbooks?status=CHECKED_IN").catch(() => ({ data: [] })),
         api.get<{ data: PCAgentStats }>("/pcs/analytics").catch(() => ({ data: null })),
       ]);
-      const ticketStats = ticketStatsRes.data || { open: 0, inProgress: 0 };
-      setTickets(asArray<TicketItem>(ticketRes.data));
-      setActiveTicketCount((ticketStats.open || 0) + (ticketStats.inProgress || 0));
+      const ticketStats = ticketStatsRes.data || { open: 0, inProgress: 0, waiting: 0 };
+      setTickets(ticketItems<TicketItem>(ticketRes.data));
+      setActiveTicketCount((ticketStats.open || 0) + (ticketStats.inProgress || 0) + (ticketStats.waiting || 0));
       setAttendanceToday(attendanceRes.data?.todayCount || 0);
       setAiInsights(asArray<string>(aiRes.data));
       setHealthScore(healthRes.data || null);
@@ -113,7 +122,7 @@ export default function DashboardPage() {
     if (role === "ASISTEN_LAB") {
       const [missionRes, ticketRes, shiftRes, leaderboardRes, attendanceRes] = await Promise.all([
         api.get<{ data: MissionItem[] }>("/missions/my").catch(() => ({ data: [] })),
-        api.get<{ data: TicketItem[] }>(`/tickets?assignedTo=${uid}`).catch(() => ({ data: [] })),
+        api.get<{ data: { items: TicketItem[] } }>(`/tickets?assignedTo=${uid}`).catch(() => ({ data: { items: [] } })),
         api.get<{ data: PicketScheduleItem[] }>(`/attendance/shift-schedules/me?from=${dayjs().format("YYYY-MM-DD")}&to=${dayjs().add(7, "day").format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
         api.get<{ data: LeaderboardEntry[] }>("/leaderboard").catch(() => ({ data: [] })),
         api.get<{ data: { createdAt?: string }[] }>("/attendance/me").catch(() => ({ data: [] })),
@@ -126,7 +135,7 @@ export default function DashboardPage() {
       });
 
       setMyMissions(asArray<MissionItem>(missionRes.data));
-      setTickets(asArray<TicketItem>(ticketRes.data));
+       setTickets(ticketItems<TicketItem>(ticketRes.data));
       setPicketSchedules(myPicketSchedules);
       setLeaderboard(asArray<LeaderboardEntry>(leaderboardRes.data));
       setAttendanceMonthCount(attendanceThisMonth.length);

@@ -68,6 +68,19 @@ const dosenSelect = {
   updatedAt: true,
 } satisfies Prisma.UserSelect;
 
+const onboardingScheduleCandidateSelect = {
+  id: true,
+  title: true,
+  day: true,
+  specificDate: true,
+  startTime: true,
+  endTime: true,
+  className: true,
+  semester: true,
+  lecturerName: true,
+  lab: { select: { id: true, name: true, location: true } },
+} satisfies Prisma.ScheduleSelect;
+
 const offeringInclude = {
   term: { select: { id: true, code: true, name: true, isActive: true } },
   course: { select: { id: true, code: true, name: true, isActive: true } },
@@ -363,20 +376,25 @@ async function assertMembershipReferences(input: CreateAcademicMembershipInput):
 
 async function assertOfferingReferences(input: CreateAcademicOfferingInput): Promise<void> {
   const [term, course, academicClass, dosen] = await Promise.all([
-    prisma.academicTerm.findUnique({ where: { id: input.termId }, select: { id: true } }),
-    prisma.academicCourse.findUnique({ where: { id: input.courseId }, select: { id: true } }),
-    prisma.academicClass.findUnique({ where: { id: input.classId }, select: { id: true } }),
-    prisma.user.findUnique({ where: { id: input.dosenId }, select: { id: true, role: true } }),
+    prisma.academicTerm.findUnique({ where: { id: input.termId }, select: { id: true, isActive: true } }),
+    prisma.academicCourse.findUnique({ where: { id: input.courseId }, select: { id: true, isActive: true } }),
+    prisma.academicClass.findUnique({ where: { id: input.classId }, select: { id: true, isActive: true } }),
+    prisma.user.findUnique({ where: { id: input.dosenId }, select: { id: true, role: true, isActive: true } }),
   ]);
   if (!term) throw new Error("Term akademik tidak ditemukan");
+  if (!term.isActive) throw new Error("Term akademik aktif diperlukan");
   if (!course) throw new Error("Mata kuliah tidak ditemukan");
+  if (!course.isActive) throw new Error("Mata kuliah aktif diperlukan");
   if (!academicClass) throw new Error("Kelas akademik tidak ditemukan");
+  if (!academicClass.isActive) throw new Error("Kelas akademik aktif diperlukan");
   if (!dosen || dosen.role !== "DOSEN") throw new Error("Dosen tidak ditemukan");
+  if (!dosen.isActive) throw new Error("Dosen aktif diperlukan");
 }
 
 async function assertDosen(dosenId: string): Promise<void> {
-  const dosen = await prisma.user.findUnique({ where: { id: dosenId }, select: { role: true } });
+  const dosen = await prisma.user.findUnique({ where: { id: dosenId }, select: { role: true, isActive: true } });
   if (!dosen || dosen.role !== "DOSEN") throw new Error("Dosen tidak ditemukan");
+  if (!dosen.isActive) throw new Error("Dosen aktif diperlukan");
 }
 
 async function assertLeaderMembership(input: AssignAcademicLeaderInput) {
@@ -641,6 +659,19 @@ export class AcademicService {
       },
       include: offeringInclude,
       orderBy: [{ term: { code: "desc" } }, { course: { code: "asc" } }, { academicClass: { code: "asc" } }],
+    });
+  }
+
+  static async listScheduleCandidates(actor: UserContext) {
+    assertCoordinator(actor);
+    return prisma.schedule.findMany({
+      where: {
+        isActive: true,
+        type: "PRAKTIKUM",
+        status: "SCHEDULED",
+        academicOffering: null,
+      },
+      select: onboardingScheduleCandidateSelect,
     });
   }
 

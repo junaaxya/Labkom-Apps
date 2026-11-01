@@ -16,18 +16,20 @@ import {
   TbX,
 } from "react-icons/tb";
 import { useToast } from "@/providers/toast-provider";
-import api from "@/services/api";
+import api, { ApiError } from "@/services/api";
 import type { PCStatus, TicketCategory } from "@/types";
+import { ticketCategoryLabel, ticketStatusLabel } from "../../../tickets/ticket-ui";
 
 type UserContext = {
   role?: string;
 };
 
 type TicketItem = {
-  id: string;
-  title: string;
-  category: TicketCategory;
+  id?: string;
+  title?: string;
+  category?: TicketCategory;
   status: string;
+  createdAt?: string;
 };
 
 type PcScanData = {
@@ -48,6 +50,10 @@ type PcScanData = {
 type PcScanResponse = {
   data?: PcScanData;
   message?: string;
+};
+
+type DuplicateTicketData = {
+  existingTicket?: { id?: string; link?: string; status?: string; createdAt?: string };
 };
 
 const statusMap: Record<PCStatus, { label: string; classes: string }> = {
@@ -91,6 +97,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [duplicateTicket, setDuplicateTicket] = useState<DuplicateTicketData["existingTicket"] | null>(null);
   const [notFoundMessage, setNotFoundMessage] = useState("");
 
   const [ticketForm, setTicketForm] = useState({
@@ -129,6 +136,24 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
     queueMicrotask(() => void fetchPcData());
   }, [fetchPcData]);
 
+  useEffect(() => {
+    if (!showModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowModal(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    window.history.pushState({ qrTicketModal: true }, "");
+    const closeOnBack = () => setShowModal(false);
+    window.addEventListener("popstate", closeOnBack);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("popstate", closeOnBack);
+    };
+  }, [showModal]);
+
   const isCoordinatorOrAssistant = useMemo(() => {
     const role = (user.role || "").toUpperCase();
     return role.includes("KOORDINATOR") || role.includes("ASISTEN");
@@ -141,16 +166,15 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
 
   const submitTicket = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!pcData?.lab?.id) {
-      toast.error("Lab untuk PC ini tidak ditemukan.");
+    if (!pcData?.assetCode) {
+      toast.error("Kode aset PC tidak ditemukan.");
       return;
     }
 
     setSubmittingTicket(true);
+    setDuplicateTicket(null);
     try {
-      await api.post("/tickets", {
-        labId: pcData.lab.id,
-        pcId: pcData.id,
+      await api.post(`/tickets/qr/${encodeURIComponent(pcData.assetCode)}`, {
         title: ticketForm.title.trim(),
         category: ticketForm.category,
         description: ticketForm.description.trim(),
@@ -165,6 +189,10 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
       toast.success("Laporan kerusakan berhasil dikirim.");
       await fetchPcData();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const duplicate = (err.data as DuplicateTicketData | undefined)?.existingTicket;
+        setDuplicateTicket(duplicate ?? null);
+      }
       toast.error(errMsg(err, "Gagal mengirim laporan kerusakan."));
     } finally {
       setSubmittingTicket(false);
@@ -319,15 +347,15 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
               {activeTickets.map((ticket) => (
                 <div key={ticket.id} className="neo-card bg-[#fcf8f4] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white transition-colors duration-200">
                   <div>
-                    <p className="font-bold text-[#1a1a1a] text-lg">{ticket.title}</p>
+                    <p className="font-bold text-[#1a1a1a] text-lg">{ticket.title || "Laporan aktif pada perangkat ini"}</p>
                     <p className="text-sm font-medium text-[#4b607f] mt-1 flex items-center gap-2">
                       <span className="neo-badge px-2 py-0.5 bg-white border-[#4b607f] text-[#4b607f] text-xs">
-                        {ticket.category}
+                        {ticket.category ? ticketCategoryLabel[ticket.category] : "Laporan aktif"}
                       </span>
                     </p>
                   </div>
                   <span className="neo-badge px-3 py-1.5 bg-[#4b607f] text-white self-start sm:self-auto text-sm font-bold">
-                    {ticket.status}
+                    {ticketStatusLabel[ticket.status as keyof typeof ticketStatusLabel] ?? "Aktif"}
                   </span>
                 </div>
               ))}
@@ -339,7 +367,10 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
 
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 transition-all duration-300"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qr-ticket-dialog-title"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transition-all duration-300"
           onClick={() => setShowModal(false)}
         >
           <div
@@ -347,7 +378,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-[#1a1a1a]">
-              <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-3 truncate">
+              <h3 id="qr-ticket-dialog-title" className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-3 truncate">
                 <div className="w-10 h-10 rounded-xl bg-[#f3701e] text-white flex items-center justify-center neo-border-sm flex-shrink-0">
                   <TbPlus size={24} strokeWidth={2.2} />
                 </div>
@@ -363,6 +394,17 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
             </div>
 
             <form onSubmit={submitTicket} className="space-y-5">
+              {duplicateTicket && (
+                <div className="rounded-xl border-2 border-[#f3701e] bg-[#fff3e8] p-4 text-sm text-[#1a1a1a]">
+                  <p className="font-bold">Laporan aktif serupa sudah tersedia.</p>
+                  <p className="mt-1">Status: {duplicateTicket.status ?? "Aktif"}</p>
+                  {duplicateTicket.link && (
+                    <Link href={duplicateTicket.link} className="mt-3 inline-flex min-h-[44px] items-center font-bold text-[#4b607f] underline">
+                      Buka ticket existing
+                    </Link>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">Judul Laporan</label>
                 <input
@@ -385,7 +427,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
-                      {category}
+                      {ticketCategoryLabel[category]}
                     </option>
                   ))}
                 </select>

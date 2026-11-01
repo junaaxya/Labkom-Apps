@@ -206,6 +206,12 @@ enum TicketPriority {
   CRITICAL
 }
 
+enum LogbookTicketAutomationStatus {
+  CREATED
+  DUPLICATE
+  FAILED
+}
+
 enum MissionStatus {
   OPEN
   TAKEN
@@ -331,6 +337,7 @@ model User {
   conditionPhotoUploads      ConditionPhotoUpload[]               @relation("ConditionPhotoOwner")
   ticketsReported            Ticket[]                             @relation("TicketReporter")
   ticketsAssigned            Ticket[]                             @relation("TicketAssignee")
+  ticketEvents               TicketEvent[]                        @relation("TicketEventActor")
   missionsCreated            Mission[]                            @relation("MissionCreator")
   missionClaims              MissionClaim[]                       @relation("MissionClaimant")
   missionClaimsVerified      MissionClaim[]                       @relation("MissionVerifier")
@@ -1181,12 +1188,14 @@ model LogbookCondition {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  logbook                 Logbook             @relation(fields: [logbookId], references: [id])
-  lab                     Lab                 @relation(fields: [labId], references: [id])
-  submittedBy             User?               @relation("ConditionSubmitter", fields: [submittedById], references: [id])
-  verifiedBy              User?               @relation("ConditionVerifier", fields: [verifiedById], references: [id])
-  keyBorrowEvidence       KeyBorrowEvidence[]
-  returnedKeyBorrowCycles KeyBorrowCycle[]    @relation("CycleReturnCondition")
+  logbook                  Logbook                          @relation(fields: [logbookId], references: [id])
+  lab                      Lab                              @relation(fields: [labId], references: [id])
+  submittedBy              User?                            @relation("ConditionSubmitter", fields: [submittedById], references: [id])
+  verifiedBy               User?                            @relation("ConditionVerifier", fields: [verifiedById], references: [id])
+  keyBorrowEvidence        KeyBorrowEvidence[]
+  returnedKeyBorrowCycles  KeyBorrowCycle[]                 @relation("CycleReturnCondition")
+  ticketAutomationAttempts LogbookTicketAutomationAttempt[]
+  generatedTicket          Ticket?                          @relation("LogbookConditionGeneratedTicket")
 
   @@unique([logbookId, labId])
   @@map("logbook_conditions")
@@ -1312,27 +1321,36 @@ model ConditionPhotoUpload {
 // ============================================
 
 model Ticket {
-  id          String         @id @default(cuid())
-  pcId        String?
-  labId       String
-  reportedBy  String
-  assignedTo  String?
-  category    TicketCategory
-  title       String
-  description String?
-  photo       String[] // Array URL foto
-  status      TicketStatus   @default(OPEN)
-  priority    TicketPriority @default(MEDIUM)
-  resolvedAt  DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                       String         @id @default(cuid())
+  pcId                     String?
+  labId                    String
+  reportedBy               String
+  assignedTo               String?
+  category                 TicketCategory
+  title                    String
+  description              String?
+  photo                    String[] // Array URL foto
+  status                   TicketStatus   @default(OPEN)
+  priority                 TicketPriority @default(MEDIUM)
+  resolutionNotes          String?
+  rejectionReason          String?
+  waitingReason            String?
+  activeDuplicateKey       String?        @unique
+  sourceLogbookConditionId String?        @unique
+  resolvedAt               DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
 
   // Relations
-  pc         PC?            @relation(fields: [pcId], references: [id], onDelete: SetNull)
-  lab        Lab            @relation(fields: [labId], references: [id], onDelete: Cascade)
-  reporter   User           @relation("TicketReporter", fields: [reportedBy], references: [id])
-  assignee   User?          @relation("TicketAssignee", fields: [assignedTo], references: [id])
-  dailyTasks DailyTaskLog[] @relation("TaskTicket")
+  pc                        PC?                              @relation(fields: [pcId], references: [id], onDelete: SetNull)
+  lab                       Lab                              @relation(fields: [labId], references: [id], onDelete: Cascade)
+  reporter                  User                             @relation("TicketReporter", fields: [reportedBy], references: [id])
+  assignee                  User?                            @relation("TicketAssignee", fields: [assignedTo], references: [id])
+  events                    TicketEvent[]
+  autoMission               Mission?                         @relation("TicketAutoMission")
+  logbookAutomationAttempts LogbookTicketAutomationAttempt[]
+  sourceLogbookCondition    LogbookCondition?                @relation("LogbookConditionGeneratedTicket", fields: [sourceLogbookConditionId], references: [id], onDelete: Restrict)
+  dailyTasks                DailyTaskLog[]                   @relation("TaskTicket")
 
   @@index([labId, status])
   @@index([status, createdAt])
@@ -1341,29 +1359,69 @@ model Ticket {
   @@map("tickets")
 }
 
+model TicketEvent {
+  id             String        @id @default(cuid())
+  ticketId       String
+  actorId        String
+  eventType      String
+  fromStatus     TicketStatus?
+  toStatus       TicketStatus?
+  fromAssigneeId String?
+  toAssigneeId   String?
+  note           String?
+  createdAt      DateTime      @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor  User   @relation("TicketEventActor", fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("ticket_events")
+}
+
 // ============================================
 // MISSION SYSTEM & GAMIFICATION
 // ============================================
 
 model Mission {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  points      Int           @default(0)
-  deadline    DateTime?
-  status      MissionStatus @default(OPEN)
-  createdById String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  points         Int           @default(0)
+  deadline       DateTime?
+  status         MissionStatus @default(OPEN)
+  createdById    String
+  sourceTicketId String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  createdBy  User           @relation("MissionCreator", fields: [createdById], references: [id])
-  claims     MissionClaim[]
-  dailyTasks DailyTaskLog[] @relation("TaskMission")
+  createdBy    User           @relation("MissionCreator", fields: [createdById], references: [id])
+  sourceTicket Ticket?        @relation("TicketAutoMission", fields: [sourceTicketId], references: [id], onDelete: Restrict)
+  claims       MissionClaim[]
+  dailyTasks   DailyTaskLog[] @relation("TaskMission")
 
   @@index([status, createdAt])
   @@index([createdById])
   @@map("missions")
+}
+
+model LogbookTicketAutomationAttempt {
+  id                 String                        @id @default(cuid())
+  logbookConditionId String
+  ticketId           String?
+  status             LogbookTicketAutomationStatus
+  errorCode          String?
+  errorMessage       String?
+  createdAt          DateTime                      @default(now())
+
+  logbookCondition LogbookCondition @relation(fields: [logbookConditionId], references: [id], onDelete: Restrict)
+  ticket           Ticket?          @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([logbookConditionId, createdAt])
+  @@index([status, createdAt])
+  @@index([ticketId])
+  @@map("logbook_ticket_automation_attempts")
 }
 
 model MissionClaim {

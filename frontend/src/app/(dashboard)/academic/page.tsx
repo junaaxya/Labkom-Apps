@@ -108,6 +108,9 @@ type Membership = {
   isActive?: boolean;
 };
 
+type SetupRecord = { id: string; code?: string; name?: string; email?: string; user?: { id?: string; name?: string; email?: string } };
+type ScheduleCandidate = { id: string; title?: string; className?: string; semester?: string | null; lecturerName?: string | null; date?: string; day?: string; startTime?: string; endTime?: string; lab?: { name?: string }; labId?: string };
+
 type Pj = {
   id: string;
   user?: { id?: string; name?: string; email?: string };
@@ -505,11 +508,23 @@ export default function AcademicPage() {
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [pjUnavailable, setPjUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [offeringsError, setOfferingsError] = useState<string | null>(null);
+  const [terms, setTerms] = useState<SetupRecord[]>([]);
+  const [courses, setCourses] = useState<SetupRecord[]>([]);
+  const [classes, setClasses] = useState<SetupRecord[]>([]);
+  const [dosen, setDosen] = useState<SetupRecord[]>([]);
+  const [setupUsers, setSetupUsers] = useState<SetupRecord[]>([]);
+  const [memberships, setMemberships] = useState<SetupRecord[]>([]);
+  const [candidates, setCandidates] = useState<ScheduleCandidate[]>([]);
+  const [setup, setSetup] = useState({ termId: "", courseId: "", classId: "", dosenId: "", userId: "", membershipId: "", candidateId: "" });
+  const [setupDraft, setSetupDraft] = useState({ code: "", name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setOfferingsError(null);
+    const offeringRequest = api.get<ApiList<AcademicOffering>>("/academic/offerings");
     const [
       offeringResponse,
       reportResponse,
@@ -517,8 +532,8 @@ export default function AcademicPage() {
       requestResponse,
       swapResponse,
       actualResponse,
-    ] = await Promise.all([
-      api.get<ApiList<AcademicOffering>>("/academic/offerings").catch(() => ({ data: [] })),
+    ] = await Promise.allSettled([
+      offeringRequest,
       api.get<ApiList<AcademicReport>>("/academic/reports").catch(() => ({ data: [] })),
       api.get<ApiList<OccurrenceRelease>>("/academic/occurrence-releases").catch(() => ({ data: [] })),
       api.get<ApiList<SlotRequest>>("/academic/slot-requests").catch(() => ({ data: [] })),
@@ -528,14 +543,48 @@ export default function AcademicPage() {
         .catch(() => ({ data: [] })),
     ]);
 
-    setOfferings(extractArray<AcademicOffering>(offeringResponse));
-    setReports(extractArray<AcademicReport>(reportResponse));
-    setReleases(extractArray<OccurrenceRelease>(releaseResponse));
-    setSlotRequests(extractArray<SlotRequest>(requestResponse));
-    setSwaps(extractArray<OccurrenceSwap>(swapResponse));
-    setActualSchedules(extractArray<ActualSchedule>(actualResponse));
+    if (offeringResponse.status === "fulfilled") {
+      setOfferings(extractArray<AcademicOffering>(offeringResponse.value));
+    } else {
+      setOfferingsError(offeringResponse.reason instanceof Error ? offeringResponse.reason.message : "Penawaran akademik gagal dimuat.");
+      setOfferings([]);
+    }
+    setReports(reportResponse.status === "fulfilled" ? extractArray<AcademicReport>(reportResponse.value) : []);
+    setReleases(releaseResponse.status === "fulfilled" ? extractArray<OccurrenceRelease>(releaseResponse.value) : []);
+    setSlotRequests(requestResponse.status === "fulfilled" ? extractArray<SlotRequest>(requestResponse.value) : []);
+    setSwaps(swapResponse.status === "fulfilled" ? extractArray<OccurrenceSwap>(swapResponse.value) : []);
+    setActualSchedules(actualResponse.status === "fulfilled" ? extractArray<ActualSchedule>(actualResponse.value) : []);
     setLoading(false);
   }, [actualDate]);
+
+  useEffect(() => {
+    if (role !== "KOORDINATOR_LAB") return;
+    Promise.all([
+      api.get<unknown>("/academic/terms"),
+      api.get<unknown>("/academic/courses"),
+      api.get<unknown>("/academic/classes"),
+      api.get<unknown>("/academic/dosen"),
+      api.get<unknown>("/users?role=MAHASISWA&isActive=true&limit=100"),
+      api.get<unknown>("/academic/onboarding/schedule-candidates"),
+    ]).then(([termResponse, courseResponse, classResponse, dosenResponse, userResponse, candidateResponse]) => {
+      setTerms(extractArray<SetupRecord>(termResponse));
+      setCourses(extractArray<SetupRecord>(courseResponse));
+      setClasses(extractArray<SetupRecord>(classResponse));
+      setDosen(extractArray<SetupRecord>(dosenResponse));
+      setSetupUsers(extractArray<SetupRecord>(userResponse));
+      setCandidates(extractArray<ScheduleCandidate>(candidateResponse));
+    }).catch(() => setMessage({ text: "Data onboarding koordinator gagal dimuat.", type: "error" }));
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "KOORDINATOR_LAB" || !setup.termId || !setup.classId) {
+      queueMicrotask(() => setMemberships([]));
+      return;
+    }
+    api.get<unknown>(`/academic/memberships?termId=${setup.termId}&classId=${setup.classId}&isActive=true`)
+      .then((response) => setMemberships(extractArray<SetupRecord>(response)))
+      .catch(() => setMemberships([]));
+  }, [role, setup.termId, setup.classId]);
 
   useEffect(() => {
     queueMicrotask(() => void load());
@@ -765,6 +814,53 @@ export default function AcademicPage() {
       "PJ berhasil diganti.",
       "Penggantian PJ gagal."
     );
+  }
+
+  async function createSetupRecord(kind: "terms" | "courses" | "classes" | "dosen") {
+    const body = kind === "dosen"
+      ? { name: setupDraft.name, email: setupDraft.email, password: setupDraft.password }
+      : { code: setupDraft.code, name: setupDraft.name };
+    await mutate(async () => {
+      const response = await api.post<unknown>(`/academic/${kind}`, body);
+      const record = extractArray<SetupRecord>(response)[0] || (response as { data?: SetupRecord }).data;
+      if (record?.id) setSetup((current) => ({ ...current, [kind === "terms" ? "termId" : kind === "courses" ? "courseId" : kind === "classes" ? "classId" : "dosenId"]: record.id }));
+      setSetupDraft({ code: "", name: "", email: "", password: "" });
+    }, "Data onboarding dibuat.", "Data onboarding gagal dibuat.");
+  }
+
+  async function createMembership() {
+    if (!setup.termId || !setup.classId || !setup.userId) return;
+    await mutate(async () => {
+      const response = await api.post<unknown>("/academic/memberships", { termId: setup.termId, classId: setup.classId, userId: setup.userId, isActive: true });
+      const membership = extractArray<SetupRecord>(response)[0] || (response as { data?: SetupRecord }).data;
+      if (membership?.id) {
+        setMemberships((current) => current.some((item) => item.id === membership.id) ? current : [...current, membership]);
+        setSetup((current) => ({ ...current, membershipId: membership.id }));
+      }
+    }, "Keanggotaan aktif dibuat.", "Keanggotaan gagal dibuat.");
+  }
+
+  async function assignLeader() {
+    if (!setup.termId || !setup.classId || !setup.membershipId) return;
+    await mutate(() => api.post("/academic/leaders", { termId: setup.termId, classId: setup.classId, membershipId: setup.membershipId }), "Ketua kelas ditetapkan.", "Ketua kelas gagal ditetapkan.");
+  }
+
+  async function createOffering() {
+    if (!setup.termId || !setup.courseId || !setup.classId || !setup.dosenId) return;
+    await mutate(async () => {
+      const response = await api.post<unknown>("/academic/offerings", { termId: setup.termId, courseId: setup.courseId, classId: setup.classId, dosenId: setup.dosenId, isActive: true });
+      const offering = extractArray<AcademicOffering>(response)[0] || (response as { data?: AcademicOffering }).data;
+      if (offering?.id) setSelectedOfferingId(offering.id);
+    }, "Offering dibuat. Pilih kandidat jadwal untuk menghubungkannya.", "Offering gagal dibuat.");
+  }
+
+  async function bindCandidate() {
+    if (!selectedOfferingId || !setup.candidateId) return;
+    await mutate(async () => {
+      await api.post(`/academic/offerings/${selectedOfferingId}/schedule`, { scheduleId: setup.candidateId });
+      setCandidates((current) => current.filter((candidate) => candidate.id !== setup.candidateId));
+      setSetup((current) => ({ ...current, candidateId: "" }));
+    }, "Jadwal berhasil dihubungkan.", "Jadwal gagal dihubungkan.");
   }
 
   return (
@@ -1057,6 +1153,62 @@ export default function AcademicPage() {
             </div>
           </section>
 
+          {offeringsError ? (
+            <section className="neo-card border-2 border-rose-600 bg-rose-50 p-4 text-rose-900">
+              <p className="flex items-center gap-2 font-black"><TbAlertCircle className="h-5 w-5" /> Penawaran akademik gagal dimuat</p>
+              <p className="mt-1 text-xs font-medium">{offeringsError}. Coba segarkan halaman.</p>
+            </section>
+          ) : offerings.length === 0 && role !== "KOORDINATOR_LAB" && !loading ? (
+            <section className="neo-card border-2 border-[#4b607f] bg-white p-4 sm:p-5">
+              <p className="flex items-center gap-2 font-heading text-base font-black text-[#1a1a1a]"><TbInfoCircle className="h-5 w-5 text-[#4b607f]" /> Belum ada penawaran terhubung</p>
+              <p className="mt-1 text-sm text-[#5a5a5a]">Koordinator Lab perlu menghubungkan Anda ke penawaran akademik. Data jadwal lama tidak ditampilkan di portal ini.</p>
+            </section>
+          ) : null}
+
+          {role === "KOORDINATOR_LAB" && (
+            <section className="neo-card space-y-4 border-2 border-[#1a1a1a] bg-white p-4 sm:p-6">
+              <div>
+                <p className="neo-badge inline-flex bg-[#f3701e] px-2 py-1 text-[10px] font-black uppercase text-white">Workspace Koordinator</p>
+                <h2 className="mt-2 font-heading text-lg font-black text-[#1a1a1a]">Onboarding akademik eksplisit</h2>
+                <p className="text-xs text-[#5a5a5a]">Buat relasi akademik satu per satu. Tidak ada migrasi otomatis dari jadwal lama.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2 border-2 border-[#1a1a1a] bg-[#f5ede6] p-3">
+                  <p className="text-xs font-black uppercase">1. Master term, mata kuliah, kelas, dosen</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {([['termId', 'Term', terms], ['courseId', 'Mata kuliah', courses], ['classId', 'Kelas', classes], ['dosenId', 'Dosen', dosen]] as const).map(([key, label, items]) => (
+                      <label key={key} className="text-xs font-bold">{label}
+                        <select value={setup[key]} onChange={(event) => setSetup((current) => ({ ...current, [key]: event.target.value }))} className="neo-input mt-1 min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs">
+                          <option value="">Pilih {label}</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name || item.code || item.email}</option>)}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input value={setupDraft.code} onChange={(event) => setSetupDraft((current) => ({ ...current, code: event.target.value }))} placeholder="Kode term/kuliah/kelas" className="neo-input min-h-[44px] border-2 border-[#1a1a1a] text-xs" />
+                    <input value={setupDraft.name} onChange={(event) => setSetupDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Nama" className="neo-input min-h-[44px] border-2 border-[#1a1a1a] text-xs" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">{([['terms', 'Term'], ['courses', 'Mata kuliah'], ['classes', 'Kelas']] as const).map(([kind, label]) => <button key={kind} type="button" onClick={() => void createSetupRecord(kind)} className="neo-btn min-h-[44px] bg-[#4b607f] px-3 py-2 text-xs font-bold text-white">Buat {label}</button>)}</div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><input value={setupDraft.email} onChange={(event) => setSetupDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Email dosen" className="neo-input min-h-[44px] border-2 border-[#1a1a1a] text-xs" /><input value={setupDraft.password} onChange={(event) => setSetupDraft((current) => ({ ...current, password: event.target.value }))} placeholder="Password dosen" type="password" className="neo-input min-h-[44px] border-2 border-[#1a1a1a] text-xs" /><button type="button" onClick={() => void createSetupRecord("dosen")} className="neo-btn min-h-[44px] bg-[#4b607f] px-3 py-2 text-xs font-bold text-white">Buat Dosen</button></div>
+                </div>
+                <div className="space-y-2 border-2 border-[#1a1a1a] bg-[#f5ede6] p-3">
+                  <p className="text-xs font-black uppercase">2. Anggota aktif dan ketua kelas</p>
+                  <select value={setup.userId} onChange={(event) => setSetup((current) => ({ ...current, userId: event.target.value }))} className="neo-input min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs"><option value="">Pilih mahasiswa aktif</option>{setupUsers.map((item) => <option key={item.id} value={item.id}>{item.name || item.email}</option>)}</select>
+                  <button type="button" onClick={() => void createMembership()} className="neo-btn min-h-[44px] w-full bg-[#4b607f] px-3 py-2 text-xs font-bold text-white">Buat keanggotaan aktif</button>
+                  <select value={setup.membershipId} onChange={(event) => setSetup((current) => ({ ...current, membershipId: event.target.value }))} className="neo-input min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs"><option value="">Pilih anggota sebagai ketua</option>{memberships.map((item) => <option key={item.id} value={item.id}>{item.user?.name || item.user?.email || item.name}</option>)}</select>
+                  <button type="button" onClick={() => void assignLeader()} className="neo-btn min-h-[44px] w-full bg-[#f3701e] px-3 py-2 text-xs font-bold text-white">Tetapkan ketua kelas</button>
+                </div>
+              </div>
+              <div className="space-y-2 border-2 border-[#1a1a1a] bg-[#f5ede6] p-3">
+                <p className="text-xs font-black uppercase">3. Offering dan bind kandidat jadwal</p>
+                <button type="button" onClick={() => void createOffering()} className="neo-btn min-h-[44px] bg-[#1a1a1a] px-3 py-2 text-xs font-bold text-white">Buat offering dari pilihan di atas</button>
+                <CoursePicker offerings={offerings} value={selectedOfferingId} onChange={setSelectedOfferingId} label="Offering target" placeholder="Pilih offering" loading={loading} />
+                <select value={setup.candidateId} onChange={(event) => setSetup((current) => ({ ...current, candidateId: event.target.value }))} className="neo-input min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs"><option value="">Pilih kandidat jadwal PRAKTIKUM aktif</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title || "Praktikum"} · {candidate.className || "Kelas"} · {candidate.lab?.name || candidate.labId || "Lab"} · {candidate.day || candidate.date || "Tanggal"} {candidate.startTime || "-"}–{candidate.endTime || "-"}</option>)}</select>
+                <button type="button" onClick={() => void bindCandidate()} className="neo-btn min-h-[44px] bg-[#f3701e] px-3 py-2 text-xs font-bold text-white">Hubungkan jadwal terpilih</button>
+              </div>
+            </section>
+          )}
+
           <section className="space-y-2.5 sm:space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-sm sm:text-xl font-bold text-[#1a1a1a] flex items-center gap-1.5 sm:gap-2">
@@ -1238,7 +1390,7 @@ export default function AcademicPage() {
                         <p className="flex items-center gap-2">
                           <TbClock className="w-4 h-4 text-[#f3701e] shrink-0" />
                           <span className="font-bold">Waktu:</span>{" "}
-                          {offering.schedule?.day || offering.schedule?.date || "Jadwal belum tersedia"}{" "}
+                          {offering.schedule?.day || offering.schedule?.date || "Belum terhubung"}{" "}
                           {offering.schedule?.startTime && `(${offering.schedule.startTime}–${offering.schedule.endTime || ""})`}
                         </p>
                         <p className="flex items-center gap-2">

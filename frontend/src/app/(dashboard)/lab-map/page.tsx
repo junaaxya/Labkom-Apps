@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TbDeviceDesktop, TbTicket, TbRefresh, TbLoader2, TbX } from "react-icons/tb";
 import api from "@/services/api";
+import Link from "next/link";
+import { ticketStatusLabel } from "../tickets/ticket-ui";
 
 type PCStatus = "AVAILABLE" | "IN_USE" | "BROKEN" | "MAINTENANCE" | "INACTIVE";
 
@@ -19,6 +21,7 @@ interface Lab {
 interface PCNode {
   id: string;
   pcCode: string;
+  assetCode?: string;
   name: string;
   status: PCStatus;
   agentStatus?: AgentStatus;
@@ -31,6 +34,7 @@ interface PCNode {
 interface LabPcResponse {
   id: string;
   pcCode?: string;
+  assetCode?: string;
   name?: string;
   status?: PCStatus;
   agentStatus?: AgentStatus;
@@ -79,6 +83,14 @@ export default function LabMapPage() {
   const [loadingLabs, setLoadingLabs] = useState(true);
   const [pcTickets, setPcTickets] = useState<TicketSummary[]>([]);
 
+  useEffect(() => {
+    if (!selectedPC) return;
+    window.history.pushState({ labMapDrawer: true }, "");
+    const closeOnBack = () => setSelectedPC(null);
+    window.addEventListener("popstate", closeOnBack);
+    return () => window.removeEventListener("popstate", closeOnBack);
+  }, [selectedPC]);
+
   const fetchLabs = useCallback(async () => {
     setLoadingLabs(true);
     try {
@@ -104,7 +116,8 @@ export default function LabMapPage() {
       const cols = Math.min(Math.ceil(Math.sqrt(pcsData.length)), 6) || 4;
       const mapped: PCNode[] = pcsData.map((pc, idx) => ({
         id: pc.id,
-        pcCode: pc.pcCode || `PC-${idx + 1}`,
+         pcCode: pc.pcCode || `PC-${idx + 1}`,
+         assetCode: pc.assetCode,
         name: pc.name || `PC ${idx + 1}`,
         status: pc.status || "AVAILABLE",
         agentStatus: pc.agentStatus || undefined,
@@ -137,8 +150,9 @@ export default function LabMapPage() {
   const handlePCClick = async (pc: PCNode) => {
     setSelectedPC(pc);
     try {
-      const res = await api.get<{ data: TicketSummary[] }>(`/tickets?pcId=${pc.id}&limit=5`);
-      setPcTickets(res.data || []);
+      const res = await api.get<{ data?: TicketSummary[] | { items?: TicketSummary[] } }>(`/tickets?pcId=${pc.id}&limit=5`);
+      const payload = res.data;
+      setPcTickets(Array.isArray(payload) ? payload : payload?.items || []);
     } catch {
       setPcTickets([]);
     }
@@ -299,7 +313,7 @@ export default function LabMapPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
             onClick={() => setSelectedPC(null)}
           >
             <motion.div
@@ -368,11 +382,11 @@ export default function LabMapPage() {
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {pcTickets.map((t) => (
                       <div key={t.id} className="flex items-start sm:items-center justify-between gap-2 text-sm p-3 bg-white neo-border-sm rounded-lg hover:bg-[#fcf8f4] transition-colors duration-200">
-                        <span className="truncate flex-1 font-medium text-[#1a1a1a] pr-2">{t.title || t.description?.slice(0, 30)}</span>
+                        {t.id ? <Link href={`/tickets/${t.id}`} className="truncate flex-1 font-medium text-[#1a1a1a] pr-2 underline-offset-2 hover:underline">{t.title || t.description?.slice(0, 30) || "Ticket"}</Link> : <span className="truncate flex-1 font-medium text-[#1a1a1a] pr-2">Ticket</span>}
                         <span className={`px-2 py-1 rounded-md text-[10px] font-bold shadow-[1px_1px_0px_#1a1a1a] border-2 ${
                           t.status === "RESOLVED" ? "bg-green-100 text-green-700 border-green-700" :
                           t.status === "OPEN" ? "bg-red-100 text-red-700 border-red-700" : "bg-yellow-100 text-yellow-700 border-yellow-700"
-                        }`}>{t.status}</span>
+                        }`}>{ticketStatusLabel[t.status as keyof typeof ticketStatusLabel] ?? t.status}</span>
                       </div>
                     ))}
                   </div>
@@ -388,15 +402,12 @@ export default function LabMapPage() {
                 >
                   Tutup
                 </motion.button>
-                {selectedPC.status === "BROKEN" && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#f3701e] hover:bg-[#d95f10] transition-colors duration-200 text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
-                  >
-                    <TbTicket size={18} strokeWidth={2.2} /> Buat Ticket
-                  </motion.button>
-                )}
+                 {selectedPC.assetCode ? <Link
+                     href={`/scan/pc/${encodeURIComponent(selectedPC.assetCode)}`}
+                     className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#f3701e] hover:bg-[#d95f10] transition-colors duration-200 text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
+                   >
+                     <TbTicket size={18} strokeWidth={2.2} /> Laporkan Kerusakan
+                   </Link> : <Link href="/tickets/new" className="w-full sm:flex-1 min-h-[44px] py-3 bg-[#f3701e] text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"><TbTicket size={18} strokeWidth={2.2} /> Laporkan Kerusakan</Link>}
               </div>
             </motion.div>
           </motion.div>

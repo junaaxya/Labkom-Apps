@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import prisma from "../config/database";
-import { QRService } from "./qr.service";
+import { QRService, QRValidationError } from "./qr.service";
 
 type Restore = () => void;
 
@@ -198,6 +198,127 @@ test("print sheet keeps missing-lab error", async () => {
 
   try {
     await assert.rejects(QRService.generatePrintSheet("missing-lab", "all"), /Lab tidak ditemukan/);
+  } finally {
+    restoreAll(restores);
+  }
+});
+
+test("PC scan rejects malformed asset codes before querying storage", async () => {
+  let queries = 0;
+  const restore = replaceMethod(prisma.pC, "findFirst", async () => {
+    queries += 1;
+    return null;
+  });
+
+  try {
+    await assert.rejects(
+      QRService.findPCByAssetCode("../PC-001", { userId: "student-1", role: "MAHASISWA" }),
+      QRValidationError,
+    );
+    assert.equal(queries, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("PC scan redacts another reporter's active ticket details", async () => {
+  const restore = replaceMethod(prisma.pC, "findFirst", async () => ({
+    id: "pc-1",
+    assetCode: "ASSET-LABD-PC-001",
+    pcCode: "LABD-PC-001",
+    labId: "lab-1",
+    lab: { id: "lab-1", name: "Lab Dasar", location: "Gedung A" },
+    tickets: [{
+      id: "ticket-private",
+      title: "Catatan privat reporter",
+      status: "OPEN",
+      category: "CPU",
+      createdAt: new Date("2026-11-01T00:00:00.000Z"),
+      reportedBy: "student-2",
+    }],
+  }));
+
+  try {
+    const result = await QRService.findPCByAssetCode(
+      "ASSET-LABD-PC-001",
+      { userId: "student-1", role: "MAHASISWA" },
+    );
+    assert.equal(result.activeTicketCount, 1);
+    assert.deepEqual(result.tickets, [{
+      status: "OPEN",
+      createdAt: new Date("2026-11-01T00:00:00.000Z"),
+    }]);
+  } finally {
+    restore();
+  }
+});
+
+test("PC scan exposes active ticket details only to staff or the reporter", async () => {
+  const activeTicket = {
+    id: "ticket-own",
+    title: "Monitor mati",
+    status: "IN_PROGRESS",
+    category: "MONITOR",
+    createdAt: new Date("2026-11-01T00:00:00.000Z"),
+    reportedBy: "student-1",
+  };
+  const restore = replaceMethod(prisma.pC, "findFirst", async () => ({
+    id: "pc-1",
+    assetCode: "ASSET-LABD-PC-001",
+    lab: { id: "lab-1", name: "Lab Dasar", location: "Gedung A" },
+    tickets: [activeTicket],
+  }));
+
+  try {
+    const own = await QRService.findPCByAssetCode(
+      "ASSET-LABD-PC-001",
+      { userId: "student-1", role: "MAHASISWA" },
+    );
+    const staff = await QRService.findPCByAssetCode(
+      "ASSET-LABD-PC-001",
+      { userId: "assistant-1", role: "ASISTEN_LAB" },
+    );
+    assert.deepEqual(own.tickets, [activeTicket]);
+    assert.deepEqual(staff.tickets, [activeTicket]);
+  } finally {
+    restore();
+  }
+});
+
+test("key scan uses WIB day and time for active schedules, including UTC day rollover", async () => {
+  const calls: unknown[] = [];
+  const restores = [
+    replaceMethod(prisma.key, "findFirst", async () => ({
+      id: "key-1",
+      keyCode: "KEY-LABD-001",
+      labId: "lab-1",
+      lab: { id: "lab-1", name: "Lab Dasar", location: "Gedung A" },
+      currentHolder: null,
+      keyLogs: [],
+    })),
+    replaceMethod(prisma.schedule, "findMany", async (args: unknown) => {
+      calls.push(args);
+      return [{
+        id: "schedule-1",
+        title: "Praktikum WIB",
+        startTime: "11:58",
+        endTime: "12:07",
+        semester: "5",
+        className: "TI-2A",
+        lecturerName: "Dosen",
+        type: "PRAKTIKUM",
+      }];
+    }),
+  ];
+
+  try {
+    const noonWib = await QRService.findKeyByCode("KEY-LABD-001", new Date("2026-11-01T05:00:00.000Z"));
+    assert.equal(noonWib.currentTime, "12:00");
+    assert.equal(noonWib.activeSchedule?.id, "schedule-1");
+    assert.deepEqual((calls[0] as { where: { day: string } }).where.day, "MINGGU");
+
+    await QRService.findKeyByCode("KEY-LABD-001", new Date("2026-10-31T17:05:00.000Z"));
+    assert.deepEqual((calls[1] as { where: { day: string } }).where.day, "MINGGU");
   } finally {
     restoreAll(restores);
   }

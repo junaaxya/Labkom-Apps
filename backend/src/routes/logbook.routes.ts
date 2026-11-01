@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/stats", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), LogbookController.getStats);
 router.get("/today", authenticate, authorize("ASISTEN_LAB"), LogbookController.getTodayLogbook);
+router.get("/ticket-automation", authenticate, authorize("KOORDINATOR_LAB"), LogbookController.getTicketAutomationAttempts);
 router.get("/", authenticate, LogbookController.getAllLogbooks);
 router.get("/:id", authenticate, LogbookController.getLogbookById);
 router.post("/checkin", authenticate, authorize("ASISTEN_LAB", "KOORDINATOR_LAB"), LogbookController.checkin);
