@@ -12,6 +12,8 @@ import {
   TbNetwork,
   TbPlus,
   TbTicket,
+  TbMessageCircle,
+  TbSend,
   TbTools,
   TbX,
 } from "react-icons/tb";
@@ -91,6 +93,10 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportBody, setSupportBody] = useState("");
+  const [submittingSupport, setSubmittingSupport] = useState(false);
+  const [supportError, setSupportError] = useState("");
   const [notFoundMessage, setNotFoundMessage] = useState("");
 
   const [ticketForm, setTicketForm] = useState({
@@ -168,6 +174,25 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
       toast.error(errMsg(err, "Gagal mengirim laporan kerusakan."));
     } finally {
       setSubmittingTicket(false);
+    }
+  };
+
+  const submitSupportChat = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const body = supportBody.trim();
+    if (!pcData || !body || submittingSupport) return;
+    setSubmittingSupport(true);
+    setSupportError("");
+    try {
+      const response = await api.post<{ data: { id: string } }>("/support-chats", { pcId: pcData.id, body });
+      setSupportBody("");
+      setShowSupportModal(false);
+      window.location.assign(`/support-chats/${response.data.id}`);
+    } catch (error) {
+      const status = error && typeof error === "object" && "status" in error ? error.status : undefined;
+      setSupportError(errMsg(error, status === 409 ? "Tidak ada Asisten Lab yang sedang bertugas untuk lab ini." : "Chat belum dapat dibuat."));
+    } finally {
+      setSubmittingSupport(false);
     }
   };
 
@@ -264,6 +289,15 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-4">
+            {user.role === "MAHASISWA" && <button
+              type="button"
+              onClick={() => { setSupportError(""); setShowSupportModal(true); }}
+              className="neo-btn px-6 py-3 bg-[#4b607f] text-white inline-flex items-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200"
+            >
+              <TbMessageCircle size={20} strokeWidth={2.2} />
+              <span className="font-bold">Chat dengan Asisten</span>
+            </button>}
+
             <button
               type="button"
               onClick={() => setShowModal(true)}
@@ -422,6 +456,16 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSupportModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={() => setShowSupportModal(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="support-chat-title" className="neo-card max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-4 sm:p-6" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4"><h2 id="support-chat-title" className="font-heading text-xl font-bold sm:text-2xl">Chat dengan Asisten</h2><button type="button" onClick={() => setShowSupportModal(false)} aria-label="Tutup modal chat" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-500 hover:bg-red-100"><TbX size={21} /></button></div>
+            <p className="mb-4 rounded-lg border-2 border-[#4b607f] bg-[#f5ede6] p-3 text-sm font-semibold text-[#4b607f]">{pcData.name} · {pcData.pcCode}</p>
+            <form onSubmit={submitSupportChat} className="space-y-4"><label className="block space-y-2"><span className="text-sm font-bold uppercase tracking-wider">Pesan</span><textarea required minLength={1} maxLength={2000} rows={5} value={supportBody} onChange={(event) => setSupportBody(event.target.value)} disabled={submittingSupport} className="neo-input min-h-32 resize-y" placeholder="Ceritakan pertanyaan atau kendala pada PC ini..." /></label>{supportError && <p role="alert" className="rounded-lg border-2 border-red-500 bg-red-50 p-3 text-sm font-bold text-red-700">{supportError}</p>}<div className="flex flex-col-reverse gap-3 border-t-2 border-[#1a1a1a] pt-4 sm:flex-row sm:justify-end"><button type="button" disabled={submittingSupport} onClick={() => setShowSupportModal(false)} className="neo-btn min-h-11 bg-white px-5 font-bold">Batal</button><button type="submit" disabled={!supportBody.trim() || submittingSupport} className="neo-btn inline-flex min-h-11 items-center justify-center gap-2 bg-[#4b607f] px-5 font-bold text-white">{submittingSupport ? <TbLoader2 className="animate-spin" /> : <TbSend />}{submittingSupport ? "Mengirim..." : "Mulai Chat"}</button></div></form>
           </div>
         </div>
       )}
