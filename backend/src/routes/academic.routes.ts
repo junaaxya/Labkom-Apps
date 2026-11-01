@@ -30,6 +30,7 @@ router.get("/leaders", authorize("KOORDINATOR_LAB"), AcademicController.listLead
 router.post("/leaders", authorize("KOORDINATOR_LAB"), AcademicController.assignLeader);
 router.patch("/leaders/:id", authorize("KOORDINATOR_LAB"), AcademicController.updateLeader);
 
+router.get("/onboarding/schedule-candidates", authorize("KOORDINATOR_LAB"), AcademicController.listScheduleCandidates);
 router.get("/offerings", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listOfferings);
 router.post("/offerings", authorize("KOORDINATOR_LAB"), AcademicController.createOffering);
 router.patch("/offerings/:id", authorize("KOORDINATOR_LAB"), AcademicController.updateOffering);

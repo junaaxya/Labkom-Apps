@@ -64,3 +64,55 @@ test("binding HTTP endpoint requires coordinator and valid schedule ID", async (
     restores.reverse().forEach((restore) => restore());
   }
 });
+
+test("onboarding schedule candidates are coordinator-only and display-only", async () => {
+  const candidates = [{
+    id: scheduleId,
+    title: "Praktikum Basis Data",
+    day: "SENIN",
+    specificDate: null,
+    startTime: "08:00",
+    endTime: "10:00",
+    className: "TI-2A",
+    semester: "3",
+    lecturerName: "Dosen Lama",
+    lab: { id: "lab-1", name: "Lab Basis Data", location: "Gedung A" },
+  }];
+  let scheduleReads = 0;
+  const restores = [
+    replace(prisma.user, "findUnique", async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      role: where.id === "coordinator" ? "KOORDINATOR_LAB" : where.id === "dosen" ? "DOSEN" : "MAHASISWA",
+      isActive: true,
+      mustChangePassword: false,
+    })),
+    replace(prisma.schedule, "findMany", async () => {
+      scheduleReads += 1;
+      return candidates;
+    }),
+  ];
+  const app = express();
+  app.use("/api/v1/academic", academicRoutes);
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const url = `http://127.0.0.1:${address.port}/api/v1/academic/onboarding/schedule-candidates`;
+    const request = (userId: string | null) => fetch(url, {
+      headers: userId ? { authorization: `Bearer ${jwt.sign({ userId }, config.jwtSecret)}` } : {},
+    });
+
+    assert.equal((await request(null)).status, 401);
+    assert.equal((await request("student")).status, 403);
+    assert.equal((await request("dosen")).status, 403);
+    const response = await request("coordinator");
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { success: true, data: candidates });
+    assert.equal(scheduleReads, 1);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    restores.reverse().forEach((restore) => restore());
+  }
+});

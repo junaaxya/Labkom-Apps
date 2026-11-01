@@ -240,6 +240,14 @@ export class AcademicController {
     }
   }
 
+  static async listScheduleCandidates(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicService.listScheduleCandidates(getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mengambil kandidat jadwal");
+    }
+  }
+
   static async createOffering(req: Request, res: Response): Promise<void> {
     try {
       const data = createAcademicOfferingSchema.parse(req.body);
