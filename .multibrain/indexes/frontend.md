@@ -10,6 +10,12 @@ Rules:
 
 ## Entries
 
+- 2026-11-01 WIB — Sisyphus: final broadcast-chat QA passed: frontend contracts 6/6, TypeScript check, production build, and independent gate review APPROVE; lint has zero errors and four unrelated pre-existing warnings.
+- 2026-11-01 WIB — Sisyphus: broadcast support-chat UX labels unclaimed requests as available to duty assistants; the first reply claims it, and a losing 409 reply stays in the draft then refreshes access/status without appending a false message. Source contracts 6/6, typecheck, and production build pass.
+- 2026-10-31 WIB — Sisyphus: support-chat list/detail refresh only while visible every 15 seconds and on focus, prevents overlapping requests, and preserves server-returned WAITING/HANDLED state; frontend source contracts and production build passed -> `frontend/src/app/(dashboard)/support-chats/`
+
+- 2026-10-31 — Sisyphus-Junior: added role-gated support-chat inbox/detail UI, MAHASISWA PC-scan chat entry with exact `{pcId, body}` payload and plain 409 handling, assistant/student sidebar access, notification deep links, typed models, and deterministic source contracts; frontend typecheck/build/lint/contracts passed -> `frontend/src/app/(dashboard)/support-chats/`
+
 - 2026-10-21 15:57 WIB — Sisyphus: real isolated MAGANG form-login, GPS-geofence UI check-in, and UI checkout passed without a shift; returned attendance row has `shiftScheduleId: null`, then `WAITING_VERIFICATION` with a completed duration -> `frontend/src/app/(dashboard)/attendance/page.tsx`
 - 2026-10-21 12:13 WIB — Sisyphus: added coordinator-only MAGANG attendance-history tab; it lazily loads role-filtered normal attendance rows and shows name, date, check-in, check-out, and status in responsive cards/table while personal MAGANG attendance and shared shift assignment remain unchanged; backend/frontend focused guards, typechecks, builds, and browser QA passed -> `frontend/src/app/(dashboard)/attendance/monitoring/page.tsx`
 - 2026-10-19 WIB — Sisyphus: release gate stopped before PR because dev CI passed for `327bd87516e80e286d7c33970cc8dede017ea6ad`, but no approved MAGANG password/account exists in non-secret seed or source fixtures; no credential guessing, merge, deployment, or production mutation performed -> real-login gate remains blocked
