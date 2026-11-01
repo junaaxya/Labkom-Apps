@@ -531,6 +531,28 @@ export interface Ticket {
   assignee?: User;
   createdAt: string;
   updatedAt: string;
+  resolution?: string;
+  resolutionNotes?: string;
+  rejectionReason?: string;
+  waitingReason?: string;
+  events?: TicketEvent[];
+}
+
+export interface TicketEvent {
+  id: string;
+  type?: string;
+  status?: TicketStatus;
+  fromStatus?: TicketStatus;
+  toStatus?: TicketStatus;
+  eventType?: string;
+  note?: string;
+  reason?: string;
+  assignedTo?: string;
+  fromAssigneeId?: string;
+  toAssigneeId?: string;
+  actor?: User;
+  actorId?: string;
+  createdAt: string;
 }
 
 export interface Mission {
