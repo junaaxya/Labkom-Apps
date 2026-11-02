@@ -10,6 +10,8 @@ Rules:
 
 ## Entries
 
+- 2026-11-04 WIB — Sisyphus: implemented Support Chat realtime delivery, explicit claim UI, and timestamp receipts: added shared useSupportChatStream hook leveraging existing Bearer notification SSE stream with 15s fallback polling only when disconnected, added explicit assistant "Ambil Chat" action and disabled messaging until claimed, added student-side DELIVERED and READ receipt acknowledgment with TbCheck/TbChecks rendering, updated waiting copy to global assistant wording -> frontend/src/app/(dashboard)/support-chats/{page.tsx,[id]/page.tsx}, frontend/src/components/notifications/{notification-panel.tsx,notification-sse.ts,support-chat-stream.ts}, frontend/src/types/index.ts
+
 - 2026-11-03 WIB — Sisyphus: integrated Support Chat inbox/detail and PC-scan entry on latest Android frontend while preserving ApiError metadata, QR ticket privacy/duplicate handling, Academic navigation, and current RBAC; chat stays polling-based and role-scoped to MAHASISWA/ASISTEN_LAB -> frontend/src/app/(dashboard)/support-chats, frontend/src/app/(dashboard)/scan/pc/[code]/page.tsx
 - 2026-11-02 WIB — Sisyphus: completed Academic P0–P2 UI remediation, Logbook access fix, Misi detail modal, and Key Return UX: removed /logbook/condition from student menu, memoized ToastProvider, added MissionDetailModal with full description and location badges, flattened Leaderboard names, added key return textareas and photo controls, added rejection dialog portal, capability-driven action gating, and ResourceError retry states -> frontend/src/{app/(dashboard)/{academic,missions,logbook/condition,scan/key/[code]},components/layout/{neo-sidebar,mobile-bottom-nav},providers/toast-provider}.tsx
 
