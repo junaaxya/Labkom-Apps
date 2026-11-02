@@ -15,6 +15,7 @@ import {
   TbPhoto,
   TbUser,
   TbX,
+  TbZoomIn,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -132,6 +133,7 @@ export default function ScanKeyActionPage({
   const [showConditionForm, setShowConditionForm] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [zoomPhoto, setZoomPhoto] = useState<string | null>(null);
   const [kerusakanBaru, setKerusakanBaru] = useState("");
   const [catatan, setCatatan] = useState("");
   const [submittingCondition, setSubmittingCondition] = useState(false);
@@ -355,10 +357,10 @@ export default function ScanKeyActionPage({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-28 sm:pb-16 max-w-4xl mx-auto">
       <Link
         href="/scan"
-        className="neo-btn inline-flex items-center gap-2 px-4 py-2 bg-white text-[#1a1a1a]"
+        className="neo-btn inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-white text-[#1a1a1a] rounded-xl text-sm font-bold"
       >
         <TbArrowLeft size={18} strokeWidth={2.2} />
         Kembali ke Scan
@@ -463,12 +465,12 @@ export default function ScanKeyActionPage({
               type="button"
               onClick={handleTake}
               disabled={acting}
-              className="neo-btn px-4 py-2.5 bg-[#4b607f] text-white inline-flex items-center gap-2"
+              className="neo-btn w-full sm:w-auto px-5 py-3 min-h-[48px] bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 text-sm font-bold rounded-xl"
             >
               {acting ? (
-                <TbLoader2 className="animate-spin" size={17} />
+                <TbLoader2 className="animate-spin" size={18} />
               ) : (
-                <TbKey size={17} />
+                <TbKey size={18} />
               )}
               {acting ? "Memproses..." : "Ambil Kunci"}
             </button>
@@ -479,12 +481,12 @@ export default function ScanKeyActionPage({
               type="button"
               onClick={handleReturn}
               disabled={acting}
-              className="neo-btn px-4 py-2.5 bg-[#f3701e] text-white inline-flex items-center gap-2"
+              className="neo-btn w-full sm:w-auto px-5 py-3 min-h-[48px] bg-[#f3701e] text-white inline-flex items-center justify-center gap-2 text-sm font-bold rounded-xl"
             >
               {acting ? (
-                <TbLoader2 className="animate-spin" size={17} />
+                <TbLoader2 className="animate-spin" size={18} />
               ) : (
-                <TbCheck size={17} />
+                <TbCheck size={18} />
               )}
               {acting ? "Memproses..." : "Kembalikan Kunci"}
             </button>
@@ -493,7 +495,7 @@ export default function ScanKeyActionPage({
           {keyData.status === "BORROWED" &&
             !isCurrentHolder &&
             keyData.currentHolder?.name && (
-              <p className="text-sm font-medium text-[#5a5a5a]">
+              <p className="text-sm font-medium text-[#5a5a5a] bg-[#f5ede6] p-3 rounded-xl border border-[#e8d8c9]">
                 Kunci sedang dipinjam oleh {keyData.currentHolder.name}
               </p>
             )}
@@ -502,40 +504,62 @@ export default function ScanKeyActionPage({
 
       {/* Condition Validation Form — shown when returning requires condition */}
       {showConditionForm && (returnStatus?.needsCondition || eligibility?.needsEvidence || Boolean(returnStatus?.cycleId)) && (
-        <div className="neo-card bg-white p-6 space-y-5 border-2 border-[#f3701e] shadow-[4px_4px_0px_#f3701e]">
+        <div className="neo-card bg-white p-5 sm:p-6 space-y-5 rounded-2xl border-2 border-[#f3701e] shadow-[4px_4px_0px_#f3701e]">
           <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f3701e]/10 text-[#f3701e] text-xs font-bold mb-2">
+              <span>📸</span>
+              <span>Validasi Pengembalian Kunci</span>
+            </div>
             <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
-               📸 Submit Kondisi Lab
+              Submit Kondisi Lab
             </h2>
             <p className="text-sm text-[#5a5a5a] mt-1">
-               Kirim foto kondisi lab setelah selesai dipakai, lalu kembalikan kunci. Verifikasi asisten dan checkout resmi dilakukan setelahnya.
+              Kirimkan foto bukti kondisi lab setelah selesai kegiatan. Verifikasi asisten dan checkout resmi dilakukan setelahnya.
             </p>
           </div>
 
           {/* Photo Upload */}
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-[#1a1a1a]">
-              Foto Kondisi Lab *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-[#1a1a1a]">
+                Foto Kondisi Lab <span className="text-[#f3701e]">*</span>
+              </label>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#f5ede6] text-[#5a5a5a]">
+                {photos.length}/5 foto
+              </span>
+            </div>
 
             {previews.length > 0 && (
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {previews.map((src, i) => (
-                  <div key={i} className="relative group">
-                    <Image
-                      src={src}
-                      alt={`Foto ${i + 1}`}
-                      width={160}
-                      height={80}
-                      unoptimized
-                      className="w-full h-20 object-cover rounded-lg border-2 border-[#1a1a1a]"
-                    />
+                  <div key={i} className="relative group rounded-xl overflow-hidden border-2 border-[#1a1a1a] shadow-sm bg-[#1a1a1a]/5 aspect-video sm:aspect-square">
                     <button
                       type="button"
-                      onClick={() => removePhoto(i)}
-                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setZoomPhoto(src)}
+                      className="w-full h-full block focus:outline-none"
+                      title="Lihat foto lebih besar"
                     >
-                      <TbX size={12} />
+                      <Image
+                        src={src}
+                        alt={`Foto kondisi ${i + 1}`}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <TbZoomIn size={20} />
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removePhoto(i);
+                      }}
+                      className="absolute top-1.5 right-1.5 w-7 h-7 bg-red-500 hover:bg-red-600 active:scale-95 text-white rounded-full flex items-center justify-center shadow-md z-10 transition-transform"
+                      aria-label={`Hapus foto ${i + 1}`}
+                    >
+                      <TbX size={15} />
                     </button>
                   </div>
                 ))}
@@ -543,26 +567,23 @@ export default function ScanKeyActionPage({
             )}
 
             {photos.length < 5 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap">
                 <button
                   type="button"
                   onClick={() => cameraRef.current?.click()}
-                  className="neo-btn px-4 py-2.5 bg-[#4b607f] text-white inline-flex items-center gap-2"
+                  className="neo-btn min-h-[44px] px-4 py-2.5 bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 text-sm font-semibold rounded-xl"
                 >
                   <TbCamera size={18} />
-                  Buka Kamera
+                  <span>Buka Kamera</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="neo-btn px-4 py-2.5 bg-[#f5ede6] text-[#1a1a1a] inline-flex items-center gap-2"
+                  className="neo-btn min-h-[44px] px-4 py-2.5 bg-[#f5ede6] text-[#1a1a1a] inline-flex items-center justify-center gap-2 text-sm font-semibold rounded-xl"
                 >
                   <TbPhoto size={18} />
-                  Pilih dari Galeri
+                  <span>Pilih Galeri</span>
                 </button>
-                <span className="self-center text-xs text-[#5a5a5a]">
-                  ({photos.length}/5)
-                </span>
               </div>
             )}
 
@@ -587,40 +608,40 @@ export default function ScanKeyActionPage({
           </div>
 
           {/* Kerusakan Baru */}
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-[#1a1a1a]">
+          <div className="space-y-1.5">
+            <label className="text-sm font-bold text-[#1a1a1a]">
               Kerusakan Baru (opsional)
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={3}
               value={kerusakanBaru}
               onChange={(e) => setKerusakanBaru(e.target.value)}
-              placeholder="Contoh: Mouse PC-05 rusak, AC bocor..."
-              className="neo-input w-full"
+              placeholder="Contoh: Mouse PC-05 rusak, AC bocor, kabel LAN kendor..."
+              className="neo-input w-full resize-none text-sm p-3 rounded-xl border-2 border-[#1a1a1a] placeholder:text-[#5a5a5a]"
             />
           </div>
 
           {/* Catatan */}
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-[#1a1a1a]">
-              Catatan (opsional)
+          <div className="space-y-1.5">
+            <label className="text-sm font-bold text-[#1a1a1a]">
+              Catatan Kondisi Ruangan (opsional)
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={3}
               value={catatan}
               onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Catatan tambahan..."
-              className="neo-input w-full"
+              placeholder="Tuliskan catatan kebersihan, barang tertinggal, atau informasi lain..."
+              className="neo-input w-full resize-none text-sm p-3 rounded-xl border-2 border-[#1a1a1a] placeholder:text-[#5a5a5a]"
             />
           </div>
 
           {/* Submit + Return Button */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               type="button"
               onClick={handleSubmitConditionAndReturn}
               disabled={submittingCondition || uploading || photos.length === 0}
-              className="neo-btn px-5 py-3 bg-[#f3701e] text-white inline-flex items-center gap-2 disabled:opacity-50"
+              className="neo-btn w-full sm:w-auto min-h-[48px] px-6 py-3 bg-[#f3701e] text-white inline-flex items-center justify-center gap-2 text-sm font-bold rounded-xl disabled:opacity-50"
             >
               {submittingCondition || uploading ? (
                 <TbLoader2 className="animate-spin" size={18} />
@@ -628,27 +649,68 @@ export default function ScanKeyActionPage({
                 <TbCheck size={18} />
               )}
               {uploading
-                ? "Mengupload foto..."
+                ? "Mengupload foto bukti..."
                 : submittingCondition
-                  ? "Memproses..."
-                  : "Submit & Kembalikan Kunci"}
+                  ? "Menyerahkan kondisi..."
+                  : "Kirim Kondisi & Serahkan Kunci"}
             </button>
 
             <button
               type="button"
               onClick={() => setShowConditionForm(false)}
-              className="neo-btn px-4 py-3 bg-white text-[#1a1a1a]"
+              className="neo-btn w-full sm:w-auto min-h-[48px] px-5 py-3 bg-white text-[#1a1a1a] inline-flex items-center justify-center text-sm font-bold rounded-xl"
             >
               Batal
             </button>
           </div>
 
+          <p className="text-xs text-[#5a5a5a] bg-[#f5ede6] p-3 rounded-xl border border-[#e8d8c9] flex items-start gap-2 leading-relaxed">
+            <span className="text-sm shrink-0">ℹ️</span>
+            <span>
+              <strong>Alur Verifikasi:</strong> Menyerahkan form ini mencatat kondisi akhir lab yang Anda gunakan. Kunci fisik harus diserahkan kepada Asisten Lab yang bertugas untuk verifikasi fisik ruangan dan checkout resmi di logbook.
+            </span>
+          </p>
+
           {photos.length === 0 && (
-            <p className="text-xs text-[#f3701e] font-medium flex items-center gap-1">
+            <p className="text-xs text-[#f3701e] font-semibold flex items-center gap-1.5">
               <TbPhoto size={14} />
-              Ambil minimal 1 foto kondisi lab untuk melanjutkan
+              Ambil minimal 1 foto kondisi lab untuk dapat mengirimkan form
             </p>
           )}
+        </div>
+      )}
+
+      {zoomPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setZoomPhoto(null)}
+        >
+          <div
+            className="relative max-w-lg w-full bg-white rounded-2xl overflow-hidden border-2 border-[#1a1a1a] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#1a1a1a] bg-[#f5ede6]">
+              <span className="text-sm font-bold text-[#1a1a1a]">Preview Foto Kondisi</span>
+              <button
+                type="button"
+                onClick={() => setZoomPhoto(null)}
+                className="p-1.5 rounded-lg hover:bg-black/10 text-[#1a1a1a] transition-colors"
+                aria-label="Tutup preview foto"
+              >
+                <TbX size={18} />
+              </button>
+            </div>
+            <div className="p-3 bg-[#1a1a1a]/5 flex justify-center">
+              <Image
+                src={zoomPhoto}
+                alt="Preview foto kondisi lab"
+                width={600}
+                height={450}
+                unoptimized
+                className="max-h-[70vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+          </div>
         </div>
       )}
 

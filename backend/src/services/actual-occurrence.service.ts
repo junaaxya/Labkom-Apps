@@ -21,6 +21,7 @@ const scheduleSelect = {
       id: true,
       termId: true,
       classId: true,
+      dosenId: true,
       isActive: true,
     },
   },
@@ -35,6 +36,7 @@ const scheduleSelect = {
           id: true,
           termId: true,
           classId: true,
+          dosenId: true,
           isActive: true,
         },
       },
@@ -69,6 +71,7 @@ export type ActualOccurrence = {
     id: string;
     termId: string;
     classId: string;
+    dosenId: string;
     isActive: boolean;
   } | null;
   allocationRequestId: string | null;

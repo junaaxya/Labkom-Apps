@@ -48,8 +48,10 @@ router.get("/reports/:id", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), A
 router.patch("/reports/:id", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.updateReport);
 router.get("/occurrence-releases", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listOccurrenceReleases);
 router.post("/occurrence-releases", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.releaseOccurrence);
+router.patch("/occurrence-releases/:id/revoke", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.revokeOccurrenceRelease);
 router.get("/slot-requests", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listSlotRequests);
 router.post("/slot-requests", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.createSlotRequest);
+router.post("/slot-requests/:id/cancel", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.cancelSlotRequest);
 router.patch("/slot-requests/:id/review", authorize("KOORDINATOR_LAB"), AcademicController.reviewSlotRequest);
 router.get("/actual-schedules", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listActualSchedules);
 router.get("/occurrence-swaps", authorize("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"), AcademicController.listOccurrenceSwaps);

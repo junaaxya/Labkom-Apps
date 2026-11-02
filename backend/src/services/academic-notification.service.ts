@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { notificationService } from "./notification.service";
 
-type AcademicEvent = "report" | "release" | "allocation" | "swap";
+type AcademicEvent = "report" | "release" | "allocation" | "swap" | "revocation" | "cancellation";
 
 export async function notifyAcademicOffering(input: {
   offeringId: string;
@@ -20,6 +20,14 @@ export async function notifyAcademicOffering(input: {
       classId: true,
       dosenId: true,
       pjs: { where: { isActive: true }, select: { membership: { select: { userId: true } } } },
+      academicClass: {
+        select: {
+          memberships: {
+            where: { isActive: true, user: { role: "MAHASISWA", isActive: true } },
+            select: { userId: true, termId: true },
+          },
+        },
+      },
     },
   });
   if (!offering) return;
@@ -37,6 +45,9 @@ export async function notifyAcademicOffering(input: {
     offering.dosenId,
     ...offering.pjs.map((pj) => pj.membership.userId),
     ...leaders.map((leader) => leader.membership.userId),
+    ...offering.academicClass.memberships
+      .filter((membership) => membership.termId === offering.termId)
+      .map((membership) => membership.userId),
   ])].filter((userId) => userId !== input.actorId);
 
   await Promise.all(recipients.map(async (userId) => {

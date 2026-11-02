@@ -27,7 +27,7 @@ import {
   TbUsers,
   TbX,
 } from "react-icons/tb";
-import api from "@/services/api";
+import api, { ApiError } from "@/services/api";
 import { useCurrentRole, useCurrentUser } from "@/providers/current-user-context";
 
 type ReportStatus = "TATAP_MUKA" | "ONLINE" | "TIDAK_MASUK" | "PINDAH_JADWAL" | "BELUM_PASTI";
@@ -49,6 +49,14 @@ type AcademicOffering = {
     lab?: { id?: string; name?: string };
   };
   lab?: { name?: string };
+  capabilities?: {
+    canReport: boolean;
+    canManagePj: boolean;
+    canRelease: boolean;
+    canRequestSlot: boolean;
+    canRequestSwap: boolean;
+    canCoordinate: boolean;
+  };
 };
 
 type AcademicReport = {
@@ -80,6 +88,8 @@ type SlotRequest = {
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   releaseId: string;
   targetOffering?: AcademicOffering;
+  requestedById?: string;
+  rejectionReason?: string | null;
 };
 
 type OccurrenceSwap = {
@@ -88,7 +98,15 @@ type OccurrenceSwap = {
   occurrenceDate: string;
   sourceOffering?: AcademicOffering;
   targetOffering?: AcademicOffering;
+  requestedById?: string;
+  rejectionReason?: string | null;
 };
+
+type ResourceKey = "reports" | "releases" | "requests" | "swaps" | "actual";
+
+const RELEASE_STATUS_LABEL = { RELEASED: "Tersedia", ALLOCATED: "Sudah dialokasikan", REVOKED: "Dicabut" } as const;
+const REQUEST_STATUS_LABEL = { PENDING: "Menunggu keputusan", APPROVED: "Disetujui", REJECTED: "Ditolak", CANCELLED: "Dibatalkan" } as const;
+const SWAP_STATUS_LABEL = { PENDING_CONFIRMATION: "Menunggu konfirmasi kelas", PENDING_APPROVAL: "Menunggu Koordinator", APPROVED: "Disetujui", REJECTED: "Ditolak", CANCELLED: "Dibatalkan" } as const;
 
 type ActualSchedule = {
   offeringId: string;
@@ -218,6 +236,16 @@ function offeringMeta(offering?: AcademicOffering) {
 function memberName(item: Membership | Pj) {
   const candidate = item as Membership & Pj;
   return candidate.user?.name || candidate.student?.name || candidate.member?.name || "Mahasiswa";
+}
+
+function ResourceError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-xl border-2 border-rose-600 bg-rose-50 p-4 text-rose-900">
+      <p className="flex items-center gap-2 text-sm font-black"><TbAlertCircle className="h-5 w-5" /> Data gagal dimuat</p>
+      <p className="mt-1 text-xs font-medium">{message}</p>
+      <button type="button" onClick={onRetry} className="mt-3 min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-white px-4 py-2 text-xs font-black">Coba lagi</button>
+    </div>
+  );
 }
 
 function durationInMinutes(startTime?: string, endTime?: string) {
@@ -442,7 +470,6 @@ function CoursePicker({ offerings, value, onChange, label, placeholder, loading 
 export default function AcademicPage() {
   const role = useCurrentRole();
   const user = useCurrentUser();
-  const canWrite = role === "MAHASISWA" || role === "DOSEN";
 
   const [activeTab, setActiveTabState] = useState<SectionId>(() => {
     if (typeof window !== "undefined") {
@@ -509,6 +536,7 @@ export default function AcademicPage() {
   const [pjUnavailable, setPjUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
+  const [resourceErrors, setResourceErrors] = useState<Partial<Record<ResourceKey, string>>>({});
   const [terms, setTerms] = useState<SetupRecord[]>([]);
   const [courses, setCourses] = useState<SetupRecord[]>([]);
   const [classes, setClasses] = useState<SetupRecord[]>([]);
@@ -520,10 +548,45 @@ export default function AcademicPage() {
   const [setupDraft, setSetupDraft] = useState({ code: "", name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [bindingWarning, setBindingWarning] = useState<string | null>(null);
+  const [lifecycleReason, setLifecycleReason] = useState("");
+  const [rejectModal, setRejectModal] = useState<{ type: "slot" | "swap"; id: string } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [pageMounted, setPageMounted] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => setPageMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (!rejectModal) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setRejectModal(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [rejectModal]);
+
+  const reportOfferings = useMemo(() => offerings.filter((offering) => offering.capabilities?.canReport), [offerings]);
+  const pjOfferings = useMemo(() => offerings.filter((offering) => offering.capabilities?.canManagePj), [offerings]);
+  const slotOfferings = useMemo(() => offerings.filter((offering) => offering.capabilities?.canRequestSlot), [offerings]);
+  const swapOfferings = useMemo(() => offerings.filter((offering) => offering.capabilities?.canRequestSwap), [offerings]);
+  const canReportAny = reportOfferings.length > 0;
+  const canManagePjAny = pjOfferings.length > 0;
+  const canRequestSwapAny = swapOfferings.length > 0;
+  const canRequestSwapFor = useCallback((offeringId?: string) => Boolean(offerings.find((offering) => offering.id === offeringId)?.capabilities?.canRequestSwap), [offerings]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setOfferingsError(null);
+    setResourceErrors({});
     const offeringRequest = api.get<ApiList<AcademicOffering>>("/academic/offerings");
     const [
       offeringResponse,
@@ -534,13 +597,11 @@ export default function AcademicPage() {
       actualResponse,
     ] = await Promise.allSettled([
       offeringRequest,
-      api.get<ApiList<AcademicReport>>("/academic/reports").catch(() => ({ data: [] })),
-      api.get<ApiList<OccurrenceRelease>>("/academic/occurrence-releases").catch(() => ({ data: [] })),
-      api.get<ApiList<SlotRequest>>("/academic/slot-requests").catch(() => ({ data: [] })),
-      api.get<ApiList<OccurrenceSwap>>("/academic/occurrence-swaps").catch(() => ({ data: [] })),
-      api
-        .get<ApiList<ActualSchedule>>(`/academic/actual-schedules?date=${actualDate}`)
-        .catch(() => ({ data: [] })),
+      api.get<ApiList<AcademicReport>>("/academic/reports"),
+      api.get<ApiList<OccurrenceRelease>>("/academic/occurrence-releases"),
+      api.get<ApiList<SlotRequest>>("/academic/slot-requests"),
+      api.get<ApiList<OccurrenceSwap>>("/academic/occurrence-swaps"),
+      api.get<ApiList<ActualSchedule>>(`/academic/actual-schedules?date=${actualDate}`),
     ]);
 
     if (offeringResponse.status === "fulfilled") {
@@ -554,6 +615,23 @@ export default function AcademicPage() {
     setSlotRequests(requestResponse.status === "fulfilled" ? extractArray<SlotRequest>(requestResponse.value) : []);
     setSwaps(swapResponse.status === "fulfilled" ? extractArray<OccurrenceSwap>(swapResponse.value) : []);
     setActualSchedules(actualResponse.status === "fulfilled" ? extractArray<ActualSchedule>(actualResponse.value) : []);
+    const failures: Partial<Record<ResourceKey, string>> = {};
+    const resources: Array<[ResourceKey, PromiseSettledResult<unknown>]> = [
+      ["reports", reportResponse], ["releases", releaseResponse], ["requests", requestResponse],
+      ["swaps", swapResponse], ["actual", actualResponse],
+    ];
+    for (const [key, result] of resources) {
+      if (result.status === "rejected") {
+        const error = result.reason;
+        failures[key] = error instanceof ApiError
+          ? error.status === 403 ? "Anda tidak memiliki akses ke data ini."
+            : error.status === 409 ? `Data berubah: ${error.message}`
+              : error.status >= 500 ? "Server gagal memuat data. Coba lagi nanti."
+                : error.message
+          : "Jaringan bermasalah. Periksa koneksi lalu coba lagi.";
+      }
+    }
+    setResourceErrors(failures);
     setLoading(false);
   }, [actualDate]);
 
@@ -599,6 +677,13 @@ export default function AcademicPage() {
         setPjs([]);
         return;
       }
+      const selected = offerings.find((offering) => offering.id === selectedOfferingId);
+      if (!selected?.capabilities?.canManagePj) {
+        setMembers([]);
+        setPjs([]);
+        setPjUnavailable(true);
+        return;
+      }
       setPjUnavailable(false);
       Promise.allSettled([
         api.get<unknown>(`/academic/offerings/${selectedOfferingId}/memberships`),
@@ -615,7 +700,7 @@ export default function AcademicPage() {
     return () => {
       active = false;
     };
-  }, [selectedOfferingId]);
+  }, [offerings, selectedOfferingId]);
 
   const reportsByOffering = useMemo(
     () => new Map(reports.map((report) => [report.offeringId || report.offering?.id, report])),
@@ -652,6 +737,7 @@ export default function AcademicPage() {
 
     return offeringsOnSelectedDate.filter((target) => {
       if (target.id === selectedSwapSource.id) return false;
+      if (!target.capabilities?.canRequestSwap) return false;
       const targetClassId = target.academicClass?.id || target.academicClass?.code;
       if (srcClassId && targetClassId && srcClassId === targetClassId) return false;
       if (!target.schedule) return false;
@@ -696,6 +782,16 @@ export default function AcademicPage() {
     );
   }
 
+  async function revokeRelease(releaseId: string) {
+    if (lifecycleReason.trim().length < 3) return;
+    await mutate(
+      () => api.patch(`/academic/occurrence-releases/${releaseId}/revoke`, { reason: lifecycleReason.trim() }),
+      "Pelepasan slot dicabut. Pertemuan kembali mengikuti jadwal resmi.",
+      "Pelepasan slot gagal dicabut."
+    );
+    setLifecycleReason("");
+  }
+
   async function requestSlot(releaseId: string) {
     if (!targetOfferingId) return;
     await mutate(
@@ -708,16 +804,26 @@ export default function AcademicPage() {
     );
   }
 
-  async function reviewSlotRequest(requestId: string, approved: boolean) {
+  async function reviewSlotRequest(requestId: string, approved: boolean, reason?: string) {
     await mutate(
       () =>
         api.patch(`/academic/slot-requests/${requestId}/review`, {
           approved,
-          ...(approved ? {} : { rejectionReason: "Ditolak koordinator" }),
+          ...(approved ? {} : { rejectionReason: reason || "Alasan tidak ditentukan" }),
         }),
       approved ? "Pengajuan slot disetujui." : "Pengajuan slot ditolak.",
       "Pengajuan slot gagal ditinjau."
     );
+  }
+
+  async function cancelSlotRequest(requestId: string) {
+    if (lifecycleReason.trim().length < 3) return;
+    await mutate(
+      () => api.post(`/academic/slot-requests/${requestId}/cancel`, { reason: lifecycleReason.trim() }),
+      "Pengajuan atau alokasi slot dibatalkan secara resmi.",
+      "Pengajuan slot gagal dibatalkan."
+    );
+    setLifecycleReason("");
   }
 
   async function requestSwap(sourceOfferingId?: string) {
@@ -743,12 +849,12 @@ export default function AcademicPage() {
     );
   }
 
-  async function reviewSwap(swapId: string, approved: boolean) {
+  async function reviewSwap(swapId: string, approved: boolean, reason?: string) {
     await mutate(
       () =>
         api.patch(
           `/academic/occurrence-swaps/${swapId}/review`,
-          approved ? { approved } : { approved, rejectionReason: "Ditolak koordinator" }
+          approved ? { approved } : { approved, rejectionReason: reason || "Alasan tidak ditentukan" }
         ),
       approved ? "Pertukaran disetujui." : "Pertukaran ditolak.",
       "Peninjauan gagal."
@@ -763,9 +869,20 @@ export default function AcademicPage() {
     );
   }
 
+  async function submitRejection() {
+    if (!rejectModal || rejectionReason.trim().length < 3) return;
+    if (rejectModal.type === "slot") {
+      await reviewSlotRequest(rejectModal.id, false, rejectionReason.trim());
+    } else {
+      await reviewSwap(rejectModal.id, false, rejectionReason.trim());
+    }
+    setRejectModal(null);
+    setRejectionReason("");
+  }
+
   async function submit(event: AcademicFormEvent) {
     event.preventDefault();
-    if (!selectedOfferingId) return;
+    if (!selectedOfferingId || !offerings.find((offering) => offering.id === selectedOfferingId)?.capabilities?.canReport) return;
     await mutate(
       async () => {
         if (editing) {
@@ -854,13 +971,29 @@ export default function AcademicPage() {
     }, "Offering dibuat. Pilih kandidat jadwal untuk menghubungkannya.", "Offering gagal dibuat.");
   }
 
-  async function bindCandidate() {
+  async function bindCandidate(confirmAmbiguousMetadata = false) {
     if (!selectedOfferingId || !setup.candidateId) return;
-    await mutate(async () => {
-      await api.post(`/academic/offerings/${selectedOfferingId}/schedule`, { scheduleId: setup.candidateId });
+    setSaving(true);
+    setMessage(null);
+    setBindingWarning(null);
+    try {
+      await api.post(`/academic/offerings/${selectedOfferingId}/schedule`, {
+        scheduleId: setup.candidateId,
+        ...(confirmAmbiguousMetadata ? { confirmAmbiguousMetadata: true } : {}),
+      });
       setCandidates((current) => current.filter((candidate) => candidate.id !== setup.candidateId));
       setSetup((current) => ({ ...current, candidateId: "" }));
-    }, "Jadwal berhasil dihubungkan.", "Jadwal gagal dihubungkan.");
+      setMessage({ text: "Jadwal berhasil dihubungkan.", type: "success" });
+      await load();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409 && /Konfirmasi eksplisit Koordinator diperlukan/i.test(error.message)) {
+        setBindingWarning(error.message);
+      } else {
+        setMessage({ text: error instanceof Error ? error.message : "Jadwal gagal dihubungkan.", type: "error" });
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -1086,9 +1219,9 @@ export default function AcademicPage() {
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {canWrite && (
+              {(canReportAny || canManagePjAny || canRequestSwapAny) && (
                 <>
-                  <button
+                  {canReportAny && <button
                     type="button"
                     onClick={() => setActiveTab("laporan")}
                     className="neo-btn min-h-[44px] bg-white p-2.5 sm:p-3 text-left font-bold text-xs sm:text-sm flex items-center justify-between hover:bg-[#e8d8c9] border border-[#1a1a1a] sm:border-2"
@@ -1097,8 +1230,8 @@ export default function AcademicPage() {
                       <TbSend className="w-4 h-4 text-[#f3701e] shrink-0" /> Buat / Revisi Laporan
                     </span>
                     <TbChevronRight className="w-3.5 h-3.5 text-[#5a5a5a] shrink-0" />
-                  </button>
-                  <button
+                  </button>}
+                  {canManagePjAny && <button
                     type="button"
                     onClick={() => setActiveTab("kelola-pj")}
                     className="neo-btn min-h-[44px] bg-white p-2.5 sm:p-3 text-left font-bold text-xs sm:text-sm flex items-center justify-between hover:bg-[#e8d8c9] border border-[#1a1a1a] sm:border-2"
@@ -1107,8 +1240,8 @@ export default function AcademicPage() {
                       <TbUsers className="w-4 h-4 text-[#4b607f] shrink-0" /> Kelola PJ Kelas
                     </span>
                     <TbChevronRight className="w-3.5 h-3.5 text-[#5a5a5a] shrink-0" />
-                  </button>
-                  <button
+                  </button>}
+                  {canRequestSwapAny && <button
                     type="button"
                     onClick={() => setActiveTab("perubahan-jadwal")}
                     className="neo-btn min-h-[44px] bg-white p-2.5 sm:p-3 text-left font-bold text-xs sm:text-sm flex items-center justify-between hover:bg-[#e8d8c9] border border-[#1a1a1a] sm:border-2"
@@ -1117,7 +1250,7 @@ export default function AcademicPage() {
                       <TbArrowsExchange className="w-4 h-4 text-amber-600 shrink-0" /> Ajukan Tukar Jadwal
                     </span>
                     <TbChevronRight className="w-3.5 h-3.5 text-[#5a5a5a] shrink-0" />
-                  </button>
+                  </button>}
                 </>
               )}
               <button
@@ -1157,6 +1290,13 @@ export default function AcademicPage() {
             <section className="neo-card border-2 border-rose-600 bg-rose-50 p-4 text-rose-900">
               <p className="flex items-center gap-2 font-black"><TbAlertCircle className="h-5 w-5" /> Penawaran akademik gagal dimuat</p>
               <p className="mt-1 text-xs font-medium">{offeringsError}. Coba segarkan halaman.</p>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="mt-3 min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-white px-4 py-2 text-xs font-black text-[#1a1a1a] hover:bg-[#f5ede6]"
+              >
+                Coba lagi
+              </button>
             </section>
           ) : offerings.length === 0 && role !== "KOORDINATOR_LAB" && !loading ? (
             <section className="neo-card border-2 border-[#4b607f] bg-white p-4 sm:p-5">
@@ -1203,8 +1343,12 @@ export default function AcademicPage() {
                 <p className="text-xs font-black uppercase">3. Offering dan bind kandidat jadwal</p>
                 <button type="button" onClick={() => void createOffering()} className="neo-btn min-h-[44px] bg-[#1a1a1a] px-3 py-2 text-xs font-bold text-white">Buat offering dari pilihan di atas</button>
                 <CoursePicker offerings={offerings} value={selectedOfferingId} onChange={setSelectedOfferingId} label="Offering target" placeholder="Pilih offering" loading={loading} />
-                <select value={setup.candidateId} onChange={(event) => setSetup((current) => ({ ...current, candidateId: event.target.value }))} className="neo-input min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs"><option value="">Pilih kandidat jadwal PRAKTIKUM aktif</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title || "Praktikum"} · {candidate.className || "Kelas"} · {candidate.lab?.name || candidate.labId || "Lab"} · {candidate.day || candidate.date || "Tanggal"} {candidate.startTime || "-"}–{candidate.endTime || "-"}</option>)}</select>
-                <button type="button" onClick={() => void bindCandidate()} className="neo-btn min-h-[44px] bg-[#f3701e] px-3 py-2 text-xs font-bold text-white">Hubungkan jadwal terpilih</button>
+                <select value={setup.candidateId} onChange={(event) => { setSetup((current) => ({ ...current, candidateId: event.target.value })); setBindingWarning(null); }} className="neo-input min-h-[44px] w-full border-2 border-[#1a1a1a] bg-white text-xs"><option value="">Pilih kandidat jadwal PRAKTIKUM aktif</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title || "Praktikum"} · {candidate.className || "Kelas"} · {candidate.lab?.name || candidate.labId || "Lab"} · {candidate.day || candidate.date || "Tanggal"} {candidate.startTime || "-"}–{candidate.endTime || "-"}</option>)}</select>
+                {bindingWarning && <div className="rounded-xl border-2 border-amber-600 bg-amber-50 p-3 text-xs text-amber-950"><p className="font-black">Metadata jadwal lama berbeda dari data akademik.</p><p className="mt-1">{bindingWarning}</p><p className="mt-1 font-semibold">Periksa kelas, semester, dan dosen sebelum mengonfirmasi. Jadwal lama tidak akan diubah.</p></div>}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button type="button" disabled={saving} onClick={() => void bindCandidate(false)} className="neo-btn min-h-[44px] bg-[#f3701e] px-3 py-2 text-xs font-bold text-white">Hubungkan jadwal terpilih</button>
+                  {bindingWarning && <button type="button" disabled={saving} onClick={() => void bindCandidate(true)} className="neo-btn min-h-[44px] bg-amber-600 px-3 py-2 text-xs font-bold text-white">Saya sudah memeriksa, lanjutkan binding</button>}
+                </div>
               </div>
             </section>
           )}
@@ -1279,7 +1423,9 @@ export default function AcademicPage() {
               </button>
             </div>
 
-            {reports.length === 0 ? (
+          {resourceErrors.reports && <ResourceError message={resourceErrors.reports} onRetry={() => void load()} />}
+
+          {reports.length === 0 ? (
               <div className="neo-card p-4 sm:p-6 bg-white text-center border border-[#1a1a1a] sm:border-2">
                 <TbBook2 className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-1.5" />
                 <p className="font-bold text-xs sm:text-sm text-[#1a1a1a]">Belum ada laporan perkuliahan</p>
@@ -1343,7 +1489,19 @@ export default function AcademicPage() {
             </div>
           </div>
 
-          {offerings.length === 0 ? (
+          {offeringsError ? (
+            <div className="neo-card border-2 border-rose-600 bg-rose-50 p-6 text-rose-900">
+              <p className="flex items-center gap-2 font-black text-sm"><TbAlertCircle className="h-5 w-5" /> Penawaran akademik gagal dimuat</p>
+              <p className="mt-1 text-xs font-medium">{offeringsError}</p>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="mt-3 min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-white px-4 py-2 text-xs font-black text-[#1a1a1a] hover:bg-[#f5ede6]"
+              >
+                Coba lagi
+              </button>
+            </div>
+          ) : offerings.length === 0 ? (
             <div className="neo-card bg-white p-8 text-center border-2 border-[#1a1a1a]">
               <TbSchool className="w-10 h-10 text-gray-400 mx-auto mb-2" />
               <p className="font-bold text-base text-[#1a1a1a]">Belum ada penawaran akademik</p>
@@ -1402,7 +1560,7 @@ export default function AcademicPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200">
-                      <button
+                      {offering.capabilities?.canManagePj && <button
                         type="button"
                         onClick={() => {
                           setSelectedOfferingId(offering.id);
@@ -1411,8 +1569,8 @@ export default function AcademicPage() {
                         className="neo-btn min-h-[44px] flex-1 bg-white px-3 py-2 text-xs font-bold border-2 border-[#1a1a1a] hover:bg-[#e8d8c9] flex items-center justify-center gap-1.5"
                       >
                         <TbUsers className="w-4 h-4 text-[#4b607f]" /> Kelola PJ
-                      </button>
-                      {canWrite && (
+                      </button>}
+                      {offering.capabilities?.canReport && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1453,7 +1611,7 @@ export default function AcademicPage() {
 
           <div className="neo-card p-3 sm:p-6 bg-white border border-[#1a1a1a] sm:border-2 shadow-[1px_1px_0px_0px_#1a1a1a] sm:shadow-[2px_2px_0px_0px_#1a1a1a] space-y-3 sm:space-y-4">
             <CoursePicker
-              offerings={offerings}
+              offerings={pjOfferings}
               value={selectedOfferingId}
               onChange={setSelectedOfferingId}
               label="1. Pilih Mata Kuliah untuk Kelola PJ"
@@ -1571,6 +1729,7 @@ export default function AcademicPage() {
       {/* TAB 4: LAPORAN */}
       {activeTab === "laporan" && (
         <div id="laporan" className="space-y-4">
+          {resourceErrors.reports && <ResourceError message={resourceErrors.reports} onRetry={() => void load()} />}
           <div className="neo-card p-4 sm:p-5 bg-white border-2 border-[#1a1a1a]">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-[#f3701e]/10 rounded border border-[#f3701e]">
@@ -1581,7 +1740,7 @@ export default function AcademicPage() {
                   {editing ? "Revisi Laporan Perkuliahan" : "Laporan Status Perkuliahan"}
                 </h2>
                 <p className="text-xs sm:text-sm text-[#5a5a5a] font-medium">
-                  {canWrite
+                  {canReportAny
                     ? "Laporkan apakah pertemuan tatap muka, daring/online, atau tidak masuk."
                     : "Laporan baru dan revisi hanya tersedia untuk penawaran dosen atau penawaran yang diizinkan backend."}
                 </p>
@@ -1589,7 +1748,7 @@ export default function AcademicPage() {
             </div>
           </div>
 
-          {canWrite ? (
+          {canReportAny ? (
             <form onSubmit={submit} className="neo-card p-4 sm:p-6 bg-white border-2 border-[#1a1a1a] space-y-4">
               {editing && (
                 <div className="p-3 bg-amber-50 border-2 border-amber-500 flex items-center justify-between gap-2 text-xs font-bold text-amber-900">
@@ -1610,7 +1769,7 @@ export default function AcademicPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <CoursePicker
-                    offerings={offerings}
+                    offerings={reportOfferings}
                     value={selectedOfferingId}
                     onChange={setSelectedOfferingId}
                     label="Mata Kuliah"
@@ -1691,6 +1850,7 @@ export default function AcademicPage() {
       {/* TAB 5: KETERSEDIAAN LAB */}
       {activeTab === "ketersediaan-lab" && (
         <div id="ketersediaan-lab" className="space-y-4">
+          {(resourceErrors.releases || resourceErrors.requests) && <ResourceError message={resourceErrors.releases || resourceErrors.requests || "Data gagal dimuat."} onRetry={() => void load()} />}
           <div className="neo-card p-4 sm:p-5 bg-[#f5ede6] border-2 border-[#1a1a1a]">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-[#f3701e]/10 rounded border border-[#f3701e]">
@@ -1739,11 +1899,14 @@ export default function AcademicPage() {
                           </p>
                         </div>
                         {release ? (
-                          <span className="neo-badge bg-[#4b607f] text-white text-xs font-bold">
-                            Slot: {release.status}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="neo-badge bg-[#4b607f] text-white text-xs font-bold">Slot: {RELEASE_STATUS_LABEL[release.status]}</span>
+                            {release.status === "RELEASED" && offering?.capabilities?.canRelease && (
+                              <button type="button" onClick={() => void revokeRelease(release.id)} disabled={saving || lifecycleReason.trim().length < 3} className="neo-btn min-h-[44px] bg-rose-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50">Cabut pelepasan</button>
+                            )}
+                          </div>
                         ) : (
-                          canWrite && (
+                          offering?.capabilities?.canRelease && (
                             <button
                               type="button"
                               onClick={() => void releaseOccurrence(report)}
@@ -1772,7 +1935,7 @@ export default function AcademicPage() {
               </p>
 
               <CoursePicker
-                offerings={offerings}
+                offerings={slotOfferings}
                 value={targetOfferingId}
                 onChange={setTargetOfferingId}
                 label="Penawaran target"
@@ -1818,7 +1981,12 @@ export default function AcademicPage() {
                       <span className="font-bold text-[#1a1a1a]">
                         Target: {offeringLabel(request.targetOffering)}
                       </span>
-                      <p className="text-[#5a5a5a] mt-0.5">Status Pengajuan: {request.status}</p>
+                      <p className="text-[#5a5a5a] mt-0.5">Status Pengajuan: {REQUEST_STATUS_LABEL[request.status]}</p>
+                      {request.status === "REJECTED" && request.rejectionReason && (
+                        <p className="mt-1 text-xs text-rose-700 bg-rose-50 border border-rose-300 rounded p-1.5 font-medium">
+                          <span className="font-bold">Alasan Penolakan:</span> {request.rejectionReason}
+                        </p>
+                      )}
                     </div>
                     {role === "KOORDINATOR_LAB" && request.status === "PENDING" && (
                       <div className="flex items-center gap-2">
@@ -1826,31 +1994,43 @@ export default function AcademicPage() {
                           type="button"
                           onClick={() => void reviewSlotRequest(request.id, true)}
                           disabled={saving}
-                          className="neo-btn min-h-[36px] bg-emerald-600 px-3 py-1 font-bold text-white text-xs border border-[#1a1a1a]"
+                          className="neo-btn min-h-[44px] bg-emerald-600 px-3 py-2 font-bold text-white text-xs border border-[#1a1a1a]"
                         >
                           Setujui
                         </button>
                         <button
                           type="button"
-                          onClick={() => void reviewSlotRequest(request.id, false)}
+                          onClick={() => {
+                            setRejectModal({ type: "slot", id: request.id });
+                            setRejectionReason("");
+                          }}
                           disabled={saving}
-                          className="neo-btn min-h-[36px] bg-rose-600 px-3 py-1 font-bold text-white text-xs border border-[#1a1a1a]"
+                          className="neo-btn min-h-[44px] bg-rose-600 px-3 py-2 font-bold text-white text-xs border border-[#1a1a1a]"
                         >
                           Tolak
                         </button>
                       </div>
+                    )}
+                    {((request.status === "PENDING" && (request.requestedById === user?.id || role === "KOORDINATOR_LAB")) || (request.status === "APPROVED" && role === "KOORDINATOR_LAB")) && (
+                      <button type="button" onClick={() => void cancelSlotRequest(request.id)} disabled={saving || lifecycleReason.trim().length < 3} className="neo-btn min-h-[44px] bg-rose-700 px-3 py-2 text-xs font-black text-white disabled:opacity-50">Batalkan</button>
                     )}
                   </div>
                 ))}
               </div>
             )}
           </section>
+          {(releases.some((release) => release.status === "RELEASED") || slotRequests.some((request) => request.status === "PENDING" || request.status === "APPROVED")) && (
+            <label className="block text-xs font-black text-[#1a1a1a]">Alasan pencabutan atau pembatalan
+              <textarea value={lifecycleReason} onChange={(event) => setLifecycleReason(event.target.value)} rows={3} className="neo-input mt-1 min-h-[88px] w-full" placeholder="Minimal 3 karakter. Alasan disimpan dalam audit." />
+            </label>
+          )}
         </div>
       )}
 
       {/* TAB 6: PERUBAHAN JADWAL */}
       {activeTab === "perubahan-jadwal" && (
         <div id="perubahan-jadwal" className="space-y-4">
+          {(resourceErrors.actual || resourceErrors.swaps) && <ResourceError message={resourceErrors.actual || resourceErrors.swaps || "Data gagal dimuat."} onRetry={() => void load()} />}
           <div className="neo-card p-4 sm:p-5 bg-white border-2 border-[#1a1a1a]">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -1882,7 +2062,7 @@ export default function AcademicPage() {
           </div>
 
           {/* Wizard 4 Langkah Tukar Jadwal */}
-          {canWrite && (
+          {canRequestSwapAny && (
             <section className="neo-card p-4 sm:p-6 bg-white border-2 border-[#1a1a1a] space-y-5">
               <div className="border-b border-[#1a1a1a]/15 pb-3">
                 <h3 className="font-heading text-lg sm:text-xl font-black text-[#1a1a1a] flex items-center gap-2">
@@ -1936,7 +2116,7 @@ export default function AcademicPage() {
                 ) : (
                   <div className="space-y-2">
                     <CoursePicker
-                      offerings={offeringsOnSelectedDate}
+                       offerings={offeringsOnSelectedDate.filter((offering) => offering.capabilities?.canRequestSwap)}
                       value={swapSourceOfferingId}
                       onChange={(id) => {
                         setSwapSourceOfferingId(id);
@@ -2029,7 +2209,7 @@ export default function AcademicPage() {
                         {item.academicClass?.name || item.academicClass?.code || "Kelas"} · {item.startTime}–{item.endTime} WIB · {item.lab?.name || "Lab"}
                       </p>
                     </div>
-                    {canWrite && (
+                    {offerings.find((offering) => offering.id === item.offeringId)?.capabilities?.canRequestSwap && (
                       <button
                         type="button"
                         disabled={saving || !swapTargetOfferingId}
@@ -2068,28 +2248,33 @@ export default function AcademicPage() {
                         <strong>{offeringLabel(swap.targetOffering)}</strong>
                       </p>
                       <p className="text-[#5a5a5a]">
-                        Tanggal: {swap.occurrenceDate?.slice(0, 10)} · Status: <span className="font-bold text-[#1a1a1a]">{swap.status}</span>
+                         Tanggal: {swap.occurrenceDate?.slice(0, 10)} · Status: <span className="font-bold text-[#1a1a1a]">{SWAP_STATUS_LABEL[swap.status]}</span>
                       </p>
+                      {swap.status === "REJECTED" && swap.rejectionReason && (
+                        <p className="mt-1 text-xs text-rose-700 bg-rose-50 border border-rose-300 rounded p-1.5 font-medium">
+                          <span className="font-bold">Alasan Penolakan:</span> {swap.rejectionReason}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {canWrite && swap.status === "PENDING_CONFIRMATION" && (
+                      {(canRequestSwapFor(swap.sourceOffering?.id) || canRequestSwapFor(swap.targetOffering?.id)) && swap.status === "PENDING_CONFIRMATION" && (
                         <button
                           type="button"
                           onClick={() => void confirmSwap(swap.id)}
                           disabled={saving}
-                          className="neo-btn min-h-[40px] bg-emerald-600 px-3.5 py-1.5 font-black text-xs text-white border-2 border-[#1a1a1a]"
+                          className="neo-btn min-h-[44px] bg-emerald-600 px-3.5 py-2 font-black text-xs text-white border-2 border-[#1a1a1a]"
                         >
                           Konfirmasi kelas
                         </button>
                       )}
-                      {(canWrite || role === "KOORDINATOR_LAB") &&
+                      {(swap.requestedById === user?.id || role === "KOORDINATOR_LAB") &&
                         (swap.status === "PENDING_CONFIRMATION" || swap.status === "PENDING_APPROVAL") && (
                           <button
                             type="button"
                             onClick={() => void cancelSwap(swap.id)}
                             disabled={saving}
-                            className="neo-btn min-h-[40px] bg-rose-600 px-3 py-1.5 font-bold text-xs text-white border-2 border-[#1a1a1a]"
+                            className="neo-btn min-h-[44px] bg-rose-600 px-3 py-2 font-bold text-xs text-white border-2 border-[#1a1a1a]"
                           >
                             Batalkan
                           </button>
@@ -2100,15 +2285,18 @@ export default function AcademicPage() {
                             type="button"
                             onClick={() => void reviewSwap(swap.id, true)}
                             disabled={saving}
-                            className="neo-btn min-h-[40px] bg-emerald-600 px-3.5 py-1.5 font-black text-xs text-white border-2 border-[#1a1a1a]"
+                            className="neo-btn min-h-[44px] bg-emerald-600 px-3.5 py-2 font-black text-xs text-white border-2 border-[#1a1a1a]"
                           >
                             Setujui
                           </button>
                           <button
                             type="button"
-                            onClick={() => void reviewSwap(swap.id, false)}
+                            onClick={() => {
+                              setRejectModal({ type: "swap", id: swap.id });
+                              setRejectionReason("");
+                            }}
                             disabled={saving}
-                            className="neo-btn min-h-[40px] bg-rose-600 px-3 py-1.5 font-bold text-xs text-white border-2 border-[#1a1a1a]"
+                            className="neo-btn min-h-[44px] bg-rose-600 px-3 py-2 font-bold text-xs text-white border-2 border-[#1a1a1a]"
                           >
                             Tolak
                           </button>
@@ -2181,9 +2369,33 @@ export default function AcademicPage() {
                           Catatan: &ldquo;{report.notes}&rdquo;
                         </p>
                       )}
+                      {report.status === "BELUM_PASTI" && offering?.capabilities?.canReport && (
+                        <div className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-xs text-amber-900">
+                          Status belum final. Perbarui laporan segera setelah kepastian pertemuan tersedia.
+                        </div>
+                      )}
+                      {report.status === "PINDAH_JADWAL" && (
+                        <div className="rounded-lg border border-[#4b607f] bg-blue-50 p-3 text-xs text-[#1a1a1a]">
+                          <p className="font-bold">Laporan ini tidak mengubah jadwal resmi.</p>
+                          <p className="mt-1">Ajukan pertukaran terpisah melalui Perubahan Jadwal agar konflik diperiksa Koordinator.</p>
+                          {offering?.capabilities?.canRequestSwap && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSwapSourceOfferingId(offering.id);
+                                setActualDate(report.reportDate?.slice(0, 10) || actualDate);
+                                setActiveTab("perubahan-jadwal");
+                              }}
+                              className="mt-2 min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-[#4b607f] px-4 py-2 font-black text-white"
+                            >
+                              Buka Perubahan Jadwal
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {canWrite && (
+                    {offering?.capabilities?.canReport && (
                       <div className="shrink-0 pt-2 sm:pt-0">
                         <button
                           type="button"
@@ -2200,6 +2412,69 @@ export default function AcademicPage() {
             </div>
           )}
         </div>
+      )}
+
+      {pageMounted && rejectModal && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center sm:justify-center bg-[#1a1a1a]/60 backdrop-blur-sm p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tolak Permintaan"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setRejectModal(null);
+            }
+          }}
+        >
+          <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl border-2 border-[#1a1a1a] p-4 sm:p-6 space-y-4 shadow-[4px_4px_0px_0px_#1a1a1a]">
+            <div className="flex items-center justify-between border-b border-[#1a1a1a]/15 pb-2">
+              <h3 className="font-heading font-black text-lg text-[#1a1a1a]">
+                Tolak Permintaan {rejectModal.type === "slot" ? "Slot" : "Tukar Jadwal"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRejectModal(null)}
+                className="p-1 rounded text-gray-500 hover:text-black min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Tutup"
+              >
+                <TbX className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-[#5a5a5a]">
+              Sebagai koordinator, tuliskan alasan penolakan secara jelas agar pengaju memahami penyebabnya.
+            </p>
+            <div>
+              <label className="block text-xs font-black text-[#1a1a1a] mb-1">
+                Alasan Penolakan (minimal 3 karakter)
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Contoh: Jadwal bentrok dengan kegiatan lab resmi"
+                rows={3}
+                className="neo-input w-full p-2.5 text-xs font-medium border-2 border-[#1a1a1a] rounded-lg"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setRejectModal(null)}
+                className="neo-btn min-h-[44px] px-4 py-2 text-xs font-bold bg-white text-[#1a1a1a] border-2 border-[#1a1a1a] rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={rejectionReason.trim().length < 3 || saving}
+                onClick={() => void submitRejection()}
+                className="neo-btn min-h-[44px] px-4 py-2 text-xs font-black bg-rose-600 text-white border-2 border-[#1a1a1a] rounded-lg disabled:opacity-50"
+              >
+                Konfirmasi Tolak
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

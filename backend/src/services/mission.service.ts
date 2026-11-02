@@ -12,11 +12,24 @@ export class MissionService {
     const limit = filters?.limit && filters.limit > 0 ? filters.limit : 20;
     const skip = (page - 1) * limit;
 
-    const [items, total] = await prisma.$transaction([
+    const [rawItems, total] = await prisma.$transaction([
       prisma.mission.findMany({
         where,
         include: {
           createdBy: { select: { id: true, name: true } },
+          sourceTicket: {
+            select: {
+              id: true,
+              category: true,
+              priority: true,
+              lab: { select: { id: true, name: true, location: true } },
+              pc: { select: { id: true, pcCode: true, name: true } },
+            },
+          },
+          claims: {
+            where: { status: { in: ["TAKEN", "SUBMITTED", "APPROVED"] } },
+            include: { asleb: { select: { id: true, name: true } } },
+          },
           _count: { select: { claims: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -25,6 +38,15 @@ export class MissionService {
       }),
       prisma.mission.count({ where }),
     ]);
+
+    const items = rawItems.map((m) => {
+      const activeClaim = m.claims?.[0];
+      return {
+        ...m,
+        claimedBy: activeClaim?.asleb?.name || null,
+        claimantId: activeClaim?.asleb?.id || null,
+      };
+    });
 
     return {
       items,
@@ -42,6 +64,15 @@ export class MissionService {
       where: { id },
       include: {
         createdBy: { select: { id: true, name: true } },
+        sourceTicket: {
+          select: {
+            id: true,
+            category: true,
+            priority: true,
+            lab: { select: { id: true, name: true, location: true } },
+            pc: { select: { id: true, pcCode: true, name: true } },
+          },
+        },
         claims: {
           include: {
             asleb: { select: { id: true, name: true } },
@@ -158,6 +189,15 @@ export class MissionService {
             points: true,
             deadline: true,
             status: true,
+            sourceTicket: {
+              select: {
+                id: true,
+                category: true,
+                priority: true,
+                lab: { select: { id: true, name: true, location: true } },
+                pc: { select: { id: true, pcCode: true, name: true } },
+              },
+            },
           },
         },
       },
@@ -266,10 +306,18 @@ export class MissionService {
       select: { id: true, name: true, avatar: true },
     });
 
-    return points.map((p) => ({
-      userId: p.userId,
-      totalPoints: p._sum.amount || 0,
-      user: users.find((u) => u.id === p.userId),
-    }));
+    return points.map((p) => {
+      const u = users.find((user) => user.id === p.userId);
+      const name = u?.name?.trim() || "Asisten Lab";
+      return {
+        userId: p.userId,
+        name,
+        userName: name,
+        avatar: u?.avatar || null,
+        points: p._sum.amount || 0,
+        totalPoints: p._sum.amount || 0,
+        user: u ? { ...u, name } : { id: p.userId, name, avatar: null },
+      };
+    });
   }
 }

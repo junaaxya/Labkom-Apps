@@ -11,7 +11,6 @@ import {
   TbChecklist,
   TbBook2,
   TbTicket,
-  TbDeviceDesktop,
   TbMenu2,
   TbBuildingWarehouse,
   TbKey,
@@ -37,7 +36,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
     { label: "Lab", href: "/labs", icon: TbBuildingWarehouse },
     { label: "Tiket", href: "/tickets", icon: TbTicket, match: (p) => p.startsWith("/tickets") },
-    { label: "PC", href: "/pc-monitoring", icon: TbDeviceDesktop },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
   ],
   ASISTEN_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },

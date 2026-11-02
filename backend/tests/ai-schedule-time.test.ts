@@ -20,16 +20,19 @@ expectArray(today.days, ["JUMAT"], "today WIB day");
 expectEqual(today.primaryDay, "JUMAT", "today primary day");
 expectMatch(today.label, /Jumat, 21 Agustus 2026/, "today date label");
 expectEqual(today.currentTime, "00:20", "today WIB time");
+expectEqual(today.date?.toISOString(), "2026-08-21T00:00:00.000Z", "today canonical WIB date");
 
 const tomorrow = getScheduleQuery("jadwal besok", afterMidnightWib);
 expectEqual(tomorrow.period, "tomorrow", "tomorrow period");
 expectArray(tomorrow.days, ["SABTU"], "tomorrow WIB day");
 expectMatch(tomorrow.label, /Sabtu, 22 Agustus 2026/, "tomorrow date label");
+expectEqual(tomorrow.date?.toISOString(), "2026-08-22T00:00:00.000Z", "tomorrow canonical WIB date");
 
 const week = getScheduleQuery("tampilkan jadwal minggu ini", afterMidnightWib);
 expectEqual(week.period, "week", "week period");
 expectEqual(week.days.length, 7, "week day count");
 expectEqual(week.primaryDay, "JUMAT", "week primary day");
+expectEqual(week.date, null, "weekly recurring query has no exact date");
 
 expectEqual(detectSchedulePeriod("JADWAL BESOK"), "tomorrow", "detect tomorrow");
 expectEqual(detectSchedulePeriod("jadwal minggu ini"), "week", "detect week");

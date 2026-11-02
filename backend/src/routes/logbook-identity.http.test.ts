@@ -86,3 +86,59 @@ test("check-in HTTP requires valid identity and persisted staff role", async () 
     restores.reverse().forEach((restore) => restore());
   }
 });
+
+test("GET /logbooks/today rejects MAHASISWA with 403 and allows ASISTEN_LAB", async () => {
+  const clock = getJakartaClock();
+  let todayLookupCount = 0;
+  const restores = [
+    replace(prisma.user, "findUnique", async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      role: where.id === "assistant" ? "ASISTEN_LAB" : "MAHASISWA",
+      isActive: true,
+      mustChangePassword: false,
+    })),
+    replace(prisma.logbook, "findFirst", async ({ where }: { where: { officialCheckinById: string; date: Date } }) => {
+      todayLookupCount += 1;
+      return {
+        id: "logbook-today-1",
+        officialCheckinById: where.officialCheckinById,
+        date: clock.date,
+        status: "CHECKED_IN",
+        labId: "lab-1",
+        scheduleId: null,
+        conditions: [],
+      };
+    }),
+    replace(prisma.schedule, "findMany", async () => []),
+    replace(prisma.keyLog, "findMany", async () => []),
+  ];
+  const app = express();
+  app.use(express.json());
+  app.use("/api/v1/logbooks", logbookRoutes);
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const requestToday = (userId: string, role: string) =>
+      fetch(`http://127.0.0.1:${address.port}/api/v1/logbooks/today`, {
+        headers: {
+          authorization: `Bearer ${jwt.sign({ userId, role }, config.jwtSecret)}`,
+        },
+      });
+
+    const studentRes = await requestToday("student-ketua", "MAHASISWA");
+    assert.equal(studentRes.status, 403);
+    assert.equal(todayLookupCount, 0);
+
+    const assistantRes = await requestToday("assistant", "ASISTEN_LAB");
+    assert.equal(assistantRes.status, 200);
+    assert.equal(todayLookupCount, 1);
+    const body = (await assistantRes.json()) as { success: boolean; data: { id: string } };
+    assert.equal(body.success, true);
+    assert.equal(body.data.id, "logbook-today-1");
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    restores.reverse().forEach((restore) => restore());
+  }
+});

@@ -44,9 +44,28 @@ test("DOSEN route surface excludes legacy operational flows", () => {
   assert.match(dashboard, /if \(role === "DOSEN"\)/);
 });
 
-test("DOSEN can submit reports only through scoped academic routes", () => {
-  assert.match(page, /role === "MAHASISWA" \|\| role === "DOSEN"/);
+test("report actions use server-provided offering capabilities instead of global role", () => {
+  assert.match(page, /offering\.capabilities\?\.canReport/);
+  assert.match(page, /offerings\.filter\(\(offering\) => offering\.capabilities\?\.canReport\)/);
+  assert.doesNotMatch(page, /const canWrite = role === "MAHASISWA" \|\| role === "DOSEN"/);
   assert.match(page, /Laporan baru dan revisi hanya tersedia untuk penawaran dosen/);
+});
+
+test("academic lifecycle exposes audited revoke and cancellation actions with Indonesian states", () => {
+  assert.match(page, /occurrence-releases\/\$\{releaseId\}\/revoke/);
+  assert.match(page, /slot-requests\/\$\{requestId\}\/cancel/);
+  assert.match(page, /RELEASE_STATUS_LABEL/);
+  assert.match(page, /REQUEST_STATUS_LABEL/);
+  assert.match(page, /SWAP_STATUS_LABEL/);
+  assert.match(page, /Alasan pencabutan atau pembatalan/);
+  assert.match(page, /Status belum final\. Perbarui laporan segera/);
+  assert.match(page, /Laporan ini tidak mengubah jadwal resmi/);
+  assert.match(page, /Buka Perubahan Jadwal/);
+});
+
+test("coordinator navigation exposes Academic workspace", () => {
+  const coordinatorBlock = sidebar.match(/KOORDINATOR_LAB: \[([\s\S]*?)\n  \],/)?.[1] || "";
+  assert.match(coordinatorBlock, /"\/academic"/);
 });
 
 test("academic workspace exposes named sections and name-first course presentation", () => {
@@ -85,4 +104,20 @@ test("coordinator onboarding uses explicit setup and filtered schedule candidate
   assert.match(page, /Workspace Koordinator/);
   assert.match(page, /role !== "KOORDINATOR_LAB"/);
   assert.doesNotMatch(page, /api\.get[^\n]*\/schedules/);
+});
+
+test("ambiguous legacy metadata requires an explicit second coordinator confirmation", () => {
+  assert.match(page, /confirmAmbiguousMetadata: true/);
+  assert.match(page, /Konfirmasi eksplisit Koordinator diperlukan/);
+  assert.match(page, /Saya sudah memeriksa, lanjutkan binding/);
+  assert.match(page, /Jadwal lama tidak akan diubah/);
+});
+
+test("rejection workflow requires reason and displays rejection details to requesters", () => {
+  assert.match(page, /rejectionReason/);
+  assert.match(page, /Alasan Penolakan/);
+  assert.match(page, /Tolak Permintaan/);
+  assert.match(page, /Konfirmasi Tolak/);
+  assert.match(page, /setRejectModal/);
+  assert.match(page, /rejectionReason\.trim\(\)\.length < 3/);
 });

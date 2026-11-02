@@ -65,7 +65,7 @@ export function buildGoogleCalendarEvent(userId: string, schedule: CalendarSched
     id: buildGoogleCalendarEventId(userId, schedule.id),
     summary: `[Labkom] ${schedule.title}`,
     location: schedule.labName,
-    description: `Jadwal Lab: ${schedule.title}\nLab: ${schedule.labName}\nSemester: ${schedule.semester || "-"}`,
+    description: `Jadwal berulang resmi: ${schedule.title}\nLab: ${schedule.labName}\nSemester: ${schedule.semester || "-"}\nPerubahan per tanggal, pelepasan slot, dan pertukaran lihat Portal Akademik.`,
     start: { dateTime: `${date}T${schedule.startTime}:00+07:00`, timeZone: "Asia/Jakarta" },
     end: { dateTime: `${date}T${schedule.endTime}:00+07:00`, timeZone: "Asia/Jakarta" },
     recurrence: ["RRULE:FREQ=WEEKLY;COUNT=16"],

@@ -220,21 +220,12 @@ export class ScheduleService {
   }
 
   static async getStats(now = new Date()) {
-    const { date, day } = getJakartaClock(now);
+    const { date } = getJakartaClock(now);
 
-    const [totalSchedules, activeSchedules, todaySchedules, statusGroups] = await Promise.all([
+    const [totalSchedules, activeSchedules, todayOccurrences, statusGroups] = await Promise.all([
       prisma.schedule.count(),
       prisma.schedule.count({ where: { isActive: true } }),
-      prisma.schedule.count({
-        where: {
-          isActive: true,
-          status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
-          OR: [
-            { specificDate: date },
-            { specificDate: null, day: day as any },
-          ],
-        },
-      }),
+      resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date),
       prisma.schedule.groupBy({ by: ["status"], _count: { _all: true }, where: { isActive: true } }),
     ]);
 
@@ -246,7 +237,7 @@ export class ScheduleService {
     return {
       totalSchedules,
       activeSchedules,
-      todaySchedules,
+      todaySchedules: todayOccurrences.length,
       byStatus,
     };
   }

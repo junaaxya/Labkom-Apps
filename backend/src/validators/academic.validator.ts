@@ -122,7 +122,10 @@ export const updateAcademicOfferingSchema = z.object({
   isActive: z.boolean().optional(),
 }).refine(hasFields, "Data perubahan wajib diisi");
 
-export const bindAcademicScheduleSchema = z.object({ scheduleId: idSchema }).strict();
+export const bindAcademicScheduleSchema = z.object({
+  scheduleId: idSchema,
+  confirmAmbiguousMetadata: z.boolean().optional(),
+}).strict();
 
 export const academicPjQuerySchema = z.object({
   offeringId: idSchema.optional(),
@@ -160,17 +163,23 @@ export const updateAcademicReportSchema = z.object({
 });
 
 export const createAcademicOccurrenceReleaseSchema = z.object({ reportId: idSchema }).strict();
+export const revokeAcademicOccurrenceReleaseSchema = z.object({
+  reason: z.string().trim().min(3, "Alasan pencabutan minimal 3 karakter").max(2_000, "Alasan maksimal 2000 karakter"),
+}).strict();
 export const createAcademicSlotRequestSchema = z.object({
   releaseId: idSchema,
   targetOfferingId: idSchema,
   reason: optionalTextSchema,
 }).strict();
+export const cancelAcademicSlotRequestSchema = z.object({
+  reason: z.string().trim().min(3, "Alasan pembatalan minimal 3 karakter").max(2_000, "Alasan maksimal 2000 karakter"),
+}).strict();
 export const reviewAcademicSlotRequestSchema = z.object({
   approved: z.boolean(),
   rejectionReason: optionalTextSchema,
 }).superRefine((value, ctx) => {
-  if (!value.approved && !value.rejectionReason?.trim()) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi" });
+  if (!value.approved && (!value.rejectionReason?.trim() || value.rejectionReason.trim().length < 3)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi (minimal 3 karakter)" });
   }
 });
 
@@ -185,8 +194,8 @@ export const reviewAcademicOccurrenceSwapSchema = z.object({
   approved: z.boolean(),
   rejectionReason: optionalTextSchema,
 }).superRefine((value, ctx) => {
-  if (!value.approved && !value.rejectionReason?.trim()) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi" });
+  if (!value.approved && (!value.rejectionReason?.trim() || value.rejectionReason.trim().length < 3)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Alasan penolakan wajib diisi (minimal 3 karakter)" });
   }
 });
 
@@ -214,7 +223,9 @@ export type AcademicReportQueryInput = z.infer<typeof academicReportQuerySchema>
 export type CreateAcademicReportInput = z.infer<typeof createAcademicReportSchema>;
 export type UpdateAcademicReportInput = z.infer<typeof updateAcademicReportSchema>;
 export type CreateAcademicOccurrenceReleaseInput = z.infer<typeof createAcademicOccurrenceReleaseSchema>;
+export type RevokeAcademicOccurrenceReleaseInput = z.infer<typeof revokeAcademicOccurrenceReleaseSchema>;
 export type CreateAcademicSlotRequestInput = z.infer<typeof createAcademicSlotRequestSchema>;
+export type CancelAcademicSlotRequestInput = z.infer<typeof cancelAcademicSlotRequestSchema>;
 export type ReviewAcademicSlotRequestInput = z.infer<typeof reviewAcademicSlotRequestSchema>;
 export type CreateAcademicOccurrenceSwapInput = z.infer<typeof createAcademicOccurrenceSwapSchema>;
 export type ReviewAcademicOccurrenceSwapInput = z.infer<typeof reviewAcademicOccurrenceSwapSchema>;

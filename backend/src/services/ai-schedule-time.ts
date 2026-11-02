@@ -8,6 +8,7 @@ interface JakartaDateParts {
   dayIndex: number;
   dateLabel: string;
   time: string;
+  date: Date;
 }
 
 export interface ScheduleQuery {
@@ -16,6 +17,7 @@ export interface ScheduleQuery {
   primaryDay: ScheduleDay;
   label: string;
   currentTime: string;
+  date: Date | null;
 }
 
 function getJakartaParts(date: Date): JakartaDateParts {
@@ -40,6 +42,7 @@ function getJakartaParts(date: Date): JakartaDateParts {
     dayIndex,
     dateLabel: `${parts.weekday}, ${parts.day} ${parts.month} ${parts.year}`,
     time: `${parts.hour}:${parts.minute}`,
+    date: getJakartaClock(date).date,
   };
 }
 
@@ -63,6 +66,7 @@ export function getScheduleQuery(message: string, now = new Date()): ScheduleQue
       primaryDay: tomorrow.day,
       label: `Besok — ${tomorrow.dateLabel}`,
       currentTime: current.time,
+      date: tomorrow.date,
     };
   }
 
@@ -73,6 +77,7 @@ export function getScheduleQuery(message: string, now = new Date()): ScheduleQue
       primaryDay: current.day,
       label: "Minggu Ini",
       currentTime: current.time,
+      date: null,
     };
   }
 
@@ -82,5 +87,7 @@ export function getScheduleQuery(message: string, now = new Date()): ScheduleQue
     primaryDay: current.day,
     label: `Hari Ini — ${current.dateLabel}`,
     currentTime: current.time,
+    date: current.date,
   };
 }
+import { getJakartaClock } from "./jakarta-time";

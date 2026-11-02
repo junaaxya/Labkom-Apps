@@ -160,8 +160,8 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
 
     assert.deepEqual(atFirstMinute.map((row: { id: string }) => row.id), ["exact", "recurring"]);
     assert.deepEqual(atLastMinute.map((row: { id: string }) => row.id), ["exact", "recurring"]);
-    assert.deepEqual(scheduleQueries, [todayWhere, todayWhere]);
-    assert.deepEqual(countQueries[2], { where: todayWhere });
+    assert.deepEqual(scheduleQueries, [todayWhere, todayWhere, todayWhere]);
+    assert.equal(countQueries.length, 2);
   } finally {
     for (const restore of restores.reverse()) restore();
   }
