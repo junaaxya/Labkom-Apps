@@ -4,7 +4,7 @@ import { canonicalDateOnly, weekdayForDateOnly } from "./jakarta-time";
 import { findOccupancyConflict, withSerializableRetry } from "./schedule-availability";
 import { notificationService } from "./notification.service";
 import { notifyAcademicOffering } from "./academic-notification.service";
-import { AcademicAuthorizationError, AcademicConflictError } from "./academic.service";
+import { AcademicAuthorizationError, AcademicConflictError, AcademicValidationError } from "./academic.service";
 
 type Actor = { userId: string; role: string; ipAddress?: string };
 
@@ -34,6 +34,16 @@ async function assertNoActiveUse(tx: Prisma.TransactionClient, scheduleId: strin
   ]);
   if (logbook) throw new AcademicConflictError("Slot tidak dapat dilepas karena lab masih digunakan");
   if (cycle || borrowedKey) throw new AcademicConflictError("Slot tidak dapat dilepas karena kunci lab masih dipinjam");
+}
+
+async function assertNoOccurrenceHistory(tx: Prisma.TransactionClient, scheduleId: string, labId: string, date: Date) {
+  const [logbook, cycle] = await Promise.all([
+    tx.logbook.findFirst({ where: { scheduleId, occurrenceDate: date }, select: { id: true } }),
+    tx.keyBorrowCycle.findFirst({ where: { scheduleId, occurrenceDate: date, key: { labId } }, select: { id: true } }),
+  ]);
+  if (logbook || cycle) {
+    throw new AcademicConflictError("Perubahan diblokir karena pertemuan sudah memiliki riwayat logbook atau peminjaman kunci");
+  }
 }
 
 export class AcademicOccurrenceService {
@@ -100,11 +110,13 @@ export class AcademicOccurrenceService {
         throw new AcademicConflictError("Laporan tidak cocok dengan pertemuan praktikum resmi pada tanggal ini");
       }
       await assertNoActiveUse(tx, schedule.id, schedule.labId, date);
+      await assertNoOccurrenceHistory(tx, schedule.id, schedule.labId, date);
       const booking = await tx.labBooking.findFirst({ where: { labId: schedule.labId, date, status: "APPROVED", startTime: { lt: schedule.endTime }, endTime: { gt: schedule.startTime } } });
       if (booking) throw new AcademicConflictError("Slot tidak dapat dilepas karena sudah memiliki booking aktif");
       const existing = await tx.academicOccurrenceRelease.findUnique({ where: { scheduleId_occurrenceDate: { scheduleId: schedule.id, occurrenceDate: date } } });
       if (existing) {
-        if (existing.reportId === report.id) return existing;
+        if (existing.reportId === report.id && existing.status !== "REVOKED") return existing;
+        if (existing.reportId === report.id) throw new AcademicConflictError("Pelepasan yang sudah dicabut bersifat final dan tidak dapat diaktifkan kembali");
         throw new AcademicConflictError("Pertemuan ini sudah memiliki pelepasan slot");
       }
       const release = await tx.academicOccurrenceRelease.create({ data: { offeringId: offering.id, scheduleId: schedule.id, reportId: report.id, labId: schedule.labId, occurrenceDate: date, startTime: schedule.startTime, endTime: schedule.endTime, releasedById: actor.userId } });
@@ -123,23 +135,80 @@ export class AcademicOccurrenceService {
     return release;
   }
 
-  static async requestSlot(input: { releaseId: string; targetOfferingId: string; reason?: string | null }, actor: Actor) {
-    return withSerializableRetry(async (tx) => {
-      const [release, target] = await Promise.all([
-        tx.academicOccurrenceRelease.findUnique({ where: { id: input.releaseId } }),
-        tx.academicOffering.findUnique({ where: { id: input.targetOfferingId } }),
-      ]);
-      if (!release || release.status !== "RELEASED") throw new AcademicConflictError("Slot rilis tidak tersedia");
-      if (!target || !target.isActive) throw new AcademicConflictError("Penawaran target tidak aktif");
-      if (target.id === release.offeringId) throw new AcademicConflictError("Penawaran asal tidak dapat mengajukan slot rilisnya sendiri");
-      await mayManageOffering(tx, actor, target);
-      await assertNoActiveUse(tx, release.scheduleId, release.labId, release.occurrenceDate);
-      const existing = await tx.academicSlotRequest.findFirst({ where: { releaseId: release.id, status: { in: ["PENDING", "APPROVED"] } } });
-      if (existing) throw new AcademicConflictError("Slot sudah memiliki pengajuan aktif");
-      const request = await tx.academicSlotRequest.create({ data: { releaseId: release.id, targetOfferingId: target.id, requestedById: actor.userId, reason: input.reason?.trim() || null } });
-      await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_REQUESTED", targetType: "AcademicSlotRequest", targetId: request.id, description: release.id, ipAddress: actor.ipAddress } });
-      return request;
+  static async revokeRelease(id: string, input: { reason: string }, actor: Actor) {
+    const release = await withSerializableRetry(async (tx) => {
+      const current = await tx.academicOccurrenceRelease.findUnique({
+        where: { id },
+        include: { offering: true, requests: { where: { status: { in: ["PENDING", "APPROVED"] } }, select: { id: true } } },
+      });
+      if (!current || current.status !== "RELEASED") throw new AcademicConflictError("Pelepasan slot tidak dapat dicabut");
+      await mayManageOffering(tx, actor, current.offering);
+      if (current.requests.length > 0) throw new AcademicConflictError("Pelepasan tidak dapat dicabut karena sudah memiliki pengajuan aktif");
+      await assertNoActiveUse(tx, current.scheduleId, current.labId, current.occurrenceDate);
+      await assertNoOccurrenceHistory(tx, current.scheduleId, current.labId, current.occurrenceDate);
+      const updated = await tx.academicOccurrenceRelease.update({ where: { id }, data: { status: "REVOKED", revokedAt: new Date() } });
+      await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_OCCURRENCE_RELEASE_REVOKED", targetType: "AcademicOccurrenceRelease", targetId: id, description: input.reason.trim(), ipAddress: actor.ipAddress } });
+      return updated;
     });
+    void notifyAcademicOffering({ offeringId: release.offeringId, actorId: actor.userId, event: "revocation", eventId: release.id, title: "Pelepasan slot dicabut", message: "Pertemuan kembali mengikuti jadwal akademik resmi.", metadata: { academicOccurrenceReleaseId: release.id } }).catch(() => undefined);
+    return release;
+  }
+
+  static async requestSlot(input: { releaseId: string; targetOfferingId: string; reason?: string | null }, actor: Actor) {
+    try {
+      return await withSerializableRetry(async (tx) => {
+        const [release, target] = await Promise.all([
+          tx.academicOccurrenceRelease.findUnique({ where: { id: input.releaseId } }),
+          tx.academicOffering.findUnique({ where: { id: input.targetOfferingId } }),
+        ]);
+        if (!release || release.status !== "RELEASED") throw new AcademicConflictError("Slot rilis tidak tersedia");
+        if (!target || !target.isActive) throw new AcademicConflictError("Penawaran target tidak aktif");
+        if (target.id === release.offeringId) throw new AcademicConflictError("Penawaran asal tidak dapat mengajukan slot rilisnya sendiri");
+        await mayManageOffering(tx, actor, target);
+        await assertNoActiveUse(tx, release.scheduleId, release.labId, release.occurrenceDate);
+        const existing = await tx.academicSlotRequest.findFirst({ where: { releaseId: release.id, status: { in: ["PENDING", "APPROVED"] } } });
+        if (existing) throw new AcademicConflictError("Slot sudah memiliki pengajuan aktif");
+        const request = await tx.academicSlotRequest.create({ data: { releaseId: release.id, targetOfferingId: target.id, requestedById: actor.userId, reason: input.reason?.trim() || null } });
+        await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_REQUESTED", targetType: "AcademicSlotRequest", targetId: request.id, description: release.id, ipAddress: actor.ipAddress } });
+        return request;
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new AcademicConflictError("Slot sudah memiliki pengajuan aktif");
+      }
+      throw error;
+    }
+  }
+
+  static async cancelRequest(id: string, input: { reason: string }, actor: Actor) {
+    const result = await withSerializableRetry(async (tx) => {
+      const persistedActor = await getActiveActor(tx, actor);
+      const request = await tx.academicSlotRequest.findUnique({
+        where: { id },
+        include: { release: true, targetOffering: true, booking: true, allocatedSchedule: true },
+      });
+      if (!request || !["PENDING", "APPROVED"].includes(request.status)) throw new AcademicConflictError("Pengajuan slot tidak dapat dibatalkan");
+      const coordinator = persistedActor.role === "KOORDINATOR_LAB";
+      if (!coordinator && request.requestedById !== persistedActor.id) throw new AcademicAuthorizationError("Hanya pengaju atau Koordinator Lab yang dapat membatalkan pengajuan");
+
+      if (request.status === "APPROVED") {
+        if (!coordinator) throw new AcademicAuthorizationError("Alokasi resmi hanya dapat dibatalkan Koordinator Lab");
+        if (!request.bookingId || !request.allocatedScheduleId || !request.booking || !request.allocatedSchedule) {
+          throw new AcademicConflictError("Identitas alokasi tidak lengkap; pembatalan dihentikan untuk menjaga integritas");
+        }
+        await assertNoActiveUse(tx, request.allocatedScheduleId, request.release.labId, request.release.occurrenceDate);
+        await assertNoOccurrenceHistory(tx, request.allocatedScheduleId, request.release.labId, request.release.occurrenceDate);
+        await tx.labBooking.update({ where: { id: request.bookingId }, data: { status: "CANCELLED" } });
+        await tx.schedule.update({ where: { id: request.allocatedScheduleId }, data: { status: "CANCELLED", isActive: false } });
+        await tx.academicOccurrenceRelease.update({ where: { id: request.releaseId }, data: { status: "REVOKED", revokedAt: new Date() } });
+      }
+
+      const cancelled = await tx.academicSlotRequest.update({ where: { id }, data: { status: "CANCELLED", reviewedById: coordinator ? persistedActor.id : request.reviewedById, reviewedAt: new Date(), rejectionReason: input.reason.trim() } });
+      await tx.auditLog.create({ data: { userId: persistedActor.id, action: request.status === "APPROVED" ? "ACADEMIC_SLOT_ALLOCATION_CANCELLED" : "ACADEMIC_SLOT_REQUEST_CANCELLED", targetType: "AcademicSlotRequest", targetId: id, description: input.reason.trim(), ipAddress: actor.ipAddress } });
+      return { request: cancelled, offeringId: request.targetOfferingId };
+    });
+    void notifyAcademicOffering({ offeringId: result.offeringId, actorId: actor.userId, event: "cancellation", eventId: result.request.id, title: "Pengajuan slot dibatalkan", message: "Pengajuan atau alokasi slot akademik telah dibatalkan secara resmi.", metadata: { academicSlotRequestId: result.request.id } }).catch(() => undefined);
+    return result.request;
   }
 
   static async reviewRequest(id: string, input: { approved: boolean; rejectionReason?: string | null }, actor: Actor) {
@@ -149,7 +218,11 @@ export class AcademicOccurrenceService {
       const request = await tx.academicSlotRequest.findUnique({ where: { id }, include: { release: { include: { report: true, schedule: true } }, targetOffering: { include: { course: true, academicClass: true } } } });
       if (!request || request.status !== "PENDING") throw new AcademicConflictError("Pengajuan slot tidak dapat ditinjau");
       if (!input.approved) {
-        return tx.academicSlotRequest.update({ where: { id }, data: { status: "REJECTED", reviewedById: actor.userId, reviewedAt: new Date(), rejectionReason: input.rejectionReason?.trim() || "Ditolak koordinator" } });
+        const reason = input.rejectionReason?.trim();
+        if (!reason || reason.length < 3) throw new AcademicValidationError("Alasan penolakan wajib diisi (minimal 3 karakter)");
+        const rejected = await tx.academicSlotRequest.update({ where: { id }, data: { status: "REJECTED", reviewedById: actor.userId, reviewedAt: new Date(), rejectionReason: reason } });
+        await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_REJECTED", targetType: "AcademicSlotRequest", targetId: id, description: reason, ipAddress: actor.ipAddress } });
+        return rejected;
       }
       const release = await tx.academicOccurrenceRelease.findUnique({ where: { id: request.releaseId } });
       if (!release || release.status !== "RELEASED") throw new AcademicConflictError("Slot rilis sudah tidak tersedia");
@@ -181,7 +254,19 @@ export class AcademicOccurrenceService {
       await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SLOT_APPROVED", targetType: "AcademicSlotRequest", targetId: id, description: booking.id, ipAddress: actor.ipAddress } });
       return approved;
     });
-    void notificationService.create({ userId: result.requestedById, type: "SYSTEM", title: input.approved ? "Pengajuan slot disetujui" : "Pengajuan slot ditolak", message: input.approved ? "Slot lab akademik telah dialokasikan." : "Pengajuan slot lab akademik ditolak.", metadata: { academicSlotRequestId: result.id }, reminderKey: `academic:allocation:${result.id}:${result.requestedById}` }).catch(() => undefined);
+    const event = input.approved ? "allocation" : "rejection";
+    void notificationService.create({
+      userId: result.requestedById,
+      type: "SYSTEM",
+      title: input.approved ? "Pengajuan slot disetujui" : "Pengajuan slot ditolak",
+      message: input.approved
+        ? "Slot lab akademik telah dialokasikan."
+        : result.rejectionReason
+          ? `Pengajuan slot lab akademik ditolak: ${result.rejectionReason}`
+          : "Pengajuan slot lab akademik ditolak.",
+      metadata: { academicSlotRequestId: result.id, rejectionReason: result.rejectionReason },
+      reminderKey: `academic:allocation:${result.id}:${event}:${result.requestedById}`,
+    }).catch(() => undefined);
     return result;
   }
 }

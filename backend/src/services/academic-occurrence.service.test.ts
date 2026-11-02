@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import prisma from "../config/database";
-import { AcademicConflictError, AcademicService } from "./academic.service";
+import { AcademicConflictError, AcademicService, AcademicValidationError } from "./academic.service";
 import { AcademicOccurrenceService } from "./academic-occurrence.service";
 import { notificationService } from "./notification.service";
 
@@ -202,4 +202,223 @@ test("allocation occurrence migration is additive and uniquely links one schedul
   assert.match(sql, /CREATE UNIQUE INDEX "academic_slot_requests_allocatedScheduleId_key"/);
   assert.match(sql, /REFERENCES "schedules"\("id"\)/);
   assert.doesNotMatch(sql, /^\s*(?:UPDATE|DELETE|DROP)\b/im);
+});
+
+test("active slot request migration enforces one pending or approved request per release", () => {
+  const sql = readFileSync(path.join(__dirname, "../../prisma/migrations/20261102000000_unique_active_academic_slot_request/migration.sql"), "utf8");
+  assert.match(sql, /CREATE UNIQUE INDEX "academic_slot_requests_one_active_per_release_key"/);
+  assert.match(sql, /ON "academic_slot_requests"\("releaseId"\)/);
+  assert.match(sql, /WHERE "status" IN \('PENDING', 'APPROVED'\)/);
+  assert.doesNotMatch(sql, /^\s*(?:UPDATE|DELETE|DROP)\b/im);
+});
+
+test("released occurrence can be revoked only when no request or active use exists", async () => {
+  const updates: unknown[] = [];
+  const audits: unknown[] = [];
+  const tx = {
+    user: { findUnique: async () => ({ id: actor.userId, role: actor.role, isActive: true }) },
+    academicOccurrenceRelease: {
+      findUnique: async () => ({
+        id: "release-1", status: "RELEASED", scheduleId: "schedule-1", labId: "lab-1",
+        occurrenceDate: date, offeringId: "offering-1", requests: [],
+        offering: { id: "offering-1", termId: "term-1", classId: "class-1", dosenId: "dosen-1" },
+      }),
+      update: async (input: unknown) => { updates.push(input); return { id: "release-1", offeringId: "offering-1", status: "REVOKED", occurrenceDate: date }; },
+    },
+    logbook: { findFirst: async () => null },
+    keyBorrowCycle: { findFirst: async () => null },
+    key: { findFirst: async () => null },
+    auditLog: { create: async (input: unknown) => { audits.push(input); return {}; } },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    const result = await AcademicOccurrenceService.revokeRelease("release-1", { reason: "Kelas kembali tatap muka" }, actor);
+    assert.equal(result.status, "REVOKED");
+    assert.equal(updates.length, 1);
+    assert.equal(audits.length, 1);
+    assert.equal((audits[0] as { data: { action: string } }).data.action, "ACADEMIC_OCCURRENCE_RELEASE_REVOKED");
+  } finally { restore(); }
+});
+
+test("completed occurrence history blocks release revocation", async () => {
+  let writes = 0;
+  const tx = {
+    user: { findUnique: async () => ({ id: actor.userId, role: actor.role, isActive: true }) },
+    academicOccurrenceRelease: {
+      findUnique: async () => ({
+        id: "release-1", status: "RELEASED", scheduleId: "schedule-1", labId: "lab-1",
+        occurrenceDate: date, offeringId: "offering-1", requests: [],
+        offering: { id: "offering-1", termId: "term-1", classId: "class-1", dosenId: "dosen-1" },
+      }),
+      update: async () => { writes += 1; return {}; },
+    },
+    logbook: { findFirst: async ({ where }: { where: { status?: unknown } }) => where.status ? null : { id: "completed-logbook" } },
+    keyBorrowCycle: { findFirst: async () => null },
+    key: { findFirst: async () => null },
+    auditLog: { create: async () => { writes += 1; return {}; } },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    await assert.rejects(
+      AcademicOccurrenceService.revokeRelease("release-1", { reason: "Kembali tatap muka" }, actor),
+      /riwayat logbook atau peminjaman kunci/i,
+    );
+    assert.equal(writes, 0);
+  } finally { restore(); }
+});
+
+test("revoked release is terminal and cannot be silently reactivated", async () => {
+  const fixture = releaseTransaction({
+    academicOccurrenceRelease: {
+      findUnique: async () => ({ id: "release-1", reportId: "report-1", status: "REVOKED" }),
+      create: async () => { throw new Error("unexpected write"); },
+    },
+  });
+  const restore = replaceTransaction(fixture.tx);
+  try {
+    await assert.rejects(
+      AcademicOccurrenceService.release("report-1", actor),
+      /bersifat final/i,
+    );
+  } finally { restore(); }
+});
+
+test("pending slot request cancellation is atomic and requester-scoped", async () => {
+  const updates: unknown[] = [];
+  const audits: unknown[] = [];
+  const requester = { userId: "student-1", role: "MAHASISWA" };
+  const tx = {
+    user: { findUnique: async () => ({ id: requester.userId, role: requester.role, isActive: true }) },
+    academicSlotRequest: {
+      findUnique: async () => ({
+        id: "request-1", status: "PENDING", requestedById: requester.userId, reviewedById: null,
+        targetOfferingId: "offering-target", release: { labId: "lab-1", occurrenceDate: date },
+        targetOffering: {}, booking: null, allocatedSchedule: null,
+      }),
+      update: async (input: unknown) => { updates.push(input); return { id: "request-1", status: "CANCELLED" }; },
+    },
+    auditLog: { create: async (input: unknown) => { audits.push(input); return {}; } },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    const result = await AcademicOccurrenceService.cancelRequest("request-1", { reason: "Kebutuhan dibatalkan" }, requester);
+    assert.equal(result.status, "CANCELLED");
+    assert.equal(updates.length, 1);
+    assert.equal((audits[0] as { data: { action: string } }).data.action, "ACADEMIC_SLOT_REQUEST_CANCELLED");
+  } finally { restore(); }
+});
+
+test("approved allocation cancellation fails closed for non-coordinator", async () => {
+  const requester = { userId: "student-1", role: "MAHASISWA" };
+  const tx = {
+    user: { findUnique: async () => ({ id: requester.userId, role: requester.role, isActive: true }) },
+    academicSlotRequest: {
+      findUnique: async () => ({
+        id: "request-1", status: "APPROVED", requestedById: requester.userId,
+        bookingId: "booking-1", allocatedScheduleId: "schedule-allocation", release: {},
+        targetOffering: {}, booking: {}, allocatedSchedule: {},
+      }),
+    },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    await assert.rejects(
+      AcademicOccurrenceService.cancelRequest("request-1", { reason: "Batalkan alokasi" }, requester),
+      /hanya dapat dibatalkan Koordinator Lab/i,
+    );
+  } finally { restore(); }
+});
+
+test("completed allocation evidence blocks coordinator cancellation without partial writes", async () => {
+  let writes = 0;
+  const tx = {
+    user: { findUnique: async () => ({ id: actor.userId, role: actor.role, isActive: true }) },
+    academicSlotRequest: {
+      findUnique: async () => ({
+        id: "request-1", status: "APPROVED", requestedById: "student-1", reviewedById: actor.userId,
+        bookingId: "booking-1", allocatedScheduleId: "schedule-allocation", releaseId: "release-1",
+        release: { labId: "lab-1", occurrenceDate: date }, targetOfferingId: "offering-target",
+        targetOffering: {}, booking: {}, allocatedSchedule: {},
+      }),
+      update: async () => { writes += 1; return {}; },
+    },
+    logbook: { findFirst: async ({ where }: { where: { status?: unknown } }) => where.status ? null : { id: "completed-logbook" } },
+    keyBorrowCycle: { findFirst: async () => null },
+    key: { findFirst: async () => null },
+    labBooking: { update: async () => { writes += 1; return {}; } },
+    schedule: { update: async () => { writes += 1; return {}; } },
+    academicOccurrenceRelease: { update: async () => { writes += 1; return {}; } },
+    auditLog: { create: async () => { writes += 1; return {}; } },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    await assert.rejects(
+      AcademicOccurrenceService.cancelRequest("request-1", { reason: "Batalkan alokasi" }, actor),
+      /riwayat logbook atau peminjaman kunci/i,
+    );
+    assert.equal(writes, 0);
+  } finally { restore(); }
+});
+
+test("slot request rejection requires rejectionReason of at least 3 characters", async () => {
+  const tx = {
+    user: { findUnique: async () => ({ id: actor.userId, role: actor.role, isActive: true }) },
+    academicSlotRequest: {
+      findUnique: async () => ({
+        id: "request-1", status: "PENDING", requestedById: "student-1",
+        release: { labId: "lab-1", occurrenceDate: date },
+      }),
+    },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    await assert.rejects(
+      AcademicOccurrenceService.reviewRequest("request-1", { approved: false, rejectionReason: "  " }, actor),
+      AcademicValidationError,
+    );
+    await assert.rejects(
+      AcademicOccurrenceService.reviewRequest("request-1", { approved: false, rejectionReason: "no" }, actor),
+      AcademicValidationError,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("coordinator slot rejection persists rejectionReason and logs audit", async () => {
+  let updatedRequest: unknown = null;
+  let auditCreated: unknown = null;
+  const tx = {
+    user: { findUnique: async () => ({ id: actor.userId, role: actor.role, isActive: true }) },
+    academicSlotRequest: {
+      findUnique: async () => ({
+        id: "request-1", status: "PENDING", requestedById: "student-1",
+        release: { labId: "lab-1", occurrenceDate: date },
+      }),
+      update: async (input: unknown) => {
+        updatedRequest = input;
+        return { id: "request-1", status: "REJECTED", rejectionReason: "Jadwal lab bentrok dengan pemeliharaan", requestedById: "student-1" };
+      },
+    },
+    auditLog: {
+      create: async (input: unknown) => {
+        auditCreated = input;
+        return {};
+      },
+    },
+  };
+  const restore = replaceTransaction(tx);
+  try {
+    const result = await AcademicOccurrenceService.reviewRequest(
+      "request-1",
+      { approved: false, rejectionReason: "Jadwal lab bentrok dengan pemeliharaan" },
+      actor,
+    );
+    assert.equal(result.status, "REJECTED");
+    assert.equal((result as { rejectionReason?: string }).rejectionReason, "Jadwal lab bentrok dengan pemeliharaan");
+    assert.equal((auditCreated as { data: { action: string; description: string } }).data.action, "ACADEMIC_SLOT_REJECTED");
+    assert.equal((auditCreated as { data: { action: string; description: string } }).data.description, "Jadwal lab bentrok dengan pemeliharaan");
+  } finally {
+    restore();
+  }
 });
