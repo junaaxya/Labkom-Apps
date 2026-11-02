@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
-import { AcademicAuthorizationError, AcademicConflictError, AcademicService } from "../services/academic.service";
+import { AcademicAuthorizationError, AcademicConflictError, AcademicValidationError, AcademicService } from "../services/academic.service";
 import { AcademicBindingService } from "../services/academic-binding.service";
 import { AcademicOccurrenceService } from "../services/academic-occurrence.service";
 import { AcademicSwapService } from "../services/academic-swap.service";
@@ -35,6 +35,8 @@ import {
   updateAcademicTermSchema,
   reviewAcademicSlotRequestSchema,
   reviewAcademicOccurrenceSwapSchema,
+  revokeAcademicOccurrenceReleaseSchema,
+  cancelAcademicSlotRequestSchema,
 } from "../validators/academic.validator";
 
 function getParam(req: Request, name: string): string {
@@ -49,6 +51,10 @@ function getActor(req: Request) {
 function sendError(res: Response, error: unknown, fallback: string): void {
   if (error instanceof ZodError) {
     res.status(400).json({ success: false, message: "Validasi gagal", errors: error.issues });
+    return;
+  }
+  if (error instanceof AcademicValidationError) {
+    res.status(400).json({ success: false, message: error.message });
     return;
   }
   if (error instanceof AcademicConflictError) {
@@ -269,7 +275,12 @@ export class AcademicController {
   static async bindSchedule(req: Request, res: Response): Promise<void> {
     try {
       const input = bindAcademicScheduleSchema.parse(req.body);
-      const data = await AcademicBindingService.bindSchedule(getParam(req, "id"), input.scheduleId, getActor(req));
+      const data = await AcademicBindingService.bindSchedule(
+        getParam(req, "id"),
+        input.scheduleId,
+        getActor(req),
+        input.confirmAmbiguousMetadata ?? false,
+      );
       res.json({ success: true, data });
     } catch (error) {
       sendError(res, error, "Gagal menghubungkan jadwal");
@@ -371,6 +382,15 @@ export class AcademicController {
     }
   }
 
+  static async revokeOccurrenceRelease(req: Request, res: Response): Promise<void> {
+    try {
+      const input = revokeAcademicOccurrenceReleaseSchema.parse(req.body);
+      res.json({ success: true, data: await AcademicOccurrenceService.revokeRelease(getParam(req, "id"), input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal mencabut pelepasan slot");
+    }
+  }
+
   static async createSlotRequest(req: Request, res: Response): Promise<void> {
     try {
       const input = createAcademicSlotRequestSchema.parse(req.body);
@@ -394,6 +414,15 @@ export class AcademicController {
       res.json({ success: true, data: await AcademicOccurrenceService.reviewRequest(getParam(req, "id"), input, getActor(req)) });
     } catch (error) {
       sendError(res, error, "Gagal meninjau pengajuan slot");
+    }
+  }
+
+  static async cancelSlotRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const input = cancelAcademicSlotRequestSchema.parse(req.body);
+      res.json({ success: true, data: await AcademicOccurrenceService.cancelRequest(getParam(req, "id"), input, getActor(req)) });
+    } catch (error) {
+      sendError(res, error, "Gagal membatalkan pengajuan slot");
     }
   }
 

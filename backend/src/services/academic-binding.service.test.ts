@@ -18,7 +18,14 @@ test("binding migration preserves unbound offerings and enforces one schedule pe
 });
 
 function mockTransaction(options: { readonly existingScheduleId?: string; readonly claimed?: boolean; readonly schedule?: typeof schedule } = {}) {
-  let offering = { id: "offering-1", isActive: true, scheduleId: options.existingScheduleId ?? null };
+  let offering = {
+    id: "offering-1",
+    isActive: true,
+    scheduleId: options.existingScheduleId ?? null,
+    term: { id: "term-1", code: "2026-GANJIL", name: "2026 Ganjil" },
+    academicClass: { id: "class-1", code: "TI-1A", name: "TI 1A" },
+    dosen: { id: "dosen-1", name: "Dosen Satu" },
+  };
   const audits: unknown[] = [];
   const tx = {
     academicOffering: {
@@ -107,5 +114,36 @@ test("binding rejects inactive or non-PRAKTIKUM official schedules", async () =>
     } finally {
       fake.restore();
     }
+  }
+});
+
+test("ambiguous legacy metadata requires explicit coordinator confirmation and is audited", async () => {
+  const fake = mockTransaction({
+    schedule: {
+      ...schedule,
+      className: "Kelas Lama",
+      semester: "Semester Lama",
+      lecturerName: "Nama Dosen Lama",
+    } as typeof schedule,
+  });
+  try {
+    await assert.rejects(
+      AcademicBindingService.bindSchedule("offering-1", "schedule-1", coordinator),
+      /Konfirmasi eksplisit Koordinator diperlukan/,
+    );
+    assert.equal(fake.audits.length, 0);
+
+    const result = await AcademicBindingService.bindSchedule("offering-1", "schedule-1", coordinator, true);
+    assert.equal(result.scheduleId, "schedule-1");
+    assert.deepEqual(fake.audits, [{
+      userId: "coordinator",
+      action: "ACADEMIC_SCHEDULE_BOUND",
+      targetType: "AcademicOffering",
+      targetId: "offering-1",
+      description: "Jadwal schedule-1; metadata ambigu dikonfirmasi: kelas, semester, dosen",
+      ipAddress: "127.0.0.1",
+    }]);
+  } finally {
+    fake.restore();
   }
 });
