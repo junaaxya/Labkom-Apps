@@ -1,9 +1,11 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { config } from "../config";
 import { faqBotService } from "./faq-bot.service";
 import { canViewOperationalAiInsights, isAiIntentAllowed } from "./ai-access-policy";
 import { getScheduleQuery, SCHEDULE_DAYS } from "./ai-schedule-time";
 import { aiRuntimeService, QuickAction } from "./ai-runtime.service";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 interface ConversationMessage {
   role: "user" | "assistant" | "system";
@@ -187,18 +189,32 @@ class AIAssistantService {
         case "available_labs": {
           const scheduleQuery = getScheduleQuery(message);
           const requestedDays = intent === "available_labs" ? [scheduleQuery.primaryDay] : scheduleQuery.days;
-          const schedules = await prisma.schedule.findMany({
-            where: {
-              day: requestedDays.length === 1 ? requestedDays[0] : { in: requestedDays },
-              isActive: true,
-              ...(intent === "my_schedule" ? { assistantId: userId } : {}),
-            },
-            include: {
-              lab: { select: { name: true } },
-              assistant: { select: { name: true } },
-            },
-            orderBy: { startTime: "asc" },
-          });
+          const schedules = scheduleQuery.date
+            ? (await resolveActualOccurrences(
+                prisma as unknown as Prisma.TransactionClient,
+                scheduleQuery.date,
+              ))
+                .filter((occurrence) => intent !== "my_schedule" || occurrence.schedule.assistant?.id === userId)
+                .map((occurrence) => ({
+                  ...occurrence.schedule,
+                  labId: occurrence.labId,
+                  startTime: occurrence.startTime,
+                  endTime: occurrence.endTime,
+                  lab: occurrence.schedule.lab,
+                  assistant: occurrence.schedule.assistant,
+                }))
+            : await prisma.schedule.findMany({
+                where: {
+                  day: requestedDays.length === 1 ? requestedDays[0] : { in: requestedDays },
+                  isActive: true,
+                  ...(intent === "my_schedule" ? { assistantId: userId } : {}),
+                },
+                include: {
+                  lab: { select: { name: true } },
+                  assistant: { select: { name: true } },
+                },
+                orderBy: { startTime: "asc" },
+              });
           data.schedules = schedules.sort((a, b) => {
             const dayDifference = SCHEDULE_DAYS.indexOf(a.day) - SCHEDULE_DAYS.indexOf(b.day);
             return dayDifference || a.startTime.localeCompare(b.startTime);
@@ -206,6 +222,7 @@ class AIAssistantService {
           data.today = scheduleQuery.primaryDay;
           data.scheduleLabel = scheduleQuery.label;
           data.schedulePeriod = scheduleQuery.period;
+          data.scheduleNature = scheduleQuery.date ? "actual" : "recurring";
 
           if (intent === "available_labs") {
             const currentTime = scheduleQuery.currentTime;
@@ -641,6 +658,7 @@ INSTRUKSI:
       case "schedule_today": {
         if (data.schedules?.length > 0) {
           answer = `📅 **Jadwal ${data.scheduleLabel}:**\n\n`;
+          if (data.scheduleNature === "recurring") answer += "_Jadwal berulang resmi; perubahan per tanggal lihat Portal Akademik._\n\n";
           let lastDay = "";
           data.schedules.forEach((s: any) => {
             if (data.schedulePeriod === "week" && s.day !== lastDay) {
@@ -659,6 +677,7 @@ INSTRUKSI:
       case "my_schedule": {
         if (data.schedules?.length > 0) {
           answer = `📅 **Jadwal Kamu — ${data.scheduleLabel}:**\n\n`;
+          if (data.scheduleNature === "recurring") answer += "_Jadwal berulang resmi; perubahan per tanggal lihat Portal Akademik._\n\n";
           data.schedules.forEach((s: any) => {
             answer += `- **${s.startTime}–${s.endTime}** — ${s.title}\n`;
             answer += `  ${s.lab.name}${s.className ? ` • Kelas ${s.className}` : ""}\n\n`;

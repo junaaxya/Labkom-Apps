@@ -4,6 +4,9 @@ import * as QRCode from "qrcode";
 import prisma from "../config/database";
 import { sseManager } from "./sse.service";
 import { faqBotService } from "./faq-bot.service";
+import type { Prisma } from "@prisma/client";
+import { getJakartaClock } from "./jakarta-time";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 let baileys: any = null;
 async function loadBaileys() {
@@ -313,14 +316,12 @@ class WhatsAppService {
     sender: string,
     user: { id: string; role: string }
   ): Promise<void> {
-    const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const today = days[new Date().getDay()] as any;
-
-    const schedules = await prisma.schedule.findMany({
-      where: { day: today, status: "SCHEDULED" },
-      include: { lab: true, assistant: true },
-      orderBy: { startTime: "asc" },
-    });
+    const clock = getJakartaClock();
+    const today = clock.day;
+    const schedules = (await resolveActualOccurrences(
+      prisma as unknown as Prisma.TransactionClient,
+      clock.date,
+    )).sort((left, right) => left.startTime.localeCompare(right.startTime));
 
     if (schedules.length === 0) {
       await this.socket?.sendMessage(sender, {
@@ -330,12 +331,13 @@ class WhatsAppService {
     }
 
     let msg = `📅 *Jadwal Hari Ini (${today})*\n\n`;
-    for (const s of schedules) {
-      msg += `🕐 ${s.startTime} - ${s.endTime}\n`;
-      msg += `📍 ${s.lab.name}\n`;
-      msg += `📚 ${s.title}\n`;
-      if (s.lecturerName) msg += `👨‍🏫 ${s.lecturerName}\n`;
-      if (s.assistant) msg += `🧑‍💻 ${s.assistant.name}\n`;
+    for (const occurrence of schedules) {
+      const schedule = occurrence.schedule;
+      msg += `🕐 ${occurrence.startTime} - ${occurrence.endTime}\n`;
+      msg += `📍 ${schedule.lab?.name || "Laboratorium"}\n`;
+      msg += `📚 ${schedule.title}\n`;
+      if (schedule.lecturerName) msg += `👨‍🏫 ${schedule.lecturerName}\n`;
+      if (schedule.assistant) msg += `🧑‍💻 ${schedule.assistant.name}\n`;
       msg += `\n`;
     }
 
