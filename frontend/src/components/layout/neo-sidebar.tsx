@@ -24,7 +24,6 @@ import {
   TbClipboardList,
   TbAlertTriangle,
   TbQrcode,
-  TbFileDescription,
   TbBookmarks,
   TbCertificate,
   TbMessageCircle,
@@ -58,6 +57,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Pengumuman", href: "/announcements", icon: TbSpeakerphone, group: "Main" },
     { label: "Manajemen Lab", href: "/labs", icon: TbBuildingWarehouse, group: "Management" },
     { label: "Manajemen Jadwal", href: "/schedules", icon: TbCalendarEvent, group: "Management" },
+    { label: "Ruang Akademik", href: "/academic", icon: TbSchool, group: "Management" },
     { label: "Manajemen User", href: "/users", icon: TbUsers, group: "Management" },
     { label: "Daftar Asleb", href: "/assistants", icon: TbUserCode, group: "Management" },
     { label: "Monitoring Absensi", href: "/attendance/monitoring", icon: TbChecklist, group: "Operations" },
@@ -142,7 +142,6 @@ const menuByRole: Record<Role, MenuItem[]> = {
 
 const ketuaKelasExtraMenu: MenuItem[] = [
   { label: "Scan QR Kunci", href: "/scan", icon: TbQrcode, group: "Extra" },
-  { label: "Validasi Kondisi", href: "/logbook/condition", icon: TbFileDescription, group: "Extra" },
   { label: "Request Jadwal", href: "/schedules", icon: TbArrowsExchange, group: "Extra" },
 ];
 

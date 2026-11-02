@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -152,19 +153,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss]
   );
 
-  const toast = {
-    success: (message: string, duration?: number) =>
-      addToast("success", message, duration),
-    error: (message: string, duration?: number) =>
-      addToast("error", message, duration ?? 6000),
-    warning: (message: string, duration?: number) =>
-      addToast("warning", message, duration ?? 5000),
-    info: (message: string, duration?: number) =>
-      addToast("info", message, duration),
-  };
+  const toast = useMemo(
+    () => ({
+      success: (message: string, duration?: number) =>
+        addToast("success", message, duration),
+      error: (message: string, duration?: number) =>
+        addToast("error", message, duration ?? 6000),
+      warning: (message: string, duration?: number) =>
+        addToast("warning", message, duration ?? 5000),
+      info: (message: string, duration?: number) =>
+        addToast("info", message, duration),
+    }),
+    [addToast]
+  );
+
+  const value = useMemo(() => ({ toast }), [toast]);
 
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence mode="popLayout">
