@@ -17,6 +17,7 @@ import {
   TbInfoCircle,
   TbTrash,
   TbX,
+  TbMessageCircle,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
@@ -43,6 +44,7 @@ const TYPE_ICONS: Record<string, IconType> = {
   LOGBOOK_VERIFIED: TbBook2,
   CERTIFICATE_ISSUED: TbCertificate,
   SYSTEM: TbInfoCircle,
+  SUPPORT_CHAT_ASSIGNED: TbMessageCircle,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -56,6 +58,7 @@ const TYPE_COLORS: Record<string, string> = {
   LOGBOOK_VERIFIED: "bg-blue-100 text-blue-600",
   CERTIFICATE_ISSUED: "bg-yellow-100 text-yellow-700",
   SYSTEM: "bg-gray-100 text-gray-600",
+  SUPPORT_CHAT_ASSIGNED: "bg-orange-100 text-orange-600",
 };
 
 function timeAgo(dateStr: string): string {
@@ -315,9 +318,13 @@ export function NotificationPanel() {
                     notifications.map((notif) => {
                       const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
                       const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                      const chatId = typeof notif.metadata?.chatId === "string" ? notif.metadata.chatId : undefined;
                       return (
                         <div
                           key={notif.id}
+                          role={chatId ? "link" : undefined}
+                          tabIndex={chatId ? 0 : undefined}
+                          onClick={chatId ? () => { window.location.assign(`/support-chats/${chatId}`); } : undefined}
                           className={`flex items-start gap-3 px-3 py-3 border-b border-[#e8d8c9] last:border-0 active:bg-[#f9f3ed] transition-colors ${
                             !notif.isRead ? "bg-[#fef9f4]" : ""
                           }`}
@@ -407,13 +414,17 @@ export function NotificationPanel() {
                     <p className="text-sm text-[#5a5a5a]">Belum ada notifikasi</p>
                   </div>
                 ) : (
-                  notifications.map((notif) => {
-                    const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
-                    const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                    notifications.map((notif) => {
+                      const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
+                      const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                      const chatId = typeof notif.metadata?.chatId === "string" ? notif.metadata.chatId : undefined;
 
-                    return (
-                      <div
-                        key={notif.id}
+                      return (
+                        <div
+                          key={notif.id}
+                          role={chatId ? "link" : undefined}
+                          tabIndex={chatId ? 0 : undefined}
+                          onClick={chatId ? () => { window.location.assign(`/support-chats/${chatId}`); } : undefined}
                         className={`flex items-start gap-3 px-4 py-3 border-b border-[#e8d8c9] hover:bg-[#f9f3ed] transition-colors ${
                           !notif.isRead ? "bg-[#fef9f4]" : ""
                         }`}

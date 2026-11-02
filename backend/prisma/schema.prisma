@@ -212,6 +212,11 @@ enum LogbookTicketAutomationStatus {
   FAILED
 }
 
+enum SupportChatStatus {
+  WAITING
+  HANDLED
+}
+
 enum MissionStatus {
   OPEN
   TAKEN
@@ -381,6 +386,10 @@ model User {
   academicSwapsRequested     AcademicOccurrenceSwap[]             @relation("AcademicSwapRequester")
   academicSwapsReviewed      AcademicOccurrenceSwap[]             @relation("AcademicSwapReviewer")
   academicSwapConfirmations  AcademicOccurrenceSwapConfirmation[]
+  supportChatsStarted        SupportChat[]                        @relation("SupportChatStudent")
+  supportChatsAssigned       SupportChat[]                        @relation("SupportChatAssistant")
+  supportChatRecipients      SupportChatRecipient[]               @relation("SupportChatRecipientAssistant")
+  supportChatMessages        SupportChatMessage[]                 @relation("SupportChatMessageSender")
 
   @@map("users")
 }
@@ -416,6 +425,7 @@ model Lab {
   shiftSchedules             AsLabShiftSchedule[]
   picketPatternAssignments   AsLabPicketPatternAssignment[]
   academicOccurrenceReleases AcademicOccurrenceRelease[]
+  supportChats               SupportChat[]
 
   @@map("labs")
 }
@@ -539,13 +549,14 @@ model PC {
   updatedAt DateTime @updatedAt
 
   // Relations
-  lab        Lab           @relation(fields: [labId], references: [id])
-  tickets    Ticket[]
-  statusLogs PCStatusLog[]
-  commands   PCCommand[]
-  agentLogs  PcAgentLog[]
-  warnings   PcWarning[]
-  asset      Asset?
+  lab          Lab           @relation(fields: [labId], references: [id])
+  tickets      Ticket[]
+  supportChats SupportChat[]
+  statusLogs   PCStatusLog[]
+  commands     PCCommand[]
+  agentLogs    PcAgentLog[]
+  warnings     PcWarning[]
+  asset        Asset?
 
   @@map("pcs")
 }
@@ -1379,6 +1390,62 @@ model TicketEvent {
   @@map("ticket_events")
 }
 
+model SupportChat {
+  id                  String            @id @default(cuid())
+  pcId                String
+  labId               String
+  studentId           String
+  assignedAssistantId String?
+  status              SupportChatStatus @default(WAITING)
+  lastMessageAt       DateTime          @default(now())
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  pc                PC                     @relation(fields: [pcId], references: [id], onDelete: Restrict)
+  lab               Lab                    @relation(fields: [labId], references: [id], onDelete: Restrict)
+  student           User                   @relation("SupportChatStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  assignedAssistant User?                  @relation("SupportChatAssistant", fields: [assignedAssistantId], references: [id], onDelete: Restrict)
+  recipients        SupportChatRecipient[]
+  messages          SupportChatMessage[]
+
+  @@index([studentId, lastMessageAt])
+  @@index([assignedAssistantId, status, lastMessageAt])
+  @@index([labId, createdAt])
+  @@map("support_chats")
+}
+
+model SupportChatRecipient {
+  id              String   @id @default(cuid())
+  chatId          String
+  assistantId     String
+  shiftScheduleId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chat          SupportChat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  assistant     User               @relation("SupportChatRecipientAssistant", fields: [assistantId], references: [id], onDelete: Restrict)
+  shiftSchedule AsLabShiftSchedule @relation(fields: [shiftScheduleId], references: [id], onDelete: Restrict)
+
+  @@unique([chatId, assistantId])
+  @@index([assistantId, chatId])
+  @@index([shiftScheduleId])
+  @@map("support_chat_recipients")
+}
+
+model SupportChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  senderId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  chat   SupportChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User        @relation("SupportChatMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([chatId, createdAt, id])
+  @@map("support_chat_messages")
+}
+
 // ============================================
 // MISSION SYSTEM & GAMIFICATION
 // ============================================
@@ -1615,12 +1682,13 @@ model AsLabShiftSchedule {
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt
 
-  user        User                @relation("ShiftScheduleUser", fields: [userId], references: [id])
-  shift       Shift               @relation(fields: [shiftId], references: [id])
-  lab         Lab?                @relation(fields: [labId], references: [id], onDelete: Restrict)
-  assigner    User?               @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
-  attendances Attendance[]
-  pattern     AsLabPicketPattern? @relation(fields: [patternId], references: [id], onDelete: Restrict)
+  user                  User                   @relation("ShiftScheduleUser", fields: [userId], references: [id])
+  shift                 Shift                  @relation(fields: [shiftId], references: [id])
+  lab                   Lab?                   @relation(fields: [labId], references: [id], onDelete: Restrict)
+  assigner              User?                  @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
+  attendances           Attendance[]
+  supportChatRecipients SupportChatRecipient[]
+  pattern               AsLabPicketPattern?    @relation(fields: [patternId], references: [id], onDelete: Restrict)
 
   @@unique([userId, shiftId, scheduleDate])
   @@index([scheduleDate, status])
@@ -1796,6 +1864,7 @@ enum NotificationType {
   LOGBOOK_VERIFIED // Logbook sudah diverifikasi
   CERTIFICATE_ISSUED // Sertifikat diterbitkan
   ANNOUNCEMENT_NEW // Pengumuman baru dari koordinator
+  SUPPORT_CHAT_ASSIGNED
   SYSTEM // Notifikasi sistem umum
 }
 
