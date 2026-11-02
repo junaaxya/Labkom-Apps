@@ -318,6 +318,29 @@ class NotificationService {
     });
   }
 
+  async notifySupportChatAssigned(input: {
+    assistantIds: readonly string[];
+    chatId: string;
+    studentName: string;
+    pcCode: string;
+    labName: string;
+  }) {
+    const userIds = [...new Set(input.assistantIds)];
+    if (userIds.length === 0) return;
+
+    return this.createBulk({
+      userIds,
+      type: "SUPPORT_CHAT_ASSIGNED",
+      title: "Permintaan Bantuan Baru",
+      message: `${input.studentName} membutuhkan bantuan di ${input.labName}, PC ${input.pcCode}.`,
+      metadata: {
+        chatId: input.chatId,
+        link: `/support-chats/${input.chatId}`,
+        source: "support-chat",
+      },
+    });
+  }
+
   /**
    * Notify when a new mission is available
    */

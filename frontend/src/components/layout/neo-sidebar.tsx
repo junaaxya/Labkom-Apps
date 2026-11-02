@@ -39,6 +39,7 @@ import {
   TbClockCog,
   TbBell,
   TbSchool,
+  TbMessages,
   TbX,
 } from "react-icons/tb";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -96,6 +97,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Logbook Lab", href: "/logbook", icon: TbBook2, group: "Operations" },
     { label: "Kunci Lab", href: "/keys", icon: TbKey, group: "Operations" },
     { label: "Ticketing", href: "/tickets", icon: TbTicket, group: "Operations" },
+    { label: "Chat Dukungan", href: "/support-chats", icon: TbMessages, group: "Operations" },
     { label: "Approval Peminjaman", href: "/lab-booking", icon: TbCalendarClock, group: "Operations" },
     { label: "Pengajuan Akses", href: "/access-requests", icon: TbChecklist, group: "Operations" },
     { label: "Peta Lab", href: "/lab-map", icon: TbMap2, group: "Monitoring" },
@@ -114,6 +116,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Support" },
     { label: "Lapor Kerusakan", href: "/tickets/new", icon: TbAlertTriangle, group: "Support" },
     { label: "Riwayat Laporan", href: "/tickets/my", icon: TbClipboardList, group: "Support" },
+    { label: "Chat Dukungan", href: "/support-chats", icon: TbMessages, group: "Support" },
     { label: "Peminjaman Lab", href: "/lab-booking", icon: TbCalendarClock, group: "Support" },
     { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
     { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
