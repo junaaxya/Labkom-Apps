@@ -35,6 +35,11 @@ test("swap routes keep representative confirmation separate from coordinator rev
   assert.match(source, /router\.patch\("\/occurrence-swaps\/:id\/review", authorize\("KOORDINATOR_LAB"\)/);
 });
 
+test("release revocation and slot cancellation remain authenticated academic actions", () => {
+  assert.match(routes, /router\.patch\("\/occurrence-releases\/:id\/revoke", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\), AcademicController\.revokeOccurrenceRelease\);/);
+  assert.match(routes, /router\.post\("\/slot-requests\/:id\/cancel", authorize\("KOORDINATOR_LAB", "DOSEN", "MAHASISWA"\), AcademicController\.cancelSlotRequest\);/);
+});
+
 test("academic migration is additive and does not backfill legacy schedule text", () => {
   assert.match(migration, /ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'DOSEN';/);
   assert.match(migration, /CREATE TYPE "AcademicReportStatus" AS ENUM \('TATAP_MUKA', 'ONLINE', 'TIDAK_MASUK', 'PINDAH_JADWAL', 'BELUM_PASTI'\);/);

@@ -25,6 +25,8 @@ test("Calendar builds stable event IDs and explicit WIB timestamps", async () =>
   assert.equal(first.start.dateTime, "2026-09-07T08:00:00+07:00");
   assert.equal(first.end.dateTime, "2026-09-07T10:00:00+07:00");
   assert.equal(first.start.timeZone, "Asia/Jakarta");
+  assert.match(first.description, /Jadwal berulang resmi/);
+  assert.match(first.description, /Perubahan per tanggal, pelepasan slot, dan pertukaran lihat Portal Akademik/);
 });
 
 test("Calendar uses today when a same-day schedule is still upcoming in WIB", async () => {
