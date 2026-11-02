@@ -3,7 +3,7 @@ import prisma from "../config/database";
 import { canonicalDateOnly, getJakartaClock, weekdayForDateOnly } from "./jakarta-time";
 import { operationalScheduleWhere, withSerializableRetry } from "./schedule-availability";
 import { notificationService } from "./notification.service";
-import { AcademicAuthorizationError, AcademicConflictError } from "./academic.service";
+import { AcademicAuthorizationError, AcademicConflictError, AcademicValidationError } from "./academic.service";
 import { resolveActualOccurrences } from "./actual-occurrence.service";
 
 type Actor = { userId: string; role: string; ipAddress?: string };
@@ -91,6 +91,28 @@ async function assertActualAvailability(tx: Prisma.TransactionClient, date: Date
     tx.academicOccurrenceSwap.findFirst({ where: { status: "APPROVED", occurrenceDate: date, OR: [{ sourceLabId: labId, sourceStartTime: { lt: endTime }, sourceEndTime: { gt: startTime } }, { targetLabId: labId, targetStartTime: { lt: endTime }, targetEndTime: { gt: startTime } }] } }),
   ]);
   if (schedule || booking || swap) throw new AcademicConflictError("Slot aktual bentrok dengan penggunaan lab lain");
+}
+
+async function assertAcademicAuthorityAvailability(
+  tx: Prisma.TransactionClient,
+  date: Date,
+  startTime: string,
+  endTime: string,
+  offering: { classId: string; dosenId: string },
+  excludedScheduleIds: string[],
+): Promise<void> {
+  const occurrences = await resolveActualOccurrences(tx, date);
+  const conflict = occurrences.find((occurrence) => {
+    if (excludedScheduleIds.includes(occurrence.schedule.id)) return false;
+    if (occurrence.startTime >= endTime || occurrence.endTime <= startTime) return false;
+    return occurrence.academicOffering?.classId === offering.classId
+      || occurrence.academicOffering?.dosenId === offering.dosenId;
+  });
+  if (!conflict) return;
+  if (conflict.academicOffering?.classId === offering.classId) {
+    throw new AcademicConflictError("Kelas memiliki pertemuan lain pada waktu tujuan");
+  }
+  throw new AcademicConflictError("Dosen memiliki pertemuan lain pada waktu tujuan");
 }
 
 function notificationRecipients(swap: { requestedById: string; sourceOffering: { dosenId: string; pjs: { membership: { userId: string } }[] }; targetOffering: { dosenId: string; pjs: { membership: { userId: string } }[] }; confirmations: { confirmedById: string }[] }): string[] {
@@ -217,13 +239,17 @@ export class AcademicSwapService {
       } });
       if (!swap || swap.status !== "PENDING_APPROVAL") throw new AcademicConflictError("Pertukaran tidak dapat ditinjau");
       if (!input.approved) {
-        return tx.academicOccurrenceSwap.update({
+        const rejectionReason = input.rejectionReason?.trim();
+        if (!rejectionReason || rejectionReason.length < 3) {
+          throw new AcademicValidationError("Alasan penolakan wajib diisi (minimal 3 karakter)");
+        }
+        const rejected = await tx.academicOccurrenceSwap.update({
           where: { id },
           data: {
             status: "REJECTED",
             reviewedById: actor.userId,
             reviewedAt: new Date(),
-            rejectionReason: input.rejectionReason?.trim() || "Ditolak koordinator",
+            rejectionReason,
             reservations: { updateMany: { where: {}, data: { status: "REJECTED" } } },
           },
           include: {
@@ -232,14 +258,31 @@ export class AcademicSwapService {
             confirmations: true,
           },
         });
+        await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_SWAP_REJECTED", targetType: "AcademicOccurrenceSwap", targetId: id, description: rejectionReason, ipAddress: actor.ipAddress } });
+        return rejected;
       }
       if (swap.confirmations.length !== 2) throw new AcademicConflictError("Konfirmasi dari kedua kelas diperlukan");
+      for (const offering of [swap.sourceOffering, swap.targetOffering]) {
+        const confirmation = swap.confirmations.find((item) => item.offeringId === offering.id);
+        if (!confirmation) throw new AcademicConflictError("Konfirmasi sah dari kedua kelas diperlukan");
+        try {
+          await assertOfferingAuthority(tx, { userId: confirmation.confirmedById, role: "MAHASISWA" }, offering);
+        } catch (error) {
+          if (error instanceof AcademicAuthorizationError) {
+            throw new AcademicConflictError("Perwakilan kelas sudah tidak memiliki otoritas untuk menyetujui pertukaran");
+          }
+          throw error;
+        }
+      }
       const [sourceSchedule, targetSchedule] = assertEligiblePair(swap.sourceOffering, swap.targetOffering, swap.occurrenceDate);
+      const excludedScheduleIds = [sourceSchedule.id, targetSchedule.id];
       await Promise.all([
         assertNoUseOrBooking(tx, sourceSchedule.id, sourceSchedule.labId, swap.occurrenceDate, sourceSchedule.startTime, sourceSchedule.endTime),
         assertNoUseOrBooking(tx, targetSchedule.id, targetSchedule.labId, swap.occurrenceDate, targetSchedule.startTime, targetSchedule.endTime),
         assertActualAvailability(tx, swap.occurrenceDate, sourceSchedule.labId, targetSchedule.startTime, targetSchedule.endTime, sourceSchedule.id, targetSchedule.id),
         assertActualAvailability(tx, swap.occurrenceDate, targetSchedule.labId, sourceSchedule.startTime, sourceSchedule.endTime, sourceSchedule.id, targetSchedule.id),
+        assertAcademicAuthorityAvailability(tx, swap.occurrenceDate, targetSchedule.startTime, targetSchedule.endTime, swap.sourceOffering, excludedScheduleIds),
+        assertAcademicAuthorityAvailability(tx, swap.occurrenceDate, sourceSchedule.startTime, sourceSchedule.endTime, swap.targetOffering, excludedScheduleIds),
       ]);
       const updated = await tx.academicOccurrenceSwap.update({
         where: { id },
@@ -261,7 +304,18 @@ export class AcademicSwapService {
     });
     const event = input.approved ? "approved" : "rejected";
     for (const userId of notificationRecipients(result)) {
-      void notificationService.create({ userId, type: "SYSTEM", title: input.approved ? "Pertukaran praktikum disetujui" : "Pertukaran praktikum ditolak", message: input.approved ? "Jadwal aktual pertemuan telah diperbarui." : "Pengajuan pertukaran pertemuan ditolak.", reminderKey: `academic-swap:${result.id}:${event}:${userId}`, metadata: { academicOccurrenceSwapId: result.id } }).catch(() => undefined);
+      void notificationService.create({
+        userId,
+        type: "SYSTEM",
+        title: input.approved ? "Pertukaran praktikum disetujui" : "Pertukaran praktikum ditolak",
+        message: input.approved
+          ? "Jadwal aktual pertemuan telah diperbarui."
+          : result.rejectionReason
+            ? `Pengajuan pertukaran pertemuan ditolak: ${result.rejectionReason}`
+            : "Pengajuan pertukaran pertemuan ditolak.",
+        reminderKey: `academic-swap:${result.id}:${event}:${userId}`,
+        metadata: { academicOccurrenceSwapId: result.id, rejectionReason: result.rejectionReason },
+      }).catch(() => undefined);
     }
     return result;
   }
