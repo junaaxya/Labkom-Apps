@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { canonicalDateOnly } from "./jakarta-time";
 import { notifyAcademicOffering } from "./academic-notification.service";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
+import { withSerializableRetry } from "./schedule-availability";
 import type {
   AcademicLeaderQueryInput,
   AcademicMembershipQueryInput,
@@ -53,8 +55,18 @@ type StudentAuthorityScopes = {
   membershipScopes: ClassScope[];
 };
 
+type AcademicOfferingCapabilities = {
+  canReport: boolean;
+  canManagePj: boolean;
+  canRelease: boolean;
+  canRequestSlot: boolean;
+  canRequestSwap: boolean;
+  canCoordinate: boolean;
+};
+
 class AcademicConflictError extends Error {}
 class AcademicAuthorizationError extends Error {}
+class AcademicValidationError extends Error {}
 
 const dosenSelect = {
   id: true,
@@ -202,15 +214,49 @@ function offeringScopeWhere(scopes: StudentAuthorityScopes): Prisma.AcademicOffe
   return or.length > 0 ? { OR: or } : { id: { in: [] } };
 }
 
+function offeringCapabilities(
+  actor: UserContext,
+  offering: { id: string; termId: string; classId: string; dosenId: string },
+  scopes?: StudentAuthorityScopes,
+): AcademicOfferingCapabilities {
+  const coordinator = actor.role === "KOORDINATOR_LAB";
+  const dosen = actor.role === "DOSEN" && offering.dosenId === actor.userId;
+  const leader = Boolean(scopes?.leaderScopes.some((scope) => scope.termId === offering.termId && scope.classId === offering.classId));
+  const pj = Boolean(scopes?.pjOfferingIds.includes(offering.id));
+  const representative = dosen || leader || pj;
+  return {
+    canReport: coordinator || representative,
+    canManagePj: coordinator || leader,
+    canRelease: coordinator || representative,
+    canRequestSlot: coordinator || representative,
+    canRequestSwap: representative,
+    canCoordinate: coordinator,
+  };
+}
+
+async function withAssignmentConflict<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new AcademicConflictError("Penetapan aktif sudah berubah. Muat ulang data sebelum mencoba kembali.");
+    }
+    throw error;
+  }
+}
+
 async function assertPjManagementAuthority(
+  client: Prisma.TransactionClient,
   actor: UserContext,
   offering: { termId: string; classId: string }
 ): Promise<void> {
-  if (actor.role === "KOORDINATOR_LAB") return;
-  if (actor.role !== "MAHASISWA") {
+  const persistedActor = await client.user.findUnique({ where: { id: actor.userId }, select: { role: true, isActive: true } });
+  if (!persistedActor?.isActive) throw new AcademicAuthorizationError("Akun aktif diperlukan");
+  if (persistedActor.role === "KOORDINATOR_LAB") return;
+  if (persistedActor.role !== "MAHASISWA") {
     throw new AcademicAuthorizationError("Hanya Koordinator Lab atau Ketua Kelas aktif yang dapat mengelola PJ");
   }
-  const leader = await prisma.academicClassLeader.findFirst({
+  const leader = await client.academicClassLeader.findFirst({
     where: {
       termId: offering.termId,
       classId: offering.classId,
@@ -361,6 +407,29 @@ async function assertReportReadAuthority(
   }
 }
 
+async function assertLegalReportOccurrence(
+  tx: Prisma.TransactionClient,
+  offering: {
+    id: string;
+    term: { startDate: Date | null; endDate: Date | null };
+  },
+  reportDateInput: Date
+): Promise<Date> {
+  const reportDate = canonicalDateOnly(reportDateInput);
+  if (offering.term.startDate && reportDate < canonicalDateOnly(offering.term.startDate)) {
+    throw new AcademicConflictError("Tanggal laporan berada sebelum term akademik dimulai");
+  }
+  if (offering.term.endDate && reportDate > canonicalDateOnly(offering.term.endDate)) {
+    throw new AcademicConflictError("Tanggal laporan berada setelah term akademik berakhir");
+  }
+
+  const occurrences = await resolveActualOccurrences(tx, reportDate);
+  if (!occurrences.some((occurrence) => occurrence.academicOffering?.id === offering.id)) {
+    throw new AcademicConflictError("Tidak ada pertemuan akademik yang sah pada tanggal laporan tersebut");
+  }
+  return reportDate;
+}
+
 async function assertMembershipReferences(input: CreateAcademicMembershipInput): Promise<void> {
   const [term, academicClass, user] = await Promise.all([
     prisma.academicTerm.findUnique({ where: { id: input.termId }, select: { id: true } }),
@@ -397,8 +466,8 @@ async function assertDosen(dosenId: string): Promise<void> {
   if (!dosen.isActive) throw new Error("Dosen aktif diperlukan");
 }
 
-async function assertLeaderMembership(input: AssignAcademicLeaderInput) {
-  const membership = await prisma.academicClassMembership.findUnique({
+async function assertLeaderMembership(client: Prisma.TransactionClient, input: AssignAcademicLeaderInput) {
+  const membership = await client.academicClassMembership.findUnique({
     where: { id: input.membershipId },
     select: { id: true, termId: true, classId: true, isActive: true, user: { select: { role: true, isActive: true } } },
   });
@@ -414,10 +483,10 @@ async function assertLeaderMembership(input: AssignAcademicLeaderInput) {
   }
 }
 
-async function assertPjMembership(offeringId: string, membershipId: string) {
+async function assertPjMembership(client: Prisma.TransactionClient, offeringId: string, membershipId: string) {
   const [offering, membership] = await Promise.all([
-    prisma.academicOffering.findUnique({ where: { id: offeringId }, select: { id: true, termId: true, classId: true } }),
-    prisma.academicClassMembership.findUnique({
+    client.academicOffering.findUnique({ where: { id: offeringId }, select: { id: true, termId: true, classId: true } }),
+    client.academicClassMembership.findUnique({
       where: { id: membershipId },
       select: { id: true, termId: true, classId: true, isActive: true, user: { select: { role: true, isActive: true } } },
     }),
@@ -435,7 +504,7 @@ async function assertPjMembership(offeringId: string, membershipId: string) {
   }
 }
 
-export { AcademicAuthorizationError, AcademicConflictError };
+export { AcademicAuthorizationError, AcademicConflictError, AcademicValidationError };
 
 export class AcademicService {
   static async listDosen() {
@@ -613,13 +682,17 @@ export class AcademicService {
 
   static async assignLeader(input: AssignAcademicLeaderInput, actor: UserContext) {
     assertCoordinator(actor);
-    await assertLeaderMembership(input);
-    return prisma.$transaction(async (tx) => {
+    return withAssignmentConflict(() => withSerializableRetry(async (tx) => {
+      const persistedActor = await tx.user.findUnique({ where: { id: actor.userId }, select: { role: true, isActive: true } });
+      if (!persistedActor?.isActive || persistedActor.role !== "KOORDINATOR_LAB") {
+        throw new AcademicAuthorizationError("Hanya Koordinator Lab aktif yang dapat menetapkan Ketua Kelas");
+      }
+      await assertLeaderMembership(tx, input);
       await tx.academicClassLeader.updateMany({
         where: { termId: input.termId, classId: input.classId, isActive: true },
         data: { isActive: false },
       });
-      return tx.academicClassLeader.upsert({
+      const leader = await tx.academicClassLeader.upsert({
         where: { membershipId: input.membershipId },
         create: { ...input, isActive: true },
         update: { termId: input.termId, classId: input.classId, isActive: true },
@@ -629,7 +702,9 @@ export class AcademicService {
           membership: { include: { user: { select: { id: true, name: true, email: true } } } },
         },
       });
-    });
+      await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_CLASS_LEADER_ASSIGNED", targetType: "AcademicClassLeader", targetId: leader.id, description: `${input.termId}:${input.classId}:${input.membershipId}`, ipAddress: actor.ipAddress } });
+      return leader;
+    }));
   }
 
   static async updateLeader(id: string, input: UpdateAcademicLeaderInput, actor: UserContext) {
@@ -639,7 +714,13 @@ export class AcademicService {
       select: { id: true, termId: true, classId: true, membershipId: true },
     });
     if (!leader) throw new Error("Ketua kelas tidak ditemukan");
-    if (!input.isActive) return prisma.academicClassLeader.update({ where: { id }, data: { isActive: false } });
+    if (!input.isActive) {
+      return withSerializableRetry(async (tx) => {
+        const updated = await tx.academicClassLeader.update({ where: { id }, data: { isActive: false } });
+        await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_CLASS_LEADER_DEACTIVATED", targetType: "AcademicClassLeader", targetId: id, description: `${leader.termId}:${leader.classId}`, ipAddress: actor.ipAddress } });
+        return updated;
+      });
+    }
     return this.assignLeader({ termId: leader.termId, classId: leader.classId, membershipId: leader.membershipId }, actor);
   }
 
@@ -647,8 +728,9 @@ export class AcademicService {
     if (actor.role !== "KOORDINATOR_LAB" && actor.role !== "DOSEN" && actor.role !== "MAHASISWA") {
       throw new AcademicAuthorizationError("Anda tidak memiliki akses ke penawaran akademik");
     }
-    const actorScope = actor.role === "MAHASISWA" ? offeringScopeWhere(await getStudentAuthorityScopes(actor.userId)) : {};
-    return prisma.academicOffering.findMany({
+    const scopes = actor.role === "MAHASISWA" ? await getStudentAuthorityScopes(actor.userId) : undefined;
+    const actorScope = scopes ? offeringScopeWhere(scopes) : {};
+    const offerings = await prisma.academicOffering.findMany({
       where: {
         ...(query.termId ? { termId: query.termId } : {}),
         ...(query.courseId ? { courseId: query.courseId } : {}),
@@ -660,6 +742,7 @@ export class AcademicService {
       include: offeringInclude,
       orderBy: [{ term: { code: "desc" } }, { course: { code: "asc" } }, { academicClass: { code: "asc" } }],
     });
+    return offerings.map((offering) => ({ ...offering, capabilities: offeringCapabilities(actor, offering, scopes) }));
   }
 
   static async listScheduleCandidates(actor: UserContext) {
@@ -742,16 +825,16 @@ export class AcademicService {
   }
 
   static async assignPj(offeringId: string, input: AssignAcademicPjInput, actor: UserContext) {
-    const offering = await prisma.academicOffering.findUnique({
-      where: { id: offeringId },
-      select: { id: true, termId: true, classId: true },
-    });
-    if (!offering) throw new Error("Penawaran akademik tidak ditemukan");
-    await assertPjManagementAuthority(actor, offering);
-    await assertPjMembership(offeringId, input.membershipId);
-    return prisma.$transaction(async (tx) => {
+    return withAssignmentConflict(() => withSerializableRetry(async (tx) => {
+      const offering = await tx.academicOffering.findUnique({
+        where: { id: offeringId },
+        select: { id: true, termId: true, classId: true },
+      });
+      if (!offering) throw new Error("Penawaran akademik tidak ditemukan");
+      await assertPjManagementAuthority(tx, actor, offering);
+      await assertPjMembership(tx, offeringId, input.membershipId);
       await tx.academicOfferingPJ.updateMany({ where: { offeringId, isActive: true }, data: { isActive: false } });
-      return tx.academicOfferingPJ.upsert({
+      const pj = await tx.academicOfferingPJ.upsert({
         where: { offeringId_membershipId: { offeringId, membershipId: input.membershipId } },
         create: { offeringId, membershipId: input.membershipId, isActive: true },
         update: { isActive: true },
@@ -760,7 +843,9 @@ export class AcademicService {
           membership: { include: { user: { select: { id: true, name: true, email: true } } } },
         },
       });
-    });
+      await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_OFFERING_PJ_ASSIGNED", targetType: "AcademicOfferingPJ", targetId: pj.id, description: `${offeringId}:${input.membershipId}`, ipAddress: actor.ipAddress } });
+      return pj;
+    }));
   }
 
   static async updatePj(id: string, input: UpdateAcademicPjInput, actor: UserContext) {
@@ -769,8 +854,14 @@ export class AcademicService {
       select: { id: true, offeringId: true, membershipId: true, offering: { select: { termId: true, classId: true } } },
     });
     if (!pj) throw new Error("PJ penawaran tidak ditemukan");
-    await assertPjManagementAuthority(actor, pj.offering);
-    if (!input.isActive) return prisma.academicOfferingPJ.update({ where: { id }, data: { isActive: false } });
+    if (!input.isActive) {
+      return withSerializableRetry(async (tx) => {
+        await assertPjManagementAuthority(tx, actor, pj.offering);
+        const updated = await tx.academicOfferingPJ.update({ where: { id }, data: { isActive: false } });
+        await tx.auditLog.create({ data: { userId: actor.userId, action: "ACADEMIC_OFFERING_PJ_DEACTIVATED", targetType: "AcademicOfferingPJ", targetId: id, description: pj.offeringId, ipAddress: actor.ipAddress } });
+        return updated;
+      });
+    }
     return this.assignPj(pj.offeringId, { membershipId: pj.membershipId }, actor);
   }
 
@@ -813,15 +904,24 @@ export class AcademicService {
     const report = await prisma.$transaction(async (tx) => {
       const offering = await tx.academicOffering.findUnique({
         where: { id: input.offeringId },
-        select: { id: true, isActive: true, termId: true, classId: true, dosenId: true, scheduleId: true },
+        select: {
+          id: true,
+          isActive: true,
+          termId: true,
+          classId: true,
+          dosenId: true,
+          scheduleId: true,
+          term: { select: { startDate: true, endDate: true } },
+        },
       });
       if (!offering) throw new Error("Penawaran akademik tidak ditemukan");
       await assertReportWriteAuthority(tx, actor, offering);
+      const reportDate = await assertLegalReportOccurrence(tx, offering, input.reportDate);
 
       const report = await tx.academicReport.create({
         data: {
           offeringId: input.offeringId,
-          reportDate: canonicalDateOnly(input.reportDate),
+          reportDate,
           status: input.status,
           notes: cleanNullableText(input.notes),
           revision: 1,
@@ -878,6 +978,15 @@ export class AcademicService {
       if (current.release) {
         throw new AcademicConflictError("Laporan tidak dapat diubah setelah slot pertemuan dilepas atau dialokasikan.");
       }
+      const offeringWithTerm = await tx.academicOffering.findUnique({
+        where: { id: current.offering.id },
+        select: {
+          id: true,
+          term: { select: { startDate: true, endDate: true } },
+        },
+      });
+      if (!offeringWithTerm) throw new Error("Penawaran akademik tidak ditemukan");
+      await assertLegalReportOccurrence(tx, offeringWithTerm, current.reportDate);
 
       const nextRevision = input.expectedRevision + 1;
       const notes = input.notes === undefined ? current.notes : cleanNullableText(input.notes);

@@ -24,6 +24,44 @@ const ids = {
   otherClass: "cmoseuhxj0013ofz5r10a18m3",
 };
 
+const reportDate = new Date("2026-10-26T00:00:00.000Z");
+
+function legalOccurrenceSchedule() {
+  return {
+    id: "schedule-report",
+    labId: "lab-report",
+    title: "Praktikum Terstruktur",
+    lecturerName: null,
+    className: null,
+    semester: null,
+    startTime: "08:00",
+    endTime: "10:00",
+    specificDate: null,
+    day: "SENIN",
+    type: "PRAKTIKUM",
+    status: "SCHEDULED",
+    isActive: true,
+    academicOffering: {
+      id: ids.offering,
+      termId: ids.term,
+      classId: ids.academicClass,
+      dosenId: ids.dosen,
+      isActive: true,
+    },
+    allocatedSlotRequest: null,
+    occurrenceReleases: [],
+    lab: { id: "lab-report", name: "Lab Report", location: null },
+    assistant: null,
+  };
+}
+
+function legalOccurrenceDelegates() {
+  return {
+    schedule: { findMany: async () => [legalOccurrenceSchedule()] },
+    academicOccurrenceSwap: { findMany: async () => [] },
+  };
+}
+
 function replaceProperty(target: object, property: string, value: unknown): Restore {
   const descriptor = Object.getOwnPropertyDescriptor(target, property);
   Object.defineProperty(target, property, { configurable: true, value });
@@ -305,6 +343,82 @@ test("DOSEN offering reads always scope to authenticated dosen", async () => {
   }
 });
 
+test("ordinary member receives read-only capabilities while active leader receives scoped actions", async () => {
+  const offerings = [{
+    id: ids.offering, termId: ids.term, classId: ids.academicClass, dosenId: ids.dosen,
+    term: {}, course: {}, academicClass: {}, dosen: {}, schedule: null, pjs: [],
+  }];
+  const restoreOffering = replaceProperty(prisma.academicOffering, "findMany", async () => offerings);
+  const restoreMembership = replaceProperty(prisma.academicClassMembership, "findMany", async () => [{ termId: ids.term, classId: ids.academicClass }]);
+  const restorePj = replaceProperty(prisma.academicOfferingPJ, "findMany", async () => []);
+  const restoreLeader = replaceProperty(prisma.academicClassLeader, "findMany", async () => []);
+  try {
+    const [offering] = await AcademicService.listOfferings({}, { userId: ids.ordinaryStudent, role: "MAHASISWA" });
+    assert.deepEqual(offering.capabilities, {
+      canReport: false, canManagePj: false, canRelease: false,
+      canRequestSlot: false, canRequestSwap: false, canCoordinate: false,
+    });
+  } finally {
+    restoreLeader(); restorePj(); restoreMembership(); restoreOffering();
+  }
+
+  const restoreOfferingLeader = replaceProperty(prisma.academicOffering, "findMany", async () => offerings);
+  const restoreMembershipLeader = replaceProperty(prisma.academicClassMembership, "findMany", async () => [{ termId: ids.term, classId: ids.academicClass }]);
+  const restorePjLeader = replaceProperty(prisma.academicOfferingPJ, "findMany", async () => []);
+  const restoreLeaderActive = replaceProperty(prisma.academicClassLeader, "findMany", async () => [{ termId: ids.term, classId: ids.academicClass }]);
+  try {
+    const [offering] = await AcademicService.listOfferings({}, { userId: ids.leader, role: "MAHASISWA" });
+    assert.deepEqual(offering.capabilities, {
+      canReport: true, canManagePj: true, canRelease: true,
+      canRequestSlot: true, canRequestSwap: true, canCoordinate: false,
+    });
+  } finally {
+    restoreLeaderActive(); restorePjLeader(); restoreMembershipLeader(); restoreOfferingLeader();
+  }
+});
+
+test("leader and PJ assignment revalidate authority and membership inside the serializable transaction", async () => {
+  const audits: string[] = [];
+  const tx = {
+    user: { findUnique: async ({ where }: { where: { id: string } }) => ({ id: where.id, role: where.id === ids.coordinator ? "KOORDINATOR_LAB" : "MAHASISWA", isActive: true }) },
+    academicClassMembership: {
+      findUnique: async () => ({ id: "membership-1", termId: ids.term, classId: ids.academicClass, isActive: true, user: { role: "MAHASISWA", isActive: true } }),
+    },
+    academicClassLeader: {
+      findFirst: async () => ({ id: "leader-1" }),
+      updateMany: async () => ({ count: 1 }),
+      upsert: async () => ({ id: "leader-1" }),
+    },
+    academicOffering: {
+      findUnique: async () => ({ id: ids.offering, termId: ids.term, classId: ids.academicClass }),
+    },
+    academicOfferingPJ: {
+      updateMany: async () => ({ count: 1 }),
+      upsert: async () => ({ id: "pj-1" }),
+    },
+    auditLog: { create: async ({ data }: { data: { action: string } }) => { audits.push(data.action); return {}; } },
+  };
+  const restoreTransaction = replaceProperty(prisma, "$transaction", async (operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
+  const restoreGlobalMembership = replaceProperty(prisma.academicClassMembership, "findUnique", async () => { throw new Error("global membership read is forbidden"); });
+  const restoreGlobalOffering = replaceProperty(prisma.academicOffering, "findUnique", async () => { throw new Error("global offering read is forbidden"); });
+  try {
+    await AcademicService.assignLeader(
+      { termId: ids.term, classId: ids.academicClass, membershipId: "membership-1" },
+      { userId: ids.coordinator, role: "KOORDINATOR_LAB" },
+    );
+    await AcademicService.assignPj(
+      ids.offering,
+      { membershipId: "membership-1" },
+      { userId: ids.leader, role: "MAHASISWA" },
+    );
+    assert.deepEqual(audits, ["ACADEMIC_CLASS_LEADER_ASSIGNED", "ACADEMIC_OFFERING_PJ_ASSIGNED"]);
+  } finally {
+    restoreGlobalOffering();
+    restoreGlobalMembership();
+    restoreTransaction();
+  }
+});
+
 test("student offering reads return empty without active structured membership", async () => {
   let capturedWhere: unknown;
   const restores = [
@@ -488,6 +602,107 @@ test("legacy chair flag cannot create academic report without active leader or P
   }
 });
 
+test("report creation rejects a date without a legal actual occurrence before writes", async () => {
+  let reportWrites = 0;
+  let revisionWrites = 0;
+  let auditWrites = 0;
+  const tx = {
+    academicOffering: {
+      findUnique: async () => ({
+        id: ids.offering,
+        isActive: true,
+        termId: ids.term,
+        classId: ids.academicClass,
+        dosenId: ids.dosen,
+        scheduleId: "schedule-report",
+        term: { startDate: new Date("2026-08-01T00:00:00.000Z"), endDate: new Date("2026-12-31T00:00:00.000Z") },
+      }),
+    },
+    schedule: { findMany: async () => [] },
+    academicOccurrenceSwap: { findMany: async () => [] },
+    academicReport: {
+      create: async () => { reportWrites += 1; },
+    },
+    academicReportRevision: {
+      create: async () => { revisionWrites += 1; },
+    },
+    auditLog: {
+      create: async () => { auditWrites += 1; },
+    },
+  };
+  const restore = replaceProperty(
+    prisma,
+    "$transaction",
+    async (operation: (client: typeof tx) => Promise<unknown>) => operation(tx),
+  );
+
+  try {
+    await assert.rejects(
+      AcademicService.createReport(
+        { offeringId: ids.offering, reportDate, status: "TATAP_MUKA" },
+        { userId: ids.coordinator, role: "KOORDINATOR_LAB" },
+      ),
+      /Tidak ada pertemuan akademik yang sah/,
+    );
+    assert.equal(reportWrites, 0);
+    assert.equal(revisionWrites, 0);
+    assert.equal(auditWrites, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("report creation accepts a legal WIB occurrence inside the academic term", async () => {
+  const writes: unknown[] = [];
+  const tx = {
+    academicOffering: {
+      findUnique: async () => ({
+        id: ids.offering,
+        isActive: true,
+        termId: ids.term,
+        classId: ids.academicClass,
+        dosenId: ids.dosen,
+        scheduleId: "schedule-report",
+        term: { startDate: new Date("2026-08-01T00:00:00.000Z"), endDate: new Date("2026-12-31T00:00:00.000Z") },
+      }),
+    },
+    ...legalOccurrenceDelegates(),
+    academicReport: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        writes.push(data);
+        return { id: ids.report, ...data, revision: 1, notes: null };
+      },
+      findUniqueOrThrow: async () => ({
+        id: ids.report,
+        offeringId: ids.offering,
+        reportDate,
+        status: "TATAP_MUKA",
+        revision: 1,
+        offering: { course: { code: "IF101" } },
+      }),
+    },
+    academicReportRevision: { create: async () => ({}) },
+    auditLog: { create: async () => ({}) },
+  };
+  const restore = replaceProperty(
+    prisma,
+    "$transaction",
+    async (operation: (client: typeof tx) => Promise<unknown>) => operation(tx),
+  );
+
+  try {
+    const result = await AcademicService.createReport(
+      { offeringId: ids.offering, reportDate, status: "TATAP_MUKA" },
+      { userId: ids.coordinator, role: "KOORDINATOR_LAB" },
+    );
+    assert.equal(result.id, ids.report);
+    assert.equal(writes.length, 1);
+    assert.equal((writes[0] as { reportDate: Date }).reportDate.toISOString(), reportDate.toISOString());
+  } finally {
+    restore();
+  }
+});
+
 test("report update uses expected revision then appends revision and audit log", async () => {
   const reportUpdates: unknown[] = [];
   const revisions: unknown[] = [];
@@ -496,9 +711,18 @@ test("report update uses expected revision then appends revision and audit log",
     id: ids.report,
     revision: 2,
     notes: "Tatap muka",
-    offering: { id: ids.offering, isActive: true, termId: ids.term, classId: ids.academicClass },
+    reportDate,
+    release: null,
+    offering: { id: ids.offering, isActive: true, termId: ids.term, classId: ids.academicClass, dosenId: ids.dosen },
   };
   const tx = {
+    academicOffering: {
+      findUnique: async () => ({
+        id: ids.offering,
+        term: { startDate: new Date("2026-08-01T00:00:00.000Z"), endDate: new Date("2026-12-31T00:00:00.000Z") },
+      }),
+    },
+    ...legalOccurrenceDelegates(),
     academicReport: {
       findUnique: async () => current,
       updateMany: async (input: unknown) => {
@@ -573,10 +797,19 @@ test("stale expected revision cannot append revision or audit log", async () => 
         id: ids.report,
         revision: 3,
         notes: "Sudah diubah",
-        offering: { id: ids.offering, isActive: true, termId: ids.term, classId: ids.academicClass },
+        reportDate,
+        release: null,
+        offering: { id: ids.offering, isActive: true, termId: ids.term, classId: ids.academicClass, dosenId: ids.dosen },
       }),
       updateMany: async () => ({ count: 0 }),
     },
+    academicOffering: {
+      findUnique: async () => ({
+        id: ids.offering,
+        term: { startDate: new Date("2026-08-01T00:00:00.000Z"), endDate: new Date("2026-12-31T00:00:00.000Z") },
+      }),
+    },
+    ...legalOccurrenceDelegates(),
     academicReportRevision: {
       create: async () => {
         revisionWrites += 1;
