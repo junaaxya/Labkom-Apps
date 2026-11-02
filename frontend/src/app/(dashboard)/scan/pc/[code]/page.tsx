@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, use, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   TbAlertTriangle,
@@ -105,12 +106,17 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
   const [submittingSupport, setSubmittingSupport] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [notFoundMessage, setNotFoundMessage] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   const [ticketForm, setTicketForm] = useState({
     title: "",
     category: "MOUSE" as TicketCategory,
     description: "",
   });
+
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -337,8 +343,8 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
           <div className="flex flex-wrap items-center gap-4 pt-4">
             {user.role === "MAHASISWA" && <button
               type="button"
-              onClick={() => { setSupportError(""); setShowSupportModal(true); }}
-              className="neo-btn px-6 py-3 bg-[#4b607f] text-white inline-flex items-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200"
+              onClick={() => { setSupportError(""); setShowModal(false); setShowSupportModal(true); }}
+              className="neo-btn min-h-[44px] px-6 py-3 bg-[#4b607f] text-white inline-flex items-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200"
             >
               <TbMessageCircle size={20} strokeWidth={2.2} />
               <span className="font-bold">Chat dengan Asisten</span>
@@ -346,8 +352,8 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
 
             <button
               type="button"
-              onClick={() => setShowModal(true)}
-              className="neo-btn px-6 py-3 bg-[#f3701e] text-white inline-flex items-center gap-2 hover:bg-[#d95f10] transition-colors duration-200"
+              onClick={() => { setShowSupportModal(false); setShowModal(true); }}
+              className="neo-btn min-h-[44px] px-6 py-3 bg-[#f3701e] text-white inline-flex items-center gap-2 hover:bg-[#d95f10] transition-colors duration-200"
             >
               <TbAlertTriangle size={20} strokeWidth={2.2} />
               <span className="font-bold">Lapor Kerusakan</span>
@@ -417,24 +423,24 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
 
       </div>
 
-      {showModal && (
+      {mounted && showModal && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="qr-ticket-dialog-title"
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transition-all duration-300"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-sm transition-all duration-300 overflow-y-auto"
           onClick={() => setShowModal(false)}
         >
           <div
-            className="neo-card bg-white w-full max-w-lg p-4 sm:p-6 md:p-8 max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300"
+            className="neo-card bg-white w-full max-w-lg p-5 sm:p-7 max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto transform scale-100 transition-transform duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-[#1a1a1a]">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b-2 border-[#1a1a1a]">
               <h3 id="qr-ticket-dialog-title" className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-3 truncate">
                 <div className="w-10 h-10 rounded-xl bg-[#f3701e] text-white flex items-center justify-center neo-border-sm flex-shrink-0">
                   <TbPlus size={24} strokeWidth={2.2} />
                 </div>
-                Form Lapor Kerusakan
+                Lapor Kerusakan
               </h3>
               <button
                 type="button"
@@ -445,7 +451,7 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
               </button>
             </div>
 
-            <form onSubmit={submitTicket} className="space-y-5">
+            <form onSubmit={submitTicket} className="space-y-4">
               {duplicateTicket && (
                 <div className="rounded-xl border-2 border-[#f3701e] bg-[#fff3e8] p-4 text-sm text-[#1a1a1a]">
                   <p className="font-bold">Laporan aktif serupa sudah tersedia.</p>
@@ -457,25 +463,31 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
                   )}
                 </div>
               )}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">Judul Laporan</label>
+              <div className="space-y-1.5">
+                <label htmlFor="qr-ticket-title" className="text-xs sm:text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">
+                  Judul Laporan
+                </label>
                 <input
+                  id="qr-ticket-title"
                   required
                   type="text"
                   value={ticketForm.title}
                   onChange={(e) => setTicketForm((prev) => ({ ...prev, title: e.target.value }))}
-                  className="neo-input"
+                  className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm text-[#1a1a1a] focus:outline-none"
                   placeholder="Contoh: Monitor PC berkedip"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">Kategori</label>
+              <div className="space-y-1.5">
+                <label htmlFor="qr-ticket-category" className="text-xs sm:text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">
+                  Kategori
+                </label>
                 <select
+                  id="qr-ticket-category"
                   required
                   value={ticketForm.category}
                   onChange={(e) => setTicketForm((prev) => ({ ...prev, category: e.target.value as TicketCategory }))}
-                  className="neo-input bg-white cursor-pointer"
+                  className="w-full px-4 py-3 min-h-[44px] neo-input bg-white text-sm text-[#1a1a1a] focus:outline-none cursor-pointer"
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
@@ -485,49 +497,128 @@ export default function ScanPcActionPage({ params }: { params: Promise<{ code: s
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">Deskripsi Kerusakan</label>
+              <div className="space-y-1.5">
+                <label htmlFor="qr-ticket-description" className="text-xs sm:text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">
+                  Deskripsi Kerusakan
+                </label>
                 <textarea
+                  id="qr-ticket-description"
                   required
                   rows={4}
                   value={ticketForm.description}
                   onChange={(e) => setTicketForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="neo-input resize-none"
-                  placeholder="Jelaskan kondisi kerusakan secara detail"
+                  className="w-full px-4 py-3 min-h-[110px] neo-input bg-white text-sm text-[#1a1a1a] focus:outline-none resize-y"
+                  placeholder="Jelaskan kondisi kerusakan secara detail..."
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t-2 border-[#1a1a1a] mt-6">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t-2 border-[#1a1a1a] mt-6">
                 <button
                   type="button"
                   disabled={submittingTicket}
                   onClick={() => setShowModal(false)}
-                  className="neo-btn px-5 py-2.5 bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200 font-bold"
+                  className="neo-btn w-full sm:w-auto px-5 min-h-[44px] bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200 font-bold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submittingTicket}
-                  className="neo-btn px-6 py-2.5 bg-[#4b607f] text-white inline-flex items-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200 font-bold"
+                  className="neo-btn w-full sm:w-auto px-6 min-h-[44px] bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200 font-bold"
                 >
                   {submittingTicket ? <TbLoader2 className="animate-spin" size={20} strokeWidth={2.2} /> : <TbCpu size={20} strokeWidth={2.2} />}
-                  {submittingTicket ? "Mengirim..." : "Kirim Laporan"}
+                  <span>{submittingTicket ? "Mengirim..." : "Kirim Laporan"}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showSupportModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center" onClick={() => setShowSupportModal(false)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="support-chat-title" className="neo-card max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-4 sm:p-6" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between border-b-2 border-[#1a1a1a] pb-4"><h2 id="support-chat-title" className="font-heading text-xl font-bold sm:text-2xl">Chat dengan Asisten</h2><button type="button" onClick={() => setShowSupportModal(false)} aria-label="Tutup modal chat" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-500 hover:bg-red-100"><TbX size={21} /></button></div>
-            <p className="mb-4 rounded-lg border-2 border-[#4b607f] bg-[#f5ede6] p-3 text-sm font-semibold text-[#4b607f]">{pcData.name} · {pcData.pcCode}</p>
-            <form onSubmit={submitSupportChat} className="space-y-4"><label className="block space-y-2"><span className="text-sm font-bold uppercase tracking-wider">Pesan</span><textarea required minLength={1} maxLength={2000} rows={5} value={supportBody} onChange={(event) => setSupportBody(event.target.value)} disabled={submittingSupport} className="neo-input min-h-32 resize-y" placeholder="Ceritakan pertanyaan atau kendala pada PC ini..." /></label>{supportError && <p role="alert" className="rounded-lg border-2 border-red-500 bg-red-50 p-3 text-sm font-bold text-red-700">{supportError}</p>}<div className="flex flex-col-reverse gap-3 border-t-2 border-[#1a1a1a] pt-4 sm:flex-row sm:justify-end"><button type="button" disabled={submittingSupport} onClick={() => setShowSupportModal(false)} className="neo-btn min-h-11 bg-white px-5 font-bold">Batal</button><button type="submit" disabled={!supportBody.trim() || submittingSupport} className="neo-btn inline-flex min-h-11 items-center justify-center gap-2 bg-[#4b607f] px-5 font-bold text-white">{submittingSupport ? <TbLoader2 className="animate-spin" /> : <TbSend />}{submittingSupport ? "Mengirim..." : "Mulai Chat"}</button></div></form>
+      {mounted && showSupportModal && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="support-chat-title"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-sm transition-all duration-300 overflow-y-auto"
+          onClick={() => setShowSupportModal(false)}
+        >
+          <div
+            className="neo-card bg-white w-full max-w-lg p-5 sm:p-7 max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto transform scale-100 transition-transform duration-300"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5 pb-4 border-b-2 border-[#1a1a1a]">
+              <h2 id="support-chat-title" className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a] inline-flex items-center gap-2.5 truncate">
+                <div className="w-10 h-10 rounded-xl bg-[#4b607f] text-white flex items-center justify-center neo-border-sm shrink-0">
+                  <TbMessageCircle size={22} strokeWidth={2.2} />
+                </div>
+                Chat dengan Asisten
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowSupportModal(false)}
+                aria-label="Tutup modal chat"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors flex-shrink-0"
+              >
+                <TbX size={20} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="mb-4 flex items-center gap-2.5 rounded-lg border-2 border-[#4b607f] bg-[#f5ede6] p-3 text-[#4b607f]">
+              <TbDeviceDesktop size={20} className="shrink-0" strokeWidth={2.2} />
+              <span className="text-sm font-bold truncate">
+                {pcData.name} · {pcData.pcCode}{pcData.assetCode ? ` (${pcData.assetCode})` : ""}
+              </span>
+            </div>
+
+            <form onSubmit={submitSupportChat} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="support-chat-message" className="text-xs sm:text-sm font-bold text-[#1a1a1a] block uppercase tracking-wider">
+                  Pesan
+                </label>
+                <textarea
+                  id="support-chat-message"
+                  required
+                  minLength={1}
+                  maxLength={2000}
+                  rows={4}
+                  value={supportBody}
+                  onChange={(event) => setSupportBody(event.target.value)}
+                  disabled={submittingSupport}
+                  className="w-full px-4 py-3 min-h-[120px] neo-input bg-white text-sm text-[#1a1a1a] focus:outline-none resize-y"
+                  placeholder="Ceritakan pertanyaan atau kendala pada PC ini..."
+                />
+              </div>
+
+              {supportError && (
+                <p role="alert" className="rounded-lg border-2 border-red-500 bg-red-50 p-3 text-sm font-bold text-red-700">
+                  {supportError}
+                </p>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t-2 border-[#1a1a1a] mt-5">
+                <button
+                  type="button"
+                  disabled={submittingSupport}
+                  onClick={() => setShowSupportModal(false)}
+                  className="neo-btn w-full sm:w-auto px-5 min-h-[44px] bg-white text-[#1a1a1a] hover:bg-[#e8d8c9] transition-colors duration-200 font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!supportBody.trim() || submittingSupport}
+                  className="neo-btn w-full sm:w-auto px-6 min-h-[44px] bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 hover:bg-[#3a4a63] transition-colors duration-200 font-bold disabled:opacity-50"
+                >
+                  {submittingSupport ? <TbLoader2 className="animate-spin" size={20} strokeWidth={2.2} /> : <TbSend size={20} strokeWidth={2.2} />}
+                  <span>{submittingSupport ? "Mengirim..." : "Mulai Chat"}</span>
+                </button>
+              </div>
+            </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
