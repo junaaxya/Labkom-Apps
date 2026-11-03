@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   TbSend,
   TbCheck,
@@ -12,12 +13,32 @@ import {
   TbMoodEmpty,
   TbBuildingWarehouse,
   TbArrowLeft,
+  TbQrcode,
+  TbShieldLock,
 } from "react-icons/tb";
 import api from "@/services/api";
 import Link from "next/link";
 import { useToast } from "@/providers/toast-provider";
+import { useCurrentRole } from "@/providers/current-user-context";
+import type { Role } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
+function readStoredUserRole(): Role | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "role" in parsed) {
+      const role = (parsed as { role?: unknown }).role;
+      if (typeof role === "string") return role as Role;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 type Lab = { id: string; name: string };
 type Condition = { id: string; labId: string; lab: Lab; fotoBukti: string[]; verified: boolean; submittedBy?: { name: string } };
@@ -30,6 +51,9 @@ type DailyLogbook = {
 
 export default function LogbookConditionPage() {
   const toast = useToast();
+  const contextRole = useCurrentRole();
+  const [role, setRole] = useState<Role | null>(() => contextRole ?? readStoredUserRole());
+  const [roleChecked, setRoleChecked] = useState<boolean>(() => Boolean(contextRole ?? readStoredUserRole()));
   const [logbook, setLogbook] = useState<DailyLogbook | null>(null);
   const [labs, setLabs] = useState<Lab[]>([]);
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
@@ -42,11 +66,7 @@ export default function LogbookConditionPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    queueMicrotask(() => void fetchData());
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [logbookRes, labsRes] = await Promise.all([
@@ -69,7 +89,20 @@ export default function LogbookConditionPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    const resolvedRole = contextRole ?? readStoredUserRole();
+    queueMicrotask(() => {
+      setRole(resolvedRole);
+      setRoleChecked(true);
+      if (resolvedRole === "ASISTEN_LAB") {
+        void fetchData();
+      } else {
+        setLoading(false);
+      }
+    });
+  }, [contextRole, fetchData]);
 
   function handlePhotos(files: FileList | null) {
     if (!files) return;
@@ -129,10 +162,40 @@ export default function LogbookConditionPage() {
   const submittedLabIds = new Set(logbook?.conditions.map((c) => c.labId) || []);
   const availableLabs = labs.filter((l) => !submittedLabIds.has(l.id));
 
-  if (loading) {
+  if (!roleChecked || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <TbLoader2 className="w-8 h-8 animate-spin text-[#4b607f]" />
+      </div>
+    );
+  }
+
+  if (role !== "ASISTEN_LAB") {
+    return (
+      <div className="max-w-lg mx-auto p-4 sm:p-6">
+        <div className="neo-card p-6 sm:p-8 text-center space-y-4">
+          <TbShieldLock className="w-16 h-16 mx-auto text-[#f3701e]" />
+          <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">
+            Halaman Validasi Khusus Asisten Lab
+          </h2>
+          <p className="text-[#5a5a5a] text-sm sm:text-base leading-relaxed">
+            Halaman validasi ini khusus untuk Asisten Lab. Jika Anda meminjam kunci lab, kirim foto kondisi melalui Scan QR Kunci saat mengembalikan kunci.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Link
+              href="/scan"
+              className="w-full sm:w-auto px-5 py-3 min-h-[44px] bg-[#f3701e] text-white neo-btn font-bold inline-flex items-center justify-center gap-2"
+            >
+              <TbQrcode className="w-5 h-5" /> Buka Scan QR Kunci
+            </Link>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto px-5 py-3 min-h-[44px] bg-white text-[#1a1a1a] neo-btn font-semibold inline-flex items-center justify-center gap-2"
+            >
+              <TbArrowLeft className="w-4 h-4" /> Kembali ke Dashboard
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -227,7 +290,7 @@ export default function LogbookConditionPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {previews.map((p, i) => (
                       <div key={i} className="relative border-2 border-[#1a1a1a] rounded-lg overflow-hidden">
-                        <img src={p} alt={`Foto ${i + 1}`} className="w-full h-24 object-cover" />
+                        <Image src={p} alt={`Foto ${i + 1}`} width={240} height={96} unoptimized className="w-full h-24 object-cover" />
                         <button type="button" onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center">
                           <TbX className="w-4 h-4" />
                         </button>

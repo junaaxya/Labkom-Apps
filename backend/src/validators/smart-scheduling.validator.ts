@@ -12,6 +12,7 @@ export const smartSchedulingSuggestionQuerySchema = z.object({
     .default(120),
   day: z.enum(schedulingDays).optional(),
   labId: z.string().cuid("Lab ID tidak valid").optional(),
+  targetDate: z.coerce.date().optional(),
 });
 
 export type SmartSchedulingSuggestionQuery = z.infer<typeof smartSchedulingSuggestionQuerySchema>;

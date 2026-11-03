@@ -29,6 +29,8 @@ import announcementRoutes from "./announcement.routes";
 import hostingRoutes from "./hosting.routes";
 import assetRoutes from "./asset.routes";
 import accessRequestRoutes from "./access-request.routes";
+import academicRoutes from "./academic.routes";
+import supportChatRoutes from "./support-chat.routes";
 
 
 const router = Router();
@@ -71,5 +73,7 @@ router.use("/announcements", announcementRoutes);
 router.use("/hosting", hostingRoutes);
 router.use("/assets", assetRoutes);
 router.use("/access-requests", accessRequestRoutes);
+router.use("/academic", academicRoutes);
+router.use("/support-chats", supportChatRoutes);
 
 export default router;

@@ -7,14 +7,14 @@ import {
   TbLayoutDashboard,
   TbCalendarEvent,
   TbQrcode,
-  TbAlertTriangle,
   TbRobot,
   TbChecklist,
   TbBook2,
   TbTicket,
-  TbDeviceDesktop,
   TbMenu2,
   TbBuildingWarehouse,
+  TbKey,
+  TbSchool,
 } from "react-icons/tb";
 import { useSidebar } from "@/providers/sidebar-context";
 import type { Role } from "@/types";
@@ -28,6 +28,7 @@ interface NavItem {
   href: string;
   icon: IconType;
   match?: (pathname: string) => boolean;
+  highlight?: boolean;
 }
 
 const navByRole: Record<Role, NavItem[]> = {
@@ -35,7 +36,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
     { label: "Lab", href: "/labs", icon: TbBuildingWarehouse },
     { label: "Tiket", href: "/tickets", icon: TbTicket, match: (p) => p.startsWith("/tickets") },
-    { label: "PC", href: "/pc-monitoring", icon: TbDeviceDesktop },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
   ],
   ASISTEN_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
@@ -46,9 +47,21 @@ const navByRole: Record<Role, NavItem[]> = {
   MAHASISWA: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
     { label: "Jadwal", href: "/schedules", icon: TbCalendarEvent },
-    { label: "Scan QR", href: "/scan", icon: TbQrcode, match: (p) => p.startsWith("/scan") },
-    { label: "Lapor", href: "/tickets/new", icon: TbAlertTriangle, match: (p) => p === "/tickets/new" },
-    { label: "AI", href: "/ai-assistant", icon: TbRobot },
+    { label: "Scan QR", href: "/scan", icon: TbQrcode, match: (p) => p.startsWith("/scan"), highlight: true },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
+  ],
+  MAGANG: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
+    { label: "Jadwal", href: "/schedules", icon: TbCalendarEvent, match: (p) => p.startsWith("/schedules") },
+    { label: "Absensi", href: "/attendance", icon: TbChecklist, match: (p) => p.startsWith("/attendance") },
+    { label: "Kunci", href: "/keys", icon: TbKey, match: (p) => p.startsWith("/keys") },
+    { label: "AI", href: "/ai-assistant", icon: TbRobot, match: (p) => p.startsWith("/ai-assistant") },
+  ],
+  DOSEN: [
+    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
+    { label: "Pengumuman", href: "/announcements", icon: TbCalendarEvent },
+    { label: "Profil", href: "/profile", icon: TbKey },
   ],
   MAGANG: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
@@ -82,6 +95,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
         {items.slice(0, 4).map((item) => {
           const active = isActive(pathname, item);
           const Icon = item.icon;
+          const isHighlight = item.highlight;
           return (
             <li key={item.href} className="flex">
               <Link
@@ -92,13 +106,19 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
                 }`}
               >
                 <span
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg ${
-                    active ? "bg-[#f3701e] text-white shadow-[2px_2px_0px_#1a1a1a]" : "bg-transparent"
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-transform ${
+                    isHighlight
+                      ? "bg-[#f3701e] text-white shadow-[2px_2px_0px_#1a1a1a] scale-105 border border-[#1a1a1a]"
+                      : active
+                        ? "bg-[#f3701e] text-white shadow-[2px_2px_0px_#1a1a1a]"
+                        : "bg-transparent"
                   }`}
                 >
-                  <Icon className="w-5 h-5" strokeWidth={2.2} />
+                  <Icon className="w-5 h-5" strokeWidth={isHighlight ? 2.4 : 2.2} />
                 </span>
-                <span className="leading-tight tracking-wide uppercase">{item.label}</span>
+                <span className={`leading-tight tracking-wide uppercase ${isHighlight ? "font-extrabold text-[#f3701e]" : ""}`}>
+                  {item.label}
+                </span>
               </Link>
             </li>
           );

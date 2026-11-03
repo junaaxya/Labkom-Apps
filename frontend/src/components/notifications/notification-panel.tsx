@@ -17,9 +17,11 @@ import {
   TbInfoCircle,
   TbTrash,
   TbX,
+  TbMessageCircle,
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
+import { createSseParser, parseNotificationEvent } from "./notification-sse";
 
 interface Notification {
   id: string;
@@ -42,6 +44,7 @@ const TYPE_ICONS: Record<string, IconType> = {
   LOGBOOK_VERIFIED: TbBook2,
   CERTIFICATE_ISSUED: TbCertificate,
   SYSTEM: TbInfoCircle,
+  SUPPORT_CHAT_ASSIGNED: TbMessageCircle,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -55,6 +58,7 @@ const TYPE_COLORS: Record<string, string> = {
   LOGBOOK_VERIFIED: "bg-blue-100 text-blue-600",
   CERTIFICATE_ISSUED: "bg-yellow-100 text-yellow-700",
   SYSTEM: "bg-gray-100 text-gray-600",
+  SUPPORT_CHAT_ASSIGNED: "bg-orange-100 text-orange-600",
 };
 
 function timeAgo(dateStr: string): string {
@@ -74,7 +78,8 @@ export function NotificationPanel() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const streamControllerRef = useRef<AbortController | null>(null);
+  const streamRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -109,20 +114,81 @@ export function NotificationPanel() {
     if (!token) return;
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-    const es = new EventSource(`${apiBase}/notifications/stream?token=${encodeURIComponent(token)}`);
+    const streamUrl = `${apiBase}/notifications/stream`;
+    let stopped = false;
+    let retryDelay = 1000;
 
-    es.addEventListener("notification", (event) => {
-      const data = JSON.parse(event.data);
-      setNotifications((prev) => [data, ...prev].slice(0, 15));
-      setUnreadCount((prev) => prev + 1);
-    });
-
-    es.onerror = () => {
-      es.close();
+    const clearRetryTimer = () => {
+      if (streamRetryTimerRef.current) {
+        clearTimeout(streamRetryTimerRef.current);
+        streamRetryTimerRef.current = null;
+      }
     };
 
-    eventSourceRef.current = es;
-    return () => es.close();
+    const stopStream = () => {
+      stopped = true;
+      clearRetryTimer();
+      streamControllerRef.current?.abort();
+      streamControllerRef.current = null;
+    };
+
+    const scheduleRetry = () => {
+      if (stopped || streamRetryTimerRef.current) return;
+      streamRetryTimerRef.current = setTimeout(() => {
+        streamRetryTimerRef.current = null;
+        void connect();
+      }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 10000);
+    };
+
+    const connect = async () => {
+      if (stopped || streamControllerRef.current) return;
+      const controller = new AbortController();
+      streamControllerRef.current = controller;
+
+      try {
+        const response = await fetch(streamUrl, {
+          headers: {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          stopStream();
+          return;
+        }
+        if (!response.ok || !response.body) throw new Error(`SSE HTTP ${response.status}`);
+
+        retryDelay = 1000;
+        const decoder = new TextDecoder();
+        const parser = createSseParser((event) => {
+          const data = parseNotificationEvent(event);
+          if (!data) return;
+          setNotifications((prev) => [data as unknown as Notification, ...prev].slice(0, 15));
+          setUnreadCount((prev) => prev + 1);
+        });
+        const reader = response.body.getReader();
+
+        while (!stopped) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parser.push(decoder.decode(value, { stream: true }));
+        }
+
+        if (!stopped) scheduleRetry();
+      } catch {
+        if (!stopped && !controller.signal.aborted) scheduleRetry();
+      } finally {
+        if (streamControllerRef.current === controller) {
+          streamControllerRef.current = null;
+        }
+      }
+    };
+
+    void connect();
+    return stopStream;
   }, []);
 
   useEffect(() => {
@@ -252,9 +318,13 @@ export function NotificationPanel() {
                     notifications.map((notif) => {
                       const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
                       const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                      const chatId = typeof notif.metadata?.chatId === "string" ? notif.metadata.chatId : undefined;
                       return (
                         <div
                           key={notif.id}
+                          role={chatId ? "link" : undefined}
+                          tabIndex={chatId ? 0 : undefined}
+                          onClick={chatId ? () => { window.location.assign(`/support-chats/${chatId}`); } : undefined}
                           className={`flex items-start gap-3 px-3 py-3 border-b border-[#e8d8c9] last:border-0 active:bg-[#f9f3ed] transition-colors ${
                             !notif.isRead ? "bg-[#fef9f4]" : ""
                           }`}
@@ -344,13 +414,17 @@ export function NotificationPanel() {
                     <p className="text-sm text-[#5a5a5a]">Belum ada notifikasi</p>
                   </div>
                 ) : (
-                  notifications.map((notif) => {
-                    const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
-                    const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                    notifications.map((notif) => {
+                      const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
+                      const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
+                      const chatId = typeof notif.metadata?.chatId === "string" ? notif.metadata.chatId : undefined;
 
-                    return (
-                      <div
-                        key={notif.id}
+                      return (
+                        <div
+                          key={notif.id}
+                          role={chatId ? "link" : undefined}
+                          tabIndex={chatId ? 0 : undefined}
+                          onClick={chatId ? () => { window.location.assign(`/support-chats/${chatId}`); } : undefined}
                         className={`flex items-start gap-3 px-4 py-3 border-b border-[#e8d8c9] hover:bg-[#f9f3ed] transition-colors ${
                           !notif.isRead ? "bg-[#fef9f4]" : ""
                         }`}

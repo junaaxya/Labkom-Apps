@@ -1,20 +1,22 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   TbAlertTriangle,
   TbBuildingWarehouse,
   TbCategory,
-  TbPhoto,
+
   TbCpu,
   TbFileDescription,
   TbSend,
 } from "react-icons/tb";
-import api from "@/services/api";
+import api, { ApiError } from "@/services/api";
 import type { Lab, PC, TicketCategory } from "@/types";
 import { useToast } from "@/providers/toast-provider";
 import { PhotoUpload } from "@/components/ui/photo-upload";
+import { ticketCategoryLabel } from "../ticket-ui";
 
 function errMsg(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
@@ -41,6 +43,10 @@ type CreateTicketResponse = {
   message?: string;
 };
 
+type DuplicateTicketData = {
+  existingTicket?: { id?: string; link?: string; status?: string; createdAt?: string };
+};
+
 const CATEGORIES: TicketCategory[] = [
   "MOUSE",
   "KEYBOARD",
@@ -62,6 +68,8 @@ export default function NewTicketPage() {
   const [loadingLabs, setLoadingLabs] = useState(true);
   const [loadingPcs, setLoadingPcs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [duplicateTicket, setDuplicateTicket] = useState<DuplicateTicketData["existingTicket"] | null>(null);
+  const [expiredTicketPhotos, setExpiredTicketPhotos] = useState(false);
 
   const [form, setForm] = useState<CreateTicketBody>({
     labId: "",
@@ -72,7 +80,7 @@ export default function NewTicketPage() {
     photo: [],
   });
 
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     setLoadingLabs(true);
     try {
       const res = await api.get<{ data: Lab[] }>("/labs");
@@ -83,7 +91,7 @@ export default function NewTicketPage() {
     } finally {
       setLoadingLabs(false);
     }
-  };
+  }, [toast]);
 
   const fetchPcs = async (labId: string) => {
     if (!labId) {
@@ -106,7 +114,7 @@ export default function NewTicketPage() {
     queueMicrotask(() => {
       void fetchLabs();
     });
-  }, []);
+  }, [fetchLabs]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -118,6 +126,8 @@ export default function NewTicketPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setDuplicateTicket(null);
+    setExpiredTicketPhotos(false);
 
     try {
       const payload: CreateTicketBody = {
@@ -147,7 +157,15 @@ export default function NewTicketPage() {
         router.push("/tickets/my");
       }, 1300);
     } catch (err) {
-      toast.error(errMsg(err, "Gagal mengirim laporan kerusakan."));
+      const message = errMsg(err, "Gagal mengirim laporan kerusakan.");
+      if (err instanceof ApiError && err.status === 409) {
+        const duplicate = (err.data as DuplicateTicketData | undefined)?.existingTicket;
+        setDuplicateTicket(duplicate ?? null);
+      }
+      if (message.toLowerCase().includes("kedaluwarsa")) {
+        setExpiredTicketPhotos(true);
+      }
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -170,6 +188,17 @@ export default function NewTicketPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="neo-card p-4 sm:p-6 space-y-5" style={{ backgroundColor: "#fff" }}>
+        {duplicateTicket && (
+          <div className="rounded-xl border-2 border-[#f3701e] bg-[#fff3e8] p-4 text-sm text-[#1a1a1a]">
+            <p className="font-bold">Laporan aktif serupa sudah tersedia.</p>
+            <p className="mt-1">Status: {duplicateTicket.status ?? "Aktif"}</p>
+            {duplicateTicket.link && (
+              <Link href={duplicateTicket.link} className="mt-3 inline-flex min-h-[44px] items-center font-bold text-[#4b607f] underline">
+                Buka ticket existing
+              </Link>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="block text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
@@ -205,7 +234,7 @@ export default function NewTicketPage() {
             >
               {CATEGORIES.map((category) => (
                 <option key={category} value={category}>
-                  {category}
+                    {ticketCategoryLabel[category]}
                 </option>
               ))}
             </select>
@@ -274,6 +303,21 @@ export default function NewTicketPage() {
               label="Foto Kerusakan"
               maxFiles={3}
             />
+            {expiredTicketPhotos && (
+              <div className="mt-2 rounded-lg border-2 border-[#f3701e] bg-orange-50 p-3 text-sm text-[#1a1a1a]">
+                Foto upload sudah kedaluwarsa. Hapus foto lama, lalu unggah ulang sebelum mengirim laporan.
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, photo: [] }));
+                    setExpiredTicketPhotos(false);
+                  }}
+                  className="mt-2 min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-white px-3 font-bold"
+                >
+                  Hapus foto lama
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

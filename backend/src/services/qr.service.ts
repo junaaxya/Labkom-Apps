@@ -1,6 +1,21 @@
 import * as QRCode from "qrcode";
 import prisma from "../config/database";
 import { config } from "../config";
+import { getJakartaClock } from "./jakarta-time";
+
+export class QRValidationError extends Error {}
+
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => HTML_ESCAPE_MAP[character]);
+}
 
 export class QRService {
   private static getAppUrl(): string {
@@ -25,16 +40,17 @@ export class QRService {
 
     const labPrefix = this.deriveLabPrefix(pc.lab.name, pc.pcCode);
 
-    const existingPCs = await prisma.pC.findMany({
-      where: { labId: pc.labId },
-      orderBy: { pcCode: "asc" },
-      select: { id: true, pcCode: true },
-    });
-
-    const index = existingPCs.findIndex((p) => p.id === pcId);
-    const seqNum = String(index + 1).padStart(3, "0");
-
-    const assetCode = `ASSET-${labPrefix}-PC-${seqNum}`;
+    const [pcs, assets] = await Promise.all([
+      prisma.pC.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+      prisma.asset.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+    ]);
+    const usedCodes = new Set([...pcs, ...assets].map((item) => item.assetCode).filter((code): code is string => Boolean(code)));
+    let sequence = 1;
+    let assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+    while (usedCodes.has(assetCode)) {
+      sequence += 1;
+      assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+    }
     return assetCode;
   }
 
@@ -48,22 +64,32 @@ export class QRService {
     const pcs = await prisma.pC.findMany({
       where: { labId },
       orderBy: { pcCode: "asc" },
-      select: { id: true, pcCode: true },
+      select: { id: true, pcCode: true, assetCode: true },
     });
 
     const labPrefix = this.deriveLabPrefix(lab.name, pcs[0]?.pcCode || "");
+    const [allPCs, assets] = await Promise.all([
+      prisma.pC.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+      prisma.asset.findMany({ where: { assetCode: { not: "" } }, select: { assetCode: true } }),
+    ]);
+    const usedCodes = new Set([...allPCs, ...assets].map((item) => item.assetCode).filter((code): code is string => Boolean(code)));
     const results: { pcId: string; assetCode: string }[] = [];
 
-    for (let i = 0; i < pcs.length; i++) {
-      const seqNum = String(i + 1).padStart(3, "0");
-      const assetCode = `ASSET-${labPrefix}-PC-${seqNum}`;
-
-      await prisma.pC.update({
-        where: { id: pcs[i].id },
-        data: { assetCode },
-      });
-
-      results.push({ pcId: pcs[i].id, assetCode });
+    let sequence = 1;
+    for (const pc of pcs) {
+      if (pc.assetCode) {
+        results.push({ pcId: pc.id, assetCode: pc.assetCode });
+        continue;
+      }
+      let assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+      while (usedCodes.has(assetCode)) {
+        sequence += 1;
+        assetCode = `ASSET-${labPrefix}-PC-${String(sequence).padStart(3, "0")}`;
+      }
+      await prisma.pC.update({ where: { id: pc.id }, data: { assetCode } });
+      usedCodes.add(assetCode);
+      results.push({ pcId: pc.id, assetCode });
+      sequence += 1;
     }
 
     return results;
@@ -210,10 +236,14 @@ export class QRService {
     let assetCode = pc.assetCode;
     if (!assetCode) {
       assetCode = await this.generateAssetCode(pcId);
-      await prisma.pC.update({
-        where: { id: pcId },
-        data: { assetCode },
-      });
+      try {
+        await prisma.pC.update({ where: { id: pcId }, data: { assetCode } });
+      } catch (error: any) {
+        if (error?.code !== "P2002") throw error;
+        const refreshed = await prisma.pC.findUnique({ where: { id: pcId }, select: { assetCode: true } });
+        if (!refreshed?.assetCode) throw error;
+        assetCode = refreshed.assetCode;
+      }
     }
 
     const qrUrl = this.getPCQRUrl(assetCode);
@@ -277,7 +307,7 @@ export class QRService {
   /**
    * Find key by keyCode (from scanned QR URL)
    */
-  static async findKeyByCode(keyCode: string) {
+  static async findKeyByCode(keyCode: string, now = new Date()) {
     const key = await prisma.key.findFirst({
       where: { keyCode },
       include: {
@@ -292,15 +322,12 @@ export class QRService {
     });
     if (!key) throw new Error("Kunci tidak ditemukan");
 
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const now = new Date();
-    const today = dayNames[now.getDay()];
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const clock = getJakartaClock(now);
 
     const todaySchedules = await prisma.schedule.findMany({
       where: {
         labId: key.labId,
-        day: today as never,
+        day: clock.day as never,
         isActive: true,
       },
       select: {
@@ -317,30 +344,41 @@ export class QRService {
     });
 
     const activeSchedule = todaySchedules.find((s) => {
-      return currentTime >= s.startTime && currentTime <= s.endTime;
+      return clock.time >= s.startTime && clock.time <= s.endTime;
     });
 
-    return { ...key, todaySchedules, activeSchedule: activeSchedule || null, currentTime };
+    return { ...key, todaySchedules, activeSchedule: activeSchedule || null, currentTime: clock.time };
   }
 
   /**
    * Find PC by assetCode (from scanned QR URL)
    */
-  static async findPCByAssetCode(assetCode: string) {
+  static async findPCByAssetCode(assetCode: string, actor: { userId: string; role: string }) {
+    const normalizedAssetCode = assetCode.trim();
+    if (!/^[A-Za-z0-9._-]{3,80}$/.test(normalizedAssetCode)) {
+      throw new QRValidationError("Asset code tidak valid");
+    }
     const pc = await prisma.pC.findFirst({
-      where: { assetCode },
+      where: { assetCode: normalizedAssetCode },
       include: {
         lab: { select: { id: true, name: true, location: true } },
         tickets: {
           where: { status: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } },
           orderBy: { createdAt: "desc" },
           take: 5,
-          select: { id: true, title: true, status: true, category: true, createdAt: true },
+          select: { id: true, title: true, status: true, category: true, createdAt: true, reportedBy: true },
         },
       },
     });
     if (!pc) throw new Error("PC tidak ditemukan. Asset code tidak valid.");
-    return pc;
+    const staff = actor.role === "KOORDINATOR_LAB" || actor.role === "ASISTEN_LAB";
+    return {
+      ...pc,
+      activeTicketCount: pc.tickets.length,
+      tickets: pc.tickets.map((ticket) => staff || ticket.reportedBy === actor.userId
+        ? ticket
+        : { status: ticket.status, createdAt: ticket.createdAt }),
+    };
   }
 
   // ============================================
@@ -391,7 +429,7 @@ export class QRService {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>QR Codes - ${lab.name}</title>
+  <title>QR Codes - ${escapeHtml(lab.name)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; padding: 20px; }
@@ -409,13 +447,13 @@ export class QRService {
   </style>
 </head>
 <body>
-  <h1>QR Codes — ${lab.name}</h1>
+  <h1>QR Codes — ${escapeHtml(lab.name)}</h1>
   <div class="grid">
     ${items.map((item) => `
     <div class="item">
-      <img src="${item.qrImage}" alt="${item.code}" />
-      <div class="code">${item.code}</div>
-      <div class="label">${item.label}</div>
+      <img src="${item.qrImage}" alt="${escapeHtml(item.code)}" />
+      <div class="code">${escapeHtml(item.code)}</div>
+      <div class="label">${escapeHtml(item.label)}</div>
     </div>`).join("")}
   </div>
 </body>

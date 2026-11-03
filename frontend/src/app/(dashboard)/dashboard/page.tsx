@@ -9,6 +9,7 @@ import type { Role } from "@/types";
 import {
   AsistenDashboard,
   DashboardHeader,
+  DosenDashboard,
   KoordinatorDashboard,
   MagangDashboard,
   MahasiswaDashboard,
@@ -20,6 +21,7 @@ import {
   type MissionItem,
   type PCAgentStats,
   type ScheduleItem,
+  type ActualScheduleItem,
   type PicketScheduleItem,
   type TicketItem,
 } from "./dashboard-views";
@@ -30,6 +32,15 @@ dayjs.locale("id");
 
 function asArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
+  return [];
+}
+
+function ticketItems<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && "items" in value) {
+    const items = (value as { items?: unknown }).items;
+    return Array.isArray(items) ? items as T[] : [];
+  }
   return [];
 }
 
@@ -44,6 +55,7 @@ export default function DashboardPage() {
 
   const [labs, setLabs] = useState<LabInfo[]>([]);
   const [todaySchedules, setTodaySchedules] = useState<ScheduleItem[]>([]);
+  const [actualSchedules, setActualSchedules] = useState<ActualScheduleItem[]>([]);
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [attendanceToday, setAttendanceToday] = useState(0);
   const [activeTicketCount, setActiveTicketCount] = useState(0);
@@ -76,28 +88,30 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    const [labsRes, schedulesRes, keysRes] = await Promise.all([
-      api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
-      api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
-      api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
-    ]);
-    setLabs(asArray<LabInfo>(labsRes.data));
-    setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
-    setKeys(asArray<KeyItem>(keysRes.data));
+    if (role !== "DOSEN") {
+      const [labsRes, schedulesRes, keysRes] = await Promise.all([
+        api.get<{ data: LabInfo[] }>("/labs").catch(() => ({ data: [] })),
+        api.get<{ data: ScheduleItem[] }>("/schedules/today").catch(() => ({ data: [] })),
+        api.get<{ data: KeyItem[] }>("/keys").catch(() => ({ data: [] })),
+      ]);
+      setLabs(asArray<LabInfo>(labsRes.data));
+      setTodaySchedules(asArray<ScheduleItem>(schedulesRes.data));
+      setKeys(asArray<KeyItem>(keysRes.data));
+    }
 
     if (role === "KOORDINATOR_LAB") {
       const [ticketRes, ticketStatsRes, attendanceRes, aiRes, healthRes, logbookRes, pcAnalyticsRes] = await Promise.all([
-        api.get<{ data: TicketItem[] }>("/tickets?limit=10").catch(() => ({ data: [] })),
-        api.get<{ data: { open?: number; inProgress?: number } }>("/tickets/stats").catch(() => ({ data: { open: 0, inProgress: 0 } })),
+        api.get<{ data: { items: TicketItem[] } }>("/tickets?limit=10").catch(() => ({ data: { items: [] } })),
+        api.get<{ data: { open?: number; inProgress?: number; waiting?: number } }>("/tickets/stats").catch(() => ({ data: { open: 0, inProgress: 0, waiting: 0 } })),
         api.get<{ data: { todayCount: number } }>("/attendance/today-count").catch(() => ({ data: { todayCount: 0 } })),
         api.get<{ data: string[] }>("/ai/insights").catch(() => ({ data: [] })),
         api.get<{ data: { score: number; level: string } }>("/ai/predictive/health").catch(() => ({ data: null })),
         api.get<{ data: LogbookItem[] }>("/logbooks?status=CHECKED_IN").catch(() => ({ data: [] })),
         api.get<{ data: PCAgentStats }>("/pcs/analytics").catch(() => ({ data: null })),
       ]);
-      const ticketStats = ticketStatsRes.data || { open: 0, inProgress: 0 };
-      setTickets(asArray<TicketItem>(ticketRes.data));
-      setActiveTicketCount((ticketStats.open || 0) + (ticketStats.inProgress || 0));
+      const ticketStats = ticketStatsRes.data || { open: 0, inProgress: 0, waiting: 0 };
+      setTickets(ticketItems<TicketItem>(ticketRes.data));
+      setActiveTicketCount((ticketStats.open || 0) + (ticketStats.inProgress || 0) + (ticketStats.waiting || 0));
       setAttendanceToday(attendanceRes.data?.todayCount || 0);
       setAiInsights(asArray<string>(aiRes.data));
       setHealthScore(healthRes.data || null);
@@ -108,7 +122,7 @@ export default function DashboardPage() {
     if (role === "ASISTEN_LAB") {
       const [missionRes, ticketRes, shiftRes, leaderboardRes, attendanceRes] = await Promise.all([
         api.get<{ data: MissionItem[] }>("/missions/my").catch(() => ({ data: [] })),
-        api.get<{ data: TicketItem[] }>(`/tickets?assignedTo=${uid}`).catch(() => ({ data: [] })),
+        api.get<{ data: { items: TicketItem[] } }>(`/tickets?assignedTo=${uid}`).catch(() => ({ data: { items: [] } })),
         api.get<{ data: PicketScheduleItem[] }>(`/attendance/shift-schedules/me?from=${dayjs().format("YYYY-MM-DD")}&to=${dayjs().add(7, "day").format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
         api.get<{ data: LeaderboardEntry[] }>("/leaderboard").catch(() => ({ data: [] })),
         api.get<{ data: { createdAt?: string }[] }>("/attendance/me").catch(() => ({ data: [] })),
@@ -121,19 +135,30 @@ export default function DashboardPage() {
       });
 
       setMyMissions(asArray<MissionItem>(missionRes.data));
-      setTickets(asArray<TicketItem>(ticketRes.data));
+       setTickets(ticketItems<TicketItem>(ticketRes.data));
       setPicketSchedules(myPicketSchedules);
       setLeaderboard(asArray<LeaderboardEntry>(leaderboardRes.data));
       setAttendanceMonthCount(attendanceThisMonth.length);
     }
 
+    if (role === "DOSEN") {
+      const [notifRes, actualScheduleRes] = await Promise.all([
+        api.get<{ data: { count: number } }>("/notifications/unread-count").catch(() => ({ data: { count: 0 } })),
+        api.get<{ data: ActualScheduleItem[] }>(`/academic/actual-schedules?date=${dayjs().format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
+      ]);
+      setUnreadCount(notifRes.data?.count || 0);
+      setActualSchedules(asArray<ActualScheduleItem>(actualScheduleRes.data));
+    }
+
     if (role === "MAHASISWA") {
-      const [ticketRes, notifRes] = await Promise.all([
+      const [ticketRes, notifRes, actualScheduleRes] = await Promise.all([
         api.get<{ data: TicketItem[] }>("/tickets/my").catch(() => ({ data: [] })),
         api.get<{ data: { count: number } }>("/notifications/unread-count").catch(() => ({ data: { count: 0 } })),
+        api.get<{ data: ActualScheduleItem[] }>(`/academic/actual-schedules?date=${dayjs().format("YYYY-MM-DD")}`).catch(() => ({ data: [] })),
       ]);
       setTickets(asArray<TicketItem>(ticketRes.data));
       setUnreadCount(notifRes.data?.count || 0);
+      setActualSchedules(asArray<ActualScheduleItem>(actualScheduleRes.data));
     }
 
     setLoading(false);
@@ -218,9 +243,12 @@ export default function DashboardPage() {
         />
       ) : role === "MAGANG" ? (
         <MagangDashboard unreadCount={unreadCount} />
+      ) : role === "DOSEN" ? (
+        <DosenDashboard unreadCount={unreadCount} actualSchedules={actualSchedules} />
       ) : (
         <MahasiswaDashboard
           schedules={mahasiswaSchedules}
+          actualSchedules={actualSchedules}
           myTickets={tickets}
           unreadCount={unreadCount}
           keys={keys}

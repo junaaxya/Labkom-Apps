@@ -1,9 +1,29 @@
 import { Request, Response } from "express";
+import { ZodError } from "zod";
 import { LogbookService } from "../services/logbook.service";
+import { checkinLogbookSchema } from "../validators/logbook.validator";
 
 const getParam = (param: string | string[]) => (Array.isArray(param) ? param[0] : param);
 
 export class LogbookController {
+  static async getTicketAutomationAttempts(req: Request, res: Response): Promise<void> {
+    try {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      if (status && !["CREATED", "DUPLICATE", "FAILED"].includes(status)) {
+        res.status(400).json({ success: false, message: "Status otomasi tidak valid" });
+        return;
+      }
+      const result = await LogbookService.getTicketAutomationAttempts({
+        status: status as "CREATED" | "DUPLICATE" | "FAILED" | undefined,
+        page: req.query.page ? Number(req.query.page) : undefined,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+      });
+      res.json({ success: true, data: result });
+    } catch {
+      res.status(500).json({ success: false, message: "Gagal memuat monitoring ticket otomatis" });
+    }
+  }
+
   static async getAllLogbooks(req: Request, res: Response): Promise<void> {
     try {
       const filters = {
@@ -33,10 +53,15 @@ export class LogbookController {
   static async checkin(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
-      const logbook = await LogbookService.checkin(req.user.userId);
+      const input = checkinLogbookSchema.parse(req.body);
+      const logbook = await LogbookService.checkin(req.user.userId, input);
       res.status(201).json({ success: true, message: "Check-in berhasil", data: logbook });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "labId, scheduleId, dan occurrenceDate (YYYY-MM-DD) wajib diisi dengan benar", errors: error.issues });
+        return;
+      }
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : "Check-in gagal" });
     }
   }
 
@@ -45,8 +70,11 @@ export class LogbookController {
       if (!req.user) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
       const logbook = await LogbookService.getTodayLogbook(req.user.userId);
       res.json({ success: true, data: logbook });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error && /Logbook|Sesi|labId|foto|ketua kelas|pemegang kunci/i.test(error.message)
+        ? error.message
+        : "Kondisi gagal disimpan";
+      res.status(400).json({ success: false, message });
     }
   }
 
@@ -62,9 +90,21 @@ export class LogbookController {
         getParam(req.params.id), labId, req.user.userId, req.user.role,
         { fotoBukti, kerusakanBaru, catatanKondisi }
       );
-      res.json({ success: true, message: "Kondisi berhasil disubmit", data: condition });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+      const automation = "ticketAutomation" in condition ? condition.ticketAutomation : null;
+      res.json({
+        success: true,
+        message: automation?.status === "FAILED"
+          ? "Kondisi tersimpan, tetapi ticket kerusakan gagal dibuat"
+          : automation?.status === "DUPLICATE"
+            ? "Kondisi tersimpan; ticket aktif yang sama sudah tersedia"
+            : "Kondisi berhasil disubmit",
+        data: condition,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error && /Logbook|Sesi|labId|foto|ketua kelas|pemegang kunci|Lab tidak ditemukan/i.test(error.message)
+        ? error.message
+        : "Kondisi gagal disimpan";
+      res.status(400).json({ success: false, message });
     }
   }
 

@@ -18,7 +18,7 @@ import {
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
-import { QRPreviewModal } from "@/components/qr/qr-preview-modal";
+import { isPngDataUrl, QRPreviewModal } from "@/components/qr/qr-preview-modal";
 import type { Lab, PC, PCStatus } from "@/types";
 
 type LabDetailResponse = {
@@ -235,11 +235,48 @@ export default function LabDetailPage({ params }: { params: Promise<{ id: string
         throw new Error("Popup diblokir browser. Izinkan popup lalu coba lagi.");
       }
 
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      toast.success("Print sheet QR PC berhasil dibuka.");
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const printDocument = printWindow.document;
+      const title = printDocument.createElement("title");
+      title.textContent = parsed.querySelector("h1")?.textContent?.trim() || "QR Codes";
+      printDocument.head.append(title);
+
+      const style = printDocument.createElement("style");
+      style.textContent = "* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: Inter, sans-serif; padding: 20px; } h1 { text-align: center; margin-bottom: 20px; font-size: 18px; } .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; } .item { border: 2px solid #1a1a1a; border-radius: 8px; padding: 12px; text-align: center; page-break-inside: avoid; } .item img { width: 150px; height: 150px; margin: 0 auto 8px; display: block; } .item .code { font-size: 10px; font-weight: 700; color: #1a1a1a; word-break: break-all; } .item .label { font-size: 9px; color: #666; margin-top: 4px; } @media print { .grid { grid-template-columns: repeat(4, 1fr); gap: 10px; } .item { border-width: 1px; padding: 8px; } .item img { width: 120px; height: 120px; } }";
+      printDocument.head.append(style);
+
+      const heading = printDocument.createElement("h1");
+      heading.textContent = parsed.querySelector("h1")?.textContent?.trim() || "QR Codes";
+      printDocument.body.append(heading);
+      const grid = printDocument.createElement("div");
+      grid.className = "grid";
+
+      for (const sourceItem of parsed.querySelectorAll<HTMLElement>(".item")) {
+        const item = printDocument.createElement("div");
+        item.className = "item";
+        const sourceImage = sourceItem.querySelector("img");
+        const qrImage = sourceImage?.getAttribute("src") || "";
+        if (isPngDataUrl(qrImage)) {
+          const image = printDocument.createElement("img");
+          image.src = qrImage;
+          image.alt = sourceImage?.getAttribute("alt") || "QR code";
+          item.append(image);
+        }
+        const code = printDocument.createElement("div");
+        code.className = "code";
+        code.textContent = sourceItem.querySelector(".code")?.textContent?.trim() || "";
+        item.append(code);
+        const label = printDocument.createElement("div");
+        label.className = "label";
+        label.textContent = sourceItem.querySelector(".label")?.textContent?.trim() || "";
+        item.append(label);
+        grid.append(item);
+      }
+
+       printDocument.body.append(grid);
+       printWindow.focus();
+       printWindow.print();
+       toast.success("Print sheet QR PC berhasil dibuka.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal membuka print sheet QR";
       toast.error(message);

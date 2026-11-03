@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TbCheck, TbClockHour4, TbFileDescription, TbMail, TbMapPin, TbPhone, TbUsers, TbX } from "react-icons/tb";
 import api from "@/services/api";
-import type { AccessRequest, AccessRequestStatus, AccessRequestType } from "@/types";
+import type { AccessRequest, AccessRequestStatus, AccessRequestType, User } from "@/types";
 import { useToast } from "@/providers/toast-provider";
 
 type ListResponse = {
@@ -26,8 +26,8 @@ const typeLabels: Record<AccessRequestType, string> = {
 
 const approvalHelpText: Record<AccessRequestType, string> = {
   PEMINJAMAN_LAB: "Approve akan membuat booking dan jadwal peminjaman lab.",
-  MAGANG: "Approve akan langsung membuat akun MAGANG aktif dengan password awal = kode pengajuan.",
-  AKSES_SEMENTARA: "Approve akan langsung membuat akun akses sementara dengan password awal = kode pengajuan.",
+  MAGANG: "Approve akan mengaktifkan akun MAGANG dan mengirim email konfirmasi. Jika email gagal terkirim, akun tetap aktif.",
+  AKSES_SEMENTARA: "Approve akan membuat akun akses sementara. Detail akses disampaikan secara aman oleh koordinator melalui kanal terverifikasi; kode pengajuan bukan password.",
 };
 
 export default function AccessRequestsPage() {
@@ -38,6 +38,19 @@ export default function AccessRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [notesById, setNotesById] = useState<Record<string, string>>({});
+  const [user, setUser] = useState<User | null>(null);
+  const canReview = user?.role === "KOORDINATOR_LAB";
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const stored = localStorage.getItem("user");
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setUser(null);
+      }
+    });
+  }, []);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -94,7 +107,8 @@ export default function AccessRequestsPage() {
     };
   }, [query, toast]);
 
-  const review = async (id: string, status: "APPROVED" | "REJECTED" | "REVISION") => {
+  const review = async (id: string, status: "APPROVED" | "REJECTED") => {
+    if (!canReview) return;
     setActingId(id);
     try {
       await api.patch(`/access-requests/${id}/status`, {
@@ -166,21 +180,20 @@ export default function AccessRequestsPage() {
 
               {(item.purpose || item.description) && <div className="rounded-lg bg-[#f5ede6] p-4 neo-border-sm space-y-2 text-sm text-[#1a1a1a]"><p><span className="font-bold">Tujuan:</span> {item.purpose || "-"}</p><p><span className="font-bold">Deskripsi:</span> {item.description || "-"}</p></div>}
 
-              {item.status !== "APPROVED" && item.status !== "REJECTED" && (
+              {canReview && item.status !== "APPROVED" && item.status !== "REJECTED" && (
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-[#5a5a5a]">{approvalHelpText[item.type]}</p>
                   <textarea
                     rows={3}
                     value={notesById[item.id] || ""}
                     onChange={(e) => setNotesById((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                    placeholder="Catatan reviewer (opsional untuk approve, wajib secara praktik untuk reject/revision)"
+                    placeholder="Catatan reviewer (opsional untuk approve, wajib untuk reject)"
                     className="neo-input w-full px-4 py-3 bg-white"
                   />
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <button type="button" disabled={actingId === item.id} onClick={() => void review(item.id, "APPROVED")} className="neo-btn min-h-[44px] flex-1 bg-green-500 text-white px-4 py-2"><span className="flex items-center justify-center gap-2"><TbCheck /> Approve</span></button>
-                    <button type="button" disabled={actingId === item.id} onClick={() => void review(item.id, "REVISION")} className="neo-btn min-h-[44px] flex-1 bg-[#4b607f] text-white px-4 py-2">Revision</button>
-                    <button type="button" disabled={actingId === item.id} onClick={() => void review(item.id, "REJECTED")} className="neo-btn min-h-[44px] flex-1 bg-red-500 text-white px-4 py-2"><span className="flex items-center justify-center gap-2"><TbX /> Reject</span></button>
-                  </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                     <button type="button" disabled={actingId === item.id} onClick={() => void review(item.id, "APPROVED")} className="neo-btn min-h-[44px] flex-1 bg-green-500 text-white px-4 py-2"><span className="flex items-center justify-center gap-2"><TbCheck /> Approve</span></button>
+                     <button type="button" disabled={actingId === item.id} onClick={() => void review(item.id, "REJECTED")} className="neo-btn min-h-[44px] flex-1 bg-red-500 text-white px-4 py-2"><span className="flex items-center justify-center gap-2"><TbX /> Reject</span></button>
+                    </div>
                 </div>
               )}
 

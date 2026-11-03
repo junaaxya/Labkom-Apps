@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { TbX } from "react-icons/tb";
 
-export default function HostingPaymentFailedPage({
+export default async function HostingPaymentFailedPage({
   searchParams,
 }: {
-  searchParams?: { order_id?: string };
+  searchParams: Promise<{ order_id?: string }>;
 }) {
+  const { order_id } = await searchParams;
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#e8d8c9] px-5 py-12 text-[#1a1a1a]">
       <section className="neo-card max-w-xl bg-white p-7 text-center sm:p-10">
@@ -19,9 +21,9 @@ export default function HostingPaymentFailedPage({
           memilih metode pembayaran lain di Midtrans.
         </p>
 
-        {searchParams?.order_id && (
+        {order_id && (
           <p className="mt-4 rounded-lg border-2 border-[#1a1a1a] bg-[#f5ede6] px-3 py-2 text-sm font-bold">
-            Order ID: {searchParams.order_id}
+            Order ID: {order_id}
           </p>
         )}
 

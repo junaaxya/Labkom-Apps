@@ -1,4 +1,4 @@
-export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG";
+export type Role = "KOORDINATOR_LAB" | "ASISTEN_LAB" | "MAHASISWA" | "MAGANG" | "DOSEN";
 
 export type LabStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
@@ -74,6 +74,32 @@ export type TicketCategory =
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "WAITING" | "RESOLVED" | "REJECTED";
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export type SupportChatStatus = "WAITING" | "HANDLED";
+
+export interface SupportChatMessage {
+  id: string;
+  body: string;
+  senderId: string;
+  chatStatus?: SupportChatStatus;
+  sender?: Pick<User, "id" | "name" | "role">;
+  createdAt: string;
+}
+
+export interface SupportChat {
+  id: string;
+  status: SupportChatStatus;
+  studentId: string;
+  assistantId?: string | null;
+  student?: Pick<User, "id" | "name" | "role">;
+  assistant?: Pick<User, "id" | "name" | "role"> | null;
+  pc: { id: string; pcCode: string; name: string };
+  lab: { id: string; name: string };
+  messages?: SupportChatMessage[];
+  lastMessage?: SupportChatMessage;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export type MissionStatus = "OPEN" | "TAKEN" | "SUBMITTED" | "APPROVED" | "REJECTED";
 
@@ -242,6 +268,7 @@ export interface AccessRequest {
 export interface AttendanceSettings {
   id: string;
   isGeofencingEnabled: boolean;
+  isQrRequired: boolean;
   defaultRadiusMeter: number;
   lateToleranceMinutes: number;
   checkoutGraceMinutes: number;
@@ -530,6 +557,28 @@ export interface Ticket {
   assignee?: User;
   createdAt: string;
   updatedAt: string;
+  resolution?: string;
+  resolutionNotes?: string;
+  rejectionReason?: string;
+  waitingReason?: string;
+  events?: TicketEvent[];
+}
+
+export interface TicketEvent {
+  id: string;
+  type?: string;
+  status?: TicketStatus;
+  fromStatus?: TicketStatus;
+  toStatus?: TicketStatus;
+  eventType?: string;
+  note?: string;
+  reason?: string;
+  assignedTo?: string;
+  fromAssigneeId?: string;
+  toAssigneeId?: string;
+  actor?: User;
+  actorId?: string;
+  createdAt: string;
 }
 
 export interface Mission {

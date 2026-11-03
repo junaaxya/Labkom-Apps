@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { authenticate, authenticateQueryToken } from "../middlewares/auth.middleware";
+import { authenticate } from "../middlewares/auth.middleware";
 import {
   getMyNotifications,
   getUnreadCount,
@@ -14,20 +14,18 @@ import { sseManager } from "../services/sse.service";
 
 const router = Router();
 
-router.get("/stream", authenticateQueryToken, (req: Request, res: Response) => {
+export function streamNotifications(req: Request, res: Response): void {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
-
   res.write(`event: connected\ndata: ${JSON.stringify({ status: "ok" })}\n\n`);
-
   sseManager.addClient(req.user!.userId, res);
-});
+}
 
+router.get("/stream", authenticate, streamNotifications);
 router.use(authenticate);
-
 router.get("/", getMyNotifications);
 router.get("/unread-count", getUnreadCount);
 router.get("/push/public-key", getPushPublicKey);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { TbCertificate, TbDownload, TbPlus, TbTrophy, TbCalendarCheck, TbTarget, TbLoader2, TbPhoto, TbTrash, TbUpload, TbX } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -326,9 +327,12 @@ export default function CertificatesPage() {
               {templates.map((tmpl) => (
                 <div key={tmpl.id} className="neo-card p-4 space-y-3">
                   <div className="aspect-[1.414/1] rounded-lg border-2 border-[#1a1a1a] overflow-hidden bg-[#f5ede6]">
-                    <img
+                    <Image
                       src={toUploadDisplayUrl(tmpl.imageUrl)}
                       alt={tmpl.name}
+                      width={600}
+                      height={424}
+                      unoptimized
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -478,7 +482,7 @@ export default function CertificatesPage() {
 
               {templatePreview && (
                 <div className="aspect-[1.414/1] rounded-lg border-2 border-[#1a1a1a] overflow-hidden">
-                  <img src={templatePreview} alt="Preview" className="w-full h-full object-cover" />
+                  <Image src={templatePreview} alt="Preview" width={600} height={424} unoptimized className="w-full h-full object-cover" />
                 </div>
               )}
             </div>

@@ -114,7 +114,7 @@ export class AuthService {
     return user;
   }
 
-  static async updateProfile(userId: string, data: { name?: string; phone?: string; avatar?: string; semester?: string; className?: string }) {
+  static async updateProfile(userId: string, data: { name?: string; phone?: string; avatar?: string }) {
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { avatar: true } });
     if (!existing) throw new Error("User tidak ditemukan");
 

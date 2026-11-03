@@ -92,9 +92,6 @@ export default function Home() {
             <Link href="/login" className="px-5 py-2 font-bold hover:bg-[#d4c4b5] transition-colors rounded-lg">
               Masuk
             </Link>
-            <Link href="/register" className="px-5 py-2 bg-white text-[#1a1a1a] neo-btn hidden sm:block">
-              Daftar Sekarang
-            </Link>
             <Link href="/download" className="hidden px-5 py-2 font-bold hover:bg-[#d4c4b5] transition-colors rounded-lg lg:block">
               Download APK
             </Link>
@@ -142,7 +139,7 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
           >
-            <Link href="/register" className="w-full sm:w-auto text-center px-8 py-4 bg-[#f3701e] text-white neo-btn text-lg flex items-center justify-center gap-2 group">
+            <Link href="/login" className="w-full sm:w-auto text-center px-8 py-4 bg-[#f3701e] text-white neo-btn text-lg flex items-center justify-center gap-2 group">
               Mulai Sekarang <TbArrowRight className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link href="/login" className="w-full sm:w-auto text-center px-8 py-4 bg-white text-[#1a1a1a] neo-btn text-lg">
@@ -225,8 +222,8 @@ export default function Home() {
               <p className="text-lg text-white/80 mb-10 max-w-2xl mx-auto">
                 Tinggalkan pencatatan manual. Beralih ke Labkom sekarang dan nikmati kemudahan manajemen lab.
               </p>
-              <Link href="/register" className="inline-flex items-center gap-2 px-8 py-4 bg-[#f3701e] text-white neo-btn text-lg neo-glow">
-                Daftar Gratis <TbArrowRight />
+              <Link href="/login" className="inline-flex items-center gap-2 px-8 py-4 bg-[#f3701e] text-white neo-btn text-lg neo-glow">
+                Masuk ke Labkom <TbArrowRight />
               </Link>
               <div className="mt-4">
                 <Link href="/download" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#1a1a1a] neo-btn text-base font-black">

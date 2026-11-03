@@ -18,8 +18,38 @@ datasource db {
 enum Role {
   KOORDINATOR_LAB // Mengatur lab, jadwal, user, asleb, laporan, misi, verifikasi, audit, fallback check-in
   ASISTEN_LAB // Absensi, logbook, kunci, ticketing, misi, peta lab, check-in/out sesi
+  DOSEN // Membaca penawaran dan laporan akademik miliknya
   MAHASISWA // Melihat jadwal, melapor kerusakan, validasi kondisi akhir (jika ketua kelas), peminjaman lab
   MAGANG // Akun internal magang dengan akses terbatas
+}
+
+enum AcademicReportStatus {
+  TATAP_MUKA
+  ONLINE
+  TIDAK_MASUK
+  PINDAH_JADWAL
+  BELUM_PASTI
+}
+
+enum AcademicOccurrenceReleaseStatus {
+  RELEASED
+  ALLOCATED
+  REVOKED
+}
+
+enum AcademicSlotRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AcademicOccurrenceSwapStatus {
+  PENDING_CONFIRMATION
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum AccessRequestType {
@@ -33,6 +63,14 @@ enum AccessRequestStatus {
   APPROVED
   REJECTED
   REVISION
+}
+
+enum MagangApprovalEmailStatus {
+  QUEUED
+  PROCESSING
+  SENT
+  QA_CAPTURED
+  FAILED
 }
 
 enum LabStatus {
@@ -130,6 +168,14 @@ enum KeyStatus {
 enum KeyAction {
   TAKEN
   RETURNED
+  FORCE_RETURNED
+}
+
+enum KeyBorrowCycleStatus {
+  ACTIVE
+  RETURNED
+  FORCE_RETURNED
+  CANCELLED
 }
 
 enum TicketCategory {
@@ -158,6 +204,17 @@ enum TicketPriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum LogbookTicketAutomationStatus {
+  CREATED
+  DUPLICATE
+  FAILED
+}
+
+enum SupportChatStatus {
+  WAITING
+  HANDLED
 }
 
 enum MissionStatus {
@@ -271,46 +328,68 @@ model User {
   updatedAt           DateTime @updatedAt
 
   // Relations
-  schedulesAsAssistant     Schedule[]                     @relation("ScheduleAssistant")
-  logbooksCheckinBy        Logbook[]                      @relation("LogbookCheckinBy")
-  logbooksCheckoutBy       Logbook[]                      @relation("LogbookCheckoutBy")
-  conditionsSubmitted      LogbookCondition[]             @relation("ConditionSubmitter")
-  conditionsVerified       LogbookCondition[]             @relation("ConditionVerifier")
-  keysCurrentHolder        Key[]                          @relation("KeyCurrentHolder")
-  keyLogs                  KeyLog[]
-  ticketsReported          Ticket[]                       @relation("TicketReporter")
-  ticketsAssigned          Ticket[]                       @relation("TicketAssignee")
-  missionsCreated          Mission[]                      @relation("MissionCreator")
-  missionClaims            MissionClaim[]                 @relation("MissionClaimant")
-  missionClaimsVerified    MissionClaim[]                 @relation("MissionVerifier")
-  attendances              Attendance[]
-  dailyTaskLogs            DailyTaskLog[]
-  reviewedTasks            DailyTaskLog[]                 @relation("TaskVerifier")
-  points                   Point[]
-  certificatesOwned        Certificate[]                  @relation("CertificateOwner")
-  certificatesIssued       Certificate[]                  @relation("CertificateIssuer")
-  notifications            Notification[]
-  pushSubscriptions        PushSubscription[]
-  shifts                   Shift[]                        @relation("ShiftAsleb")
-  bookingsRequested        LabBooking[]                   @relation("BookingRequester")
-  bookingsApproved         LabBooking[]                   @relation("BookingApprover")
-  scheduleChangeRequests   ScheduleChangeRequest[]        @relation("ScheduleChangeRequester")
-  scheduleChangeApprovals  ScheduleChangeRequest[]        @relation("ScheduleChangeApprover")
-  leaveRequests            LeaveRequest[]                 @relation("LeaveRequester")
-  leaveReviews             LeaveRequest[]                 @relation("LeaveReviewer")
-  shiftSchedules           AsLabShiftSchedule[]           @relation("ShiftScheduleUser")
-  shiftSchedulesAssigned   AsLabShiftSchedule[]           @relation("ShiftScheduleAssigner")
-  picketPatternsCreated    AsLabPicketPattern[]           @relation("PicketPatternCreator")
-  picketPatternAssignments AsLabPicketPatternAssignment[] @relation("PicketPatternAssistant")
-  attendancesVerified      Attendance[]                   @relation("AttendanceVerifier")
-  correctionRequests       AttendanceCorrectionRequest[]  @relation("CorrectionRequester")
-  correctionReviews        AttendanceCorrectionRequest[]  @relation("CorrectionReviewer")
-  auditLogs                AuditLog[]
-  announcements            Announcement[]                 @relation("AnnouncementCreator")
-  announcementReads        AnnouncementRead[]
-  assetAuditLogs           AssetAuditLog[]
-  accessRequests           AccessRequest[]                 @relation("AccessRequestApplicant")
-  accessRequestsReviewed   AccessRequest[]                 @relation("AccessRequestReviewer")
+  schedulesAsAssistant       Schedule[]                           @relation("ScheduleAssistant")
+  logbooksCheckinBy          Logbook[]                            @relation("LogbookCheckinBy")
+  logbooksCheckoutBy         Logbook[]                            @relation("LogbookCheckoutBy")
+  conditionsSubmitted        LogbookCondition[]                   @relation("ConditionSubmitter")
+  conditionsVerified         LogbookCondition[]                   @relation("ConditionVerifier")
+  keysCurrentHolder          Key[]                                @relation("KeyCurrentHolder")
+  keyLogs                    KeyLog[]
+  keyBorrowCycles            KeyBorrowCycle[]                     @relation("KeyBorrower")
+  keyBorrowCyclesReturned    KeyBorrowCycle[]                     @relation("KeyReturnedBy")
+  keyBorrowCyclesForced      KeyBorrowCycle[]                     @relation("KeyForceReturnedBy")
+  keyBorrowEvidence          KeyBorrowEvidence[]                  @relation("KeyBorrowEvidenceSubmitter")
+  conditionPhotoUploads      ConditionPhotoUpload[]               @relation("ConditionPhotoOwner")
+  ticketsReported            Ticket[]                             @relation("TicketReporter")
+  ticketsAssigned            Ticket[]                             @relation("TicketAssignee")
+  ticketEvents               TicketEvent[]                        @relation("TicketEventActor")
+  missionsCreated            Mission[]                            @relation("MissionCreator")
+  missionClaims              MissionClaim[]                       @relation("MissionClaimant")
+  missionClaimsVerified      MissionClaim[]                       @relation("MissionVerifier")
+  attendances                Attendance[]
+  dailyTaskLogs              DailyTaskLog[]
+  reviewedTasks              DailyTaskLog[]                       @relation("TaskVerifier")
+  points                     Point[]
+  certificatesOwned          Certificate[]                        @relation("CertificateOwner")
+  certificatesIssued         Certificate[]                        @relation("CertificateIssuer")
+  notifications              Notification[]
+  pushSubscriptions          PushSubscription[]
+  shifts                     Shift[]                              @relation("ShiftAsleb")
+  bookingsRequested          LabBooking[]                         @relation("BookingRequester")
+  bookingsApproved           LabBooking[]                         @relation("BookingApprover")
+  scheduleChangeRequests     ScheduleChangeRequest[]              @relation("ScheduleChangeRequester")
+  scheduleChangeApprovals    ScheduleChangeRequest[]              @relation("ScheduleChangeApprover")
+  leaveRequests              LeaveRequest[]                       @relation("LeaveRequester")
+  leaveReviews               LeaveRequest[]                       @relation("LeaveReviewer")
+  shiftSchedules             AsLabShiftSchedule[]                 @relation("ShiftScheduleUser")
+  shiftSchedulesAssigned     AsLabShiftSchedule[]                 @relation("ShiftScheduleAssigner")
+  picketPatternsCreated      AsLabPicketPattern[]                 @relation("PicketPatternCreator")
+  picketPatternAssignments   AsLabPicketPatternAssignment[]       @relation("PicketPatternAssistant")
+  attendancesVerified        Attendance[]                         @relation("AttendanceVerifier")
+  correctionRequests         AttendanceCorrectionRequest[]        @relation("CorrectionRequester")
+  correctionReviews          AttendanceCorrectionRequest[]        @relation("CorrectionReviewer")
+  auditLogs                  AuditLog[]
+  announcements              Announcement[]                       @relation("AnnouncementCreator")
+  announcementReads          AnnouncementRead[]
+  assetAuditLogs             AssetAuditLog[]
+  accessRequests             AccessRequest[]                      @relation("AccessRequestApplicant")
+  accessRequestsReviewed     AccessRequest[]                      @relation("AccessRequestReviewer")
+  magangEmailVerification    MagangEmailVerification?             @relation("MagangVerificationUser")
+  academicMemberships        AcademicClassMembership[]
+  academicOfferingsAsDosen   AcademicOffering[]                   @relation("AcademicOfferingDosen")
+  academicReportsCreated     AcademicReport[]                     @relation("AcademicReportCreator")
+  academicReportsUpdated     AcademicReport[]                     @relation("AcademicReportUpdater")
+  academicReportRevisions    AcademicReportRevision[]             @relation("AcademicReportRevisionActor")
+  academicOccurrenceReleases AcademicOccurrenceRelease[]          @relation("AcademicOccurrenceReleaseActor")
+  academicSlotRequests       AcademicSlotRequest[]                @relation("AcademicSlotRequestRequester")
+  academicSlotReviews        AcademicSlotRequest[]                @relation("AcademicSlotRequestReviewer")
+  academicSwapsRequested     AcademicOccurrenceSwap[]             @relation("AcademicSwapRequester")
+  academicSwapsReviewed      AcademicOccurrenceSwap[]             @relation("AcademicSwapReviewer")
+  academicSwapConfirmations  AcademicOccurrenceSwapConfirmation[]
+  supportChatsStarted        SupportChat[]                        @relation("SupportChatStudent")
+  supportChatsAssigned       SupportChat[]                        @relation("SupportChatAssistant")
+  supportChatRecipients      SupportChatRecipient[]               @relation("SupportChatRecipientAssistant")
+  supportChatMessages        SupportChatMessage[]                 @relation("SupportChatMessageSender")
 
   @@map("users")
 }
@@ -332,18 +411,21 @@ model Lab {
   updatedAt                   DateTime  @updatedAt
 
   // Relations
-  pcs                      PC[]
-  schedules                Schedule[]
-  keys                     Key[]
-  tickets                  Ticket[]
-  dailyTaskLogs            DailyTaskLog[]
-  shifts                   Shift[]
-  bookings                 LabBooking[]
-  accessRequests           AccessRequest[]
-  logbookConditions        LogbookCondition[]
-  assets                   Asset[]
-  shiftSchedules           AsLabShiftSchedule[]
-  picketPatternAssignments AsLabPicketPatternAssignment[]
+  pcs                        PC[]
+  schedules                  Schedule[]
+  keys                       Key[]
+  tickets                    Ticket[]
+  dailyTaskLogs              DailyTaskLog[]
+  shifts                     Shift[]
+  bookings                   LabBooking[]
+  accessRequests             AccessRequest[]
+  logbooks                   Logbook[]
+  logbookConditions          LogbookCondition[]
+  assets                     Asset[]
+  shiftSchedules             AsLabShiftSchedule[]
+  picketPatternAssignments   AsLabPicketPatternAssignment[]
+  academicOccurrenceReleases AcademicOccurrenceRelease[]
+  supportChats               SupportChat[]
 
   @@map("labs")
 }
@@ -467,13 +549,14 @@ model PC {
   updatedAt DateTime @updatedAt
 
   // Relations
-  lab        Lab           @relation(fields: [labId], references: [id])
-  tickets    Ticket[]
-  statusLogs PCStatusLog[]
-  commands   PCCommand[]
-  agentLogs  PcAgentLog[]
-  warnings   PcWarning[]
-  asset      Asset?
+  lab          Lab           @relation(fields: [labId], references: [id])
+  tickets      Ticket[]
+  supportChats SupportChat[]
+  statusLogs   PCStatusLog[]
+  commands     PCCommand[]
+  agentLogs    PcAgentLog[]
+  warnings     PcWarning[]
+  asset        Asset?
 
   @@map("pcs")
 }
@@ -569,6 +652,308 @@ model PcWarning {
 // SCHEDULING
 // ============================================
 
+model AcademicTerm {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  memberships       AcademicClassMembership[]
+  leaderAssignments AcademicClassLeader[]
+  offerings         AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_terms")
+}
+
+model AcademicCourse {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offerings AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_courses")
+}
+
+model AcademicClass {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships       AcademicClassMembership[]
+  leaderAssignments AcademicClassLeader[]
+  offerings         AcademicOffering[]
+
+  @@index([isActive])
+  @@map("academic_classes")
+}
+
+model AcademicClassMembership {
+  id        String   @id @default(cuid())
+  termId    String
+  classId   String
+  userId    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  term             AcademicTerm         @relation(fields: [termId], references: [id], onDelete: Restrict)
+  academicClass    AcademicClass        @relation(fields: [classId], references: [id], onDelete: Restrict)
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  leaderAssignment AcademicClassLeader?
+  pjAssignments    AcademicOfferingPJ[]
+
+  @@unique([termId, classId, userId])
+  @@index([userId, isActive])
+  @@index([termId, classId, isActive])
+  @@map("academic_class_memberships")
+}
+
+model AcademicClassLeader {
+  id           String   @id @default(cuid())
+  termId       String
+  classId      String
+  membershipId String   @unique
+  isActive     Boolean  @default(true)
+  assignedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  term          AcademicTerm            @relation(fields: [termId], references: [id], onDelete: Restrict)
+  academicClass AcademicClass           @relation(fields: [classId], references: [id], onDelete: Restrict)
+  membership    AcademicClassMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@index([termId, classId, isActive])
+  @@map("academic_class_leaders")
+}
+
+model AcademicOffering {
+  id         String   @id @default(cuid())
+  termId     String
+  courseId   String
+  classId    String
+  dosenId    String
+  scheduleId String?  @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  term              AcademicTerm                         @relation(fields: [termId], references: [id], onDelete: Restrict)
+  course            AcademicCourse                       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  academicClass     AcademicClass                        @relation(fields: [classId], references: [id], onDelete: Restrict)
+  dosen             User                                 @relation("AcademicOfferingDosen", fields: [dosenId], references: [id], onDelete: Restrict)
+  schedule          Schedule?                            @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  logbooks          Logbook[]
+  pjs               AcademicOfferingPJ[]
+  reports           AcademicReport[]
+  releases          AcademicOccurrenceRelease[]          @relation("AcademicOfferingRelease")
+  slotRequests      AcademicSlotRequest[]                @relation("AcademicSlotRequestTargetOffering")
+  swapsAsSource     AcademicOccurrenceSwap[]             @relation("AcademicSwapSourceOffering")
+  swapsAsTarget     AcademicOccurrenceSwap[]             @relation("AcademicSwapTargetOffering")
+  swapConfirmations AcademicOccurrenceSwapConfirmation[]
+
+  @@unique([termId, courseId, classId])
+  @@index([dosenId, isActive])
+  @@index([termId, classId, isActive])
+  @@map("academic_offerings")
+}
+
+model AcademicOfferingPJ {
+  id           String   @id @default(cuid())
+  offeringId   String
+  membershipId String
+  isActive     Boolean  @default(true)
+  assignedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  offering   AcademicOffering        @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  membership AcademicClassMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@unique([offeringId, membershipId])
+  @@index([offeringId, isActive])
+  @@index([membershipId, isActive])
+  @@map("academic_offering_pjs")
+}
+
+model AcademicReport {
+  id          String               @id @default(cuid())
+  offeringId  String
+  reportDate  DateTime             @db.Date
+  status      AcademicReportStatus
+  notes       String?
+  revision    Int                  @default(1)
+  createdById String
+  updatedById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  offering  AcademicOffering           @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  createdBy User                       @relation("AcademicReportCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User                       @relation("AcademicReportUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  revisions AcademicReportRevision[]
+  release   AcademicOccurrenceRelease?
+
+  @@unique([offeringId, reportDate])
+  @@index([offeringId, reportDate])
+  @@map("academic_reports")
+}
+
+model AcademicOccurrenceRelease {
+  id             String                          @id @default(cuid())
+  offeringId     String
+  scheduleId     String
+  reportId       String                          @unique
+  labId          String
+  occurrenceDate DateTime                        @db.Date
+  startTime      String
+  endTime        String
+  status         AcademicOccurrenceReleaseStatus @default(RELEASED)
+  releasedById   String
+  releasedAt     DateTime                        @default(now())
+  revokedAt      DateTime?
+  createdAt      DateTime                        @default(now())
+  updatedAt      DateTime                        @updatedAt
+
+  offering   AcademicOffering      @relation("AcademicOfferingRelease", fields: [offeringId], references: [id], onDelete: Restrict)
+  schedule   Schedule              @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  report     AcademicReport        @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  lab        Lab                   @relation(fields: [labId], references: [id], onDelete: Restrict)
+  releasedBy User                  @relation("AcademicOccurrenceReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
+  requests   AcademicSlotRequest[]
+
+  @@unique([scheduleId, occurrenceDate])
+  @@index([labId, occurrenceDate, status])
+  @@index([offeringId, occurrenceDate])
+  @@map("academic_occurrence_releases")
+}
+
+model AcademicSlotRequest {
+  id                  String                    @id @default(cuid())
+  releaseId           String
+  targetOfferingId    String
+  requestedById       String
+  status              AcademicSlotRequestStatus @default(PENDING)
+  reason              String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  rejectionReason     String?
+  bookingId           String?                   @unique
+  allocatedScheduleId String?                   @unique
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  release           AcademicOccurrenceRelease @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+  targetOffering    AcademicOffering          @relation("AcademicSlotRequestTargetOffering", fields: [targetOfferingId], references: [id], onDelete: Restrict)
+  requestedBy       User                      @relation("AcademicSlotRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy        User?                     @relation("AcademicSlotRequestReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  booking           LabBooking?               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  allocatedSchedule Schedule?                 @relation("AcademicSlotRequestAllocatedSchedule", fields: [allocatedScheduleId], references: [id], onDelete: Restrict)
+
+  @@index([releaseId, status])
+  @@index([targetOfferingId, status])
+  @@index([requestedById, status])
+  @@map("academic_slot_requests")
+}
+
+model AcademicOccurrenceSwap {
+  id               String                       @id @default(cuid())
+  sourceOfferingId String
+  targetOfferingId String
+  sourceScheduleId String
+  targetScheduleId String
+  occurrenceDate   DateTime                     @db.Date
+  sourceLabId      String
+  targetLabId      String
+  sourceStartTime  String
+  sourceEndTime    String
+  targetStartTime  String
+  targetEndTime    String
+  status           AcademicOccurrenceSwapStatus @default(PENDING_CONFIRMATION)
+  reason           String?
+  requestedById    String
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  sourceOffering AcademicOffering                     @relation("AcademicSwapSourceOffering", fields: [sourceOfferingId], references: [id], onDelete: Restrict)
+  targetOffering AcademicOffering                     @relation("AcademicSwapTargetOffering", fields: [targetOfferingId], references: [id], onDelete: Restrict)
+  sourceSchedule Schedule                             @relation("AcademicSwapSourceSchedule", fields: [sourceScheduleId], references: [id], onDelete: Restrict)
+  targetSchedule Schedule                             @relation("AcademicSwapTargetSchedule", fields: [targetScheduleId], references: [id], onDelete: Restrict)
+  requestedBy    User                                 @relation("AcademicSwapRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy     User?                                @relation("AcademicSwapReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  confirmations  AcademicOccurrenceSwapConfirmation[]
+  reservations   AcademicOccurrenceSwapReservation[]
+
+  @@index([sourceScheduleId, occurrenceDate, status])
+  @@index([targetScheduleId, occurrenceDate, status])
+  @@index([sourceOfferingId, occurrenceDate])
+  @@index([targetOfferingId, occurrenceDate])
+  @@map("academic_occurrence_swaps")
+}
+
+model AcademicOccurrenceSwapReservation {
+  id             String                       @id @default(cuid())
+  swapId         String
+  scheduleId     String
+  occurrenceDate DateTime                     @db.Date
+  status         AcademicOccurrenceSwapStatus @default(PENDING_CONFIRMATION)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  swap     AcademicOccurrenceSwap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  schedule Schedule               @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@unique([swapId, scheduleId])
+  @@index([scheduleId, occurrenceDate, status])
+  @@map("academic_occurrence_swap_reservations")
+}
+
+model AcademicOccurrenceSwapConfirmation {
+  id            String   @id @default(cuid())
+  swapId        String
+  offeringId    String
+  confirmedById String
+  confirmedAt   DateTime @default(now())
+
+  swap        AcademicOccurrenceSwap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  offering    AcademicOffering       @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  confirmedBy User                   @relation(fields: [confirmedById], references: [id], onDelete: Restrict)
+
+  @@unique([swapId, offeringId])
+  @@index([confirmedById])
+  @@map("academic_occurrence_swap_confirmations")
+}
+
+model AcademicReportRevision {
+  id          String               @id @default(cuid())
+  reportId    String
+  revision    Int
+  status      AcademicReportStatus
+  notes       String?
+  changedById String
+  createdAt   DateTime             @default(now())
+
+  report    AcademicReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  changedBy User           @relation("AcademicReportRevisionActor", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@unique([reportId, revision])
+  @@index([reportId, createdAt])
+  @@map("academic_report_revisions")
+}
+
 model Schedule {
   id           String         @id @default(cuid())
   labId        String
@@ -587,9 +972,17 @@ model Schedule {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  lab            Lab                     @relation(fields: [labId], references: [id])
-  assistant      User?                   @relation("ScheduleAssistant", fields: [assistantId], references: [id])
-  changeRequests ScheduleChangeRequest[]
+  lab                  Lab                                 @relation(fields: [labId], references: [id])
+  assistant            User?                               @relation("ScheduleAssistant", fields: [assistantId], references: [id])
+  changeRequests       ScheduleChangeRequest[]
+  keyBorrowCycles      KeyBorrowCycle[]
+  academicOffering     AcademicOffering?
+  logbooks             Logbook[]
+  occurrenceReleases   AcademicOccurrenceRelease[]
+  swapsAsSource        AcademicOccurrenceSwap[]            @relation("AcademicSwapSourceSchedule")
+  swapsAsTarget        AcademicOccurrenceSwap[]            @relation("AcademicSwapTargetSchedule")
+  swapReservations     AcademicOccurrenceSwapReservation[]
+  allocatedSlotRequest AcademicSlotRequest?                @relation("AcademicSlotRequestAllocatedSchedule")
 
   @@index([labId, startTime])
   @@index([status, startTime])
@@ -647,70 +1040,112 @@ model Shift {
 }
 
 model LabBooking {
-  id              String        @id @default(cuid())
-  labId           String
-  requestedBy     String?
-  approvedBy      String?
+  id                     String        @id @default(cuid())
+  labId                  String
+  requestedBy            String?
+  approvedBy             String?
   externalRequesterName  String?
   externalRequesterEmail String?
   externalRequesterPhone String?
   externalInstitution    String?
-  title           String
-  description     String?
-  purpose         String
-  date            DateTime
-  startTime       String
-  endTime         String
-  participants    Int           @default(1)
-  status          BookingStatus @default(PENDING)
-  rejectionReason String?
-  notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  title                  String
+  description            String?
+  purpose                String
+  date                   DateTime
+  startTime              String
+  endTime                String
+  participants           Int           @default(1)
+  status                 BookingStatus @default(PENDING)
+  rejectionReason        String?
+  notes                  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
-  lab       Lab   @relation(fields: [labId], references: [id])
-  requester User? @relation("BookingRequester", fields: [requestedBy], references: [id])
-  approver  User? @relation("BookingApprover", fields: [approvedBy], references: [id])
-  accessRequest AccessRequest?
+  lab                 Lab                  @relation(fields: [labId], references: [id])
+  requester           User?                @relation("BookingRequester", fields: [requestedBy], references: [id])
+  approver            User?                @relation("BookingApprover", fields: [approvedBy], references: [id])
+  accessRequest       AccessRequest?
+  keyBorrowCycles     KeyBorrowCycle[]
+  academicSlotRequest AcademicSlotRequest?
 
   @@map("lab_bookings")
 }
 
 model AccessRequest {
-  id               String              @id @default(cuid())
-  requestCode      String              @unique
-  type             AccessRequestType
-  status           AccessRequestStatus @default(PENDING)
-  applicantName    String
-  applicantEmail   String
-  applicantPhone   String?
-  institution      String?
-  title            String
-  description      String?
-  purpose          String?
-  date             DateTime?           @db.Date
-  startTime        String?
-  endTime          String?
-  participants     Int?
-  requestedRole    Role?
-  reviewerNotes    String?
-  reviewedAt       DateTime?
-  reviewedById     String?
-  labId            String?
-  bookingId        String?             @unique
-  userId           String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id              String              @id @default(cuid())
+  requestCode     String              @unique
+  type            AccessRequestType
+  status          AccessRequestStatus @default(PENDING)
+  applicantName   String
+  applicantEmail  String
+  applicantPhone  String?
+  institution     String?
+  title           String
+  description     String?
+  purpose         String?
+  date            DateTime?           @db.Date
+  startTime       String?
+  endTime         String?
+  participants    Int?
+  requestedRole   Role?
+  emailVerifiedAt DateTime?
+  reviewerNotes   String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  labId           String?
+  bookingId       String?             @unique
+  userId          String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
-  lab        Lab?        @relation(fields: [labId], references: [id])
-  booking    LabBooking? @relation(fields: [bookingId], references: [id])
-  applicant  User?       @relation("AccessRequestApplicant", fields: [userId], references: [id])
-  reviewer   User?       @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
+  lab                     Lab?                         @relation(fields: [labId], references: [id])
+  booking                 LabBooking?                  @relation(fields: [bookingId], references: [id])
+  applicant               User?                        @relation("AccessRequestApplicant", fields: [userId], references: [id])
+  reviewer                User?                        @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
+  magangEmailVerification MagangEmailVerification?     @relation("MagangVerificationRequest")
+  approvalEmailDelivery   MagangApprovalEmailDelivery?
 
   @@index([status, createdAt])
   @@index([type, status])
   @@index([labId, date])
   @@map("access_requests")
+}
+
+model MagangEmailVerification {
+  id              String    @id @default(cuid())
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  userId          String    @unique
+  accessRequestId String    @unique
+  createdAt       DateTime  @default(now())
+
+  user          User          @relation("MagangVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  accessRequest AccessRequest @relation("MagangVerificationRequest", fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("magang_email_verifications")
+}
+
+model MagangApprovalEmailDelivery {
+  id              String                    @id @default(cuid())
+  accessRequestId String                    @unique
+  recipientEmail  String
+  status          MagangApprovalEmailStatus @default(QUEUED)
+  attempts        Int                       @default(0)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?
+  leaseExpiresAt  DateTime?
+  completedAt     DateTime?
+  lastErrorCode   String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  accessRequest AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@map("magang_approval_email_deliveries")
 }
 
 // ============================================
@@ -720,6 +1155,11 @@ model AccessRequest {
 model Logbook {
   id   String   @id @default(cuid())
   date DateTime @db.Date
+
+  labId              String?
+  scheduleId         String?
+  academicOfferingId String?
+  occurrenceDate     DateTime? @db.Date
 
   officialCheckinById String?
   officialCheckinAt   DateTime?
@@ -734,9 +1174,14 @@ model Logbook {
 
   officialCheckinBy  User?              @relation("LogbookCheckinBy", fields: [officialCheckinById], references: [id])
   officialCheckoutBy User?              @relation("LogbookCheckoutBy", fields: [officialCheckoutById], references: [id])
+  lab                Lab?               @relation(fields: [labId], references: [id], onDelete: Restrict)
+  schedule           Schedule?          @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  academicOffering   AcademicOffering?  @relation(fields: [academicOfferingId], references: [id], onDelete: Restrict)
   conditions         LogbookCondition[]
 
   @@unique([officialCheckinById, date])
+  @@index([scheduleId, occurrenceDate])
+  @@index([academicOfferingId, occurrenceDate])
   @@map("logbooks")
 }
 
@@ -754,10 +1199,14 @@ model LogbookCondition {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  logbook     Logbook @relation(fields: [logbookId], references: [id])
-  lab         Lab     @relation(fields: [labId], references: [id])
-  submittedBy User?   @relation("ConditionSubmitter", fields: [submittedById], references: [id])
-  verifiedBy  User?   @relation("ConditionVerifier", fields: [verifiedById], references: [id])
+  logbook                  Logbook                          @relation(fields: [logbookId], references: [id])
+  lab                      Lab                              @relation(fields: [labId], references: [id])
+  submittedBy              User?                            @relation("ConditionSubmitter", fields: [submittedById], references: [id])
+  verifiedBy               User?                            @relation("ConditionVerifier", fields: [verifiedById], references: [id])
+  keyBorrowEvidence        KeyBorrowEvidence[]
+  returnedKeyBorrowCycles  KeyBorrowCycle[]                 @relation("CycleReturnCondition")
+  ticketAutomationAttempts LogbookTicketAutomationAttempt[]
+  generatedTicket          Ticket?                          @relation("LogbookConditionGeneratedTicket")
 
   @@unique([logbookId, labId])
   @@map("logbook_conditions")
@@ -778,29 +1227,104 @@ model Key {
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  lab           Lab      @relation(fields: [labId], references: [id])
-  currentHolder User?    @relation("KeyCurrentHolder", fields: [currentHolderId], references: [id])
+  lab           Lab              @relation(fields: [labId], references: [id])
+  currentHolder User?            @relation("KeyCurrentHolder", fields: [currentHolderId], references: [id])
   keyLogs       KeyLog[]
+  borrowCycles  KeyBorrowCycle[]
 
   @@map("keys")
 }
 
 model KeyLog {
-  id         String    @id @default(cuid())
-  keyId      String
-  userId     String
-  action     KeyAction
-  takenAt    DateTime?
-  returnedAt DateTime?
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  keyId         String
+  userId        String
+  action        KeyAction
+  takenAt       DateTime?
+  returnedAt    DateTime?
+  notes         String?
+  borrowCycleId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
-  key  Key  @relation(fields: [keyId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  key         Key             @relation(fields: [keyId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+  borrowCycle KeyBorrowCycle? @relation(fields: [borrowCycleId], references: [id])
 
+  @@index([borrowCycleId])
+  @@index([keyId, createdAt])
   @@map("key_logs")
+}
+
+model KeyBorrowCycle {
+  id                String               @id @default(cuid())
+  keyId             String
+  scheduleId        String?
+  occurrenceDate    DateTime             @db.Date
+  bookingId         String?
+  borrowerId        String
+  takenAt           DateTime
+  returnedAt        DateTime?
+  returnConditionId String?
+  status            KeyBorrowCycleStatus @default(ACTIVE)
+  takenByRole       Role
+  returnedById      String?
+  forceReturnedById String?
+  reason            String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  key             Key                    @relation(fields: [keyId], references: [id])
+  schedule        Schedule?              @relation(fields: [scheduleId], references: [id])
+  booking         LabBooking?            @relation(fields: [bookingId], references: [id])
+  borrower        User                   @relation("KeyBorrower", fields: [borrowerId], references: [id])
+  returnedBy      User?                  @relation("KeyReturnedBy", fields: [returnedById], references: [id])
+  forceReturnedBy User?                  @relation("KeyForceReturnedBy", fields: [forceReturnedById], references: [id])
+  returnCondition LogbookCondition?      @relation("CycleReturnCondition", fields: [returnConditionId], references: [id])
+  returnEvidence  KeyBorrowEvidence?     @relation("CycleReturnEvidence")
+  keyLogs         KeyLog[]
+  photoUploads    ConditionPhotoUpload[]
+
+  @@unique([keyId, scheduleId, occurrenceDate])
+  @@index([keyId, status])
+  @@index([borrowerId, status])
+  @@index([scheduleId, occurrenceDate])
+  @@index([returnConditionId])
+  @@map("key_borrow_cycles")
+}
+
+model KeyBorrowEvidence {
+  id                 String   @id @default(cuid())
+  keyBorrowCycleId   String   @unique
+  logbookConditionId String?
+  submittedById      String
+  fotoBukti          String[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cycle            KeyBorrowCycle    @relation("CycleReturnEvidence", fields: [keyBorrowCycleId], references: [id])
+  logbookCondition LogbookCondition? @relation(fields: [logbookConditionId], references: [id])
+  submittedBy      User              @relation("KeyBorrowEvidenceSubmitter", fields: [submittedById], references: [id])
+
+  @@index([logbookConditionId])
+  @@map("key_borrow_evidence")
+}
+
+model ConditionPhotoUpload {
+  id               String   @id @default(cuid())
+  url              String   @unique
+  sha256           String
+  ownerId          String
+  keyBorrowCycleId String?
+  createdAt        DateTime @default(now())
+
+  owner          User            @relation("ConditionPhotoOwner", fields: [ownerId], references: [id])
+  keyBorrowCycle KeyBorrowCycle? @relation(fields: [keyBorrowCycleId], references: [id])
+
+  @@index([ownerId, createdAt])
+  @@index([keyBorrowCycleId])
+  @@map("condition_photo_uploads")
 }
 
 // ============================================
@@ -808,27 +1332,36 @@ model KeyLog {
 // ============================================
 
 model Ticket {
-  id          String         @id @default(cuid())
-  pcId        String?
-  labId       String
-  reportedBy  String
-  assignedTo  String?
-  category    TicketCategory
-  title       String
-  description String?
-  photo       String[] // Array URL foto
-  status      TicketStatus   @default(OPEN)
-  priority    TicketPriority @default(MEDIUM)
-  resolvedAt  DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                       String         @id @default(cuid())
+  pcId                     String?
+  labId                    String
+  reportedBy               String
+  assignedTo               String?
+  category                 TicketCategory
+  title                    String
+  description              String?
+  photo                    String[] // Array URL foto
+  status                   TicketStatus   @default(OPEN)
+  priority                 TicketPriority @default(MEDIUM)
+  resolutionNotes          String?
+  rejectionReason          String?
+  waitingReason            String?
+  activeDuplicateKey       String?        @unique
+  sourceLogbookConditionId String?        @unique
+  resolvedAt               DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
 
   // Relations
-  pc         PC?            @relation(fields: [pcId], references: [id], onDelete: SetNull)
-  lab        Lab            @relation(fields: [labId], references: [id], onDelete: Cascade)
-  reporter   User           @relation("TicketReporter", fields: [reportedBy], references: [id])
-  assignee   User?          @relation("TicketAssignee", fields: [assignedTo], references: [id])
-  dailyTasks DailyTaskLog[] @relation("TaskTicket")
+  pc                        PC?                              @relation(fields: [pcId], references: [id], onDelete: SetNull)
+  lab                       Lab                              @relation(fields: [labId], references: [id], onDelete: Cascade)
+  reporter                  User                             @relation("TicketReporter", fields: [reportedBy], references: [id])
+  assignee                  User?                            @relation("TicketAssignee", fields: [assignedTo], references: [id])
+  events                    TicketEvent[]
+  autoMission               Mission?                         @relation("TicketAutoMission")
+  logbookAutomationAttempts LogbookTicketAutomationAttempt[]
+  sourceLogbookCondition    LogbookCondition?                @relation("LogbookConditionGeneratedTicket", fields: [sourceLogbookConditionId], references: [id], onDelete: Restrict)
+  dailyTasks                DailyTaskLog[]                   @relation("TaskTicket")
 
   @@index([labId, status])
   @@index([status, createdAt])
@@ -837,29 +1370,125 @@ model Ticket {
   @@map("tickets")
 }
 
+model TicketEvent {
+  id             String        @id @default(cuid())
+  ticketId       String
+  actorId        String
+  eventType      String
+  fromStatus     TicketStatus?
+  toStatus       TicketStatus?
+  fromAssigneeId String?
+  toAssigneeId   String?
+  note           String?
+  createdAt      DateTime      @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor  User   @relation("TicketEventActor", fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("ticket_events")
+}
+
+model SupportChat {
+  id                  String            @id @default(cuid())
+  pcId                String
+  labId               String
+  studentId           String
+  assignedAssistantId String?
+  status              SupportChatStatus @default(WAITING)
+  lastMessageAt       DateTime          @default(now())
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  pc                PC                     @relation(fields: [pcId], references: [id], onDelete: Restrict)
+  lab               Lab                    @relation(fields: [labId], references: [id], onDelete: Restrict)
+  student           User                   @relation("SupportChatStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  assignedAssistant User?                  @relation("SupportChatAssistant", fields: [assignedAssistantId], references: [id], onDelete: Restrict)
+  recipients        SupportChatRecipient[]
+  messages          SupportChatMessage[]
+
+  @@index([studentId, lastMessageAt])
+  @@index([assignedAssistantId, status, lastMessageAt])
+  @@index([labId, createdAt])
+  @@map("support_chats")
+}
+
+model SupportChatRecipient {
+  id              String   @id @default(cuid())
+  chatId          String
+  assistantId     String
+  shiftScheduleId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chat          SupportChat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  assistant     User               @relation("SupportChatRecipientAssistant", fields: [assistantId], references: [id], onDelete: Restrict)
+  shiftSchedule AsLabShiftSchedule @relation(fields: [shiftScheduleId], references: [id], onDelete: Restrict)
+
+  @@unique([chatId, assistantId])
+  @@index([assistantId, chatId])
+  @@index([shiftScheduleId])
+  @@map("support_chat_recipients")
+}
+
+model SupportChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  senderId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  chat   SupportChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User        @relation("SupportChatMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([chatId, createdAt, id])
+  @@map("support_chat_messages")
+}
+
 // ============================================
 // MISSION SYSTEM & GAMIFICATION
 // ============================================
 
 model Mission {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  points      Int           @default(0)
-  deadline    DateTime?
-  status      MissionStatus @default(OPEN)
-  createdById String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  points         Int           @default(0)
+  deadline       DateTime?
+  status         MissionStatus @default(OPEN)
+  createdById    String
+  sourceTicketId String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  createdBy  User           @relation("MissionCreator", fields: [createdById], references: [id])
-  claims     MissionClaim[]
-  dailyTasks DailyTaskLog[] @relation("TaskMission")
+  createdBy    User           @relation("MissionCreator", fields: [createdById], references: [id])
+  sourceTicket Ticket?        @relation("TicketAutoMission", fields: [sourceTicketId], references: [id], onDelete: Restrict)
+  claims       MissionClaim[]
+  dailyTasks   DailyTaskLog[] @relation("TaskMission")
 
   @@index([status, createdAt])
   @@index([createdById])
   @@map("missions")
+}
+
+model LogbookTicketAutomationAttempt {
+  id                 String                        @id @default(cuid())
+  logbookConditionId String
+  ticketId           String?
+  status             LogbookTicketAutomationStatus
+  errorCode          String?
+  errorMessage       String?
+  createdAt          DateTime                      @default(now())
+
+  logbookCondition LogbookCondition @relation(fields: [logbookConditionId], references: [id], onDelete: Restrict)
+  ticket           Ticket?          @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([logbookConditionId, createdAt])
+  @@index([status, createdAt])
+  @@index([ticketId])
+  @@map("logbook_ticket_automation_attempts")
 }
 
 model MissionClaim {
@@ -890,7 +1519,7 @@ model MissionClaim {
 model Attendance {
   id                  String           @id @default(cuid())
   userId              String
-  shiftScheduleId     String? // Link to assigned shift schedule
+  shiftScheduleId     String?          @unique // One attendance per assigned shift; legacy NULL rows stay valid
   checkinAt           DateTime?
   checkoutAt          DateTime?
   checkinLatitude     Float?
@@ -1009,6 +1638,7 @@ model DailyTaskLog {
 model AttendanceSettings {
   id                         String   @id @default(cuid())
   isGeofencingEnabled        Boolean  @default(true)
+  isQrRequired               Boolean  @default(false)
   defaultRadiusMeter         Int      @default(100)
   lateToleranceMinutes       Int      @default(15)
   checkoutGraceMinutes       Int      @default(30)
@@ -1052,12 +1682,13 @@ model AsLabShiftSchedule {
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt
 
-  user        User                @relation("ShiftScheduleUser", fields: [userId], references: [id])
-  shift       Shift               @relation(fields: [shiftId], references: [id])
-  lab         Lab?                @relation(fields: [labId], references: [id], onDelete: Restrict)
-  assigner    User?               @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
-  attendances Attendance[]
-  pattern     AsLabPicketPattern? @relation(fields: [patternId], references: [id], onDelete: Restrict)
+  user                  User                   @relation("ShiftScheduleUser", fields: [userId], references: [id])
+  shift                 Shift                  @relation(fields: [shiftId], references: [id])
+  lab                   Lab?                   @relation(fields: [labId], references: [id], onDelete: Restrict)
+  assigner              User?                  @relation("ShiftScheduleAssigner", fields: [assignedBy], references: [id])
+  attendances           Attendance[]
+  supportChatRecipients SupportChatRecipient[]
+  pattern               AsLabPicketPattern?    @relation(fields: [patternId], references: [id], onDelete: Restrict)
 
   @@unique([userId, shiftId, scheduleDate])
   @@index([scheduleDate, status])
@@ -1233,20 +1864,21 @@ enum NotificationType {
   LOGBOOK_VERIFIED // Logbook sudah diverifikasi
   CERTIFICATE_ISSUED // Sertifikat diterbitkan
   ANNOUNCEMENT_NEW // Pengumuman baru dari koordinator
+  SUPPORT_CHAT_ASSIGNED
   SYSTEM // Notifikasi sistem umum
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  title     String
-  message   String
-  isRead    Boolean          @default(false)
-  metadata  Json? // Extra data (link, referenceId, etc)
-  reminderKey String? @unique
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  metadata    Json? // Extra data (link, referenceId, etc)
+  reminderKey String?          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id])

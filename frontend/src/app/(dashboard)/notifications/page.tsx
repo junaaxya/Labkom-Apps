@@ -16,7 +16,8 @@ import {
   TbTicket,
   TbTargetArrow,
   TbBook2,
-  TbCertificate
+  TbCertificate,
+  TbMessageCircle
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
@@ -56,6 +57,7 @@ const TYPE_ICONS: Record<string, IconType> = {
   LOGBOOK_VERIFIED: TbBook2,
   CERTIFICATE_ISSUED: TbCertificate,
   SYSTEM: TbInfoCircle,
+  SUPPORT_CHAT_ASSIGNED: TbMessageCircle,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -69,6 +71,7 @@ const TYPE_COLORS: Record<string, string> = {
   LOGBOOK_VERIFIED: "bg-blue-100 text-blue-600",
   CERTIFICATE_ISSUED: "bg-yellow-100 text-yellow-700",
   SYSTEM: "bg-gray-100 text-gray-600",
+  SUPPORT_CHAT_ASSIGNED: "bg-orange-100 text-orange-600",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -82,6 +85,7 @@ const TYPE_LABELS: Record<string, string> = {
   LOGBOOK_VERIFIED: "Logbook",
   CERTIFICATE_ISSUED: "Sertifikat",
   SYSTEM: "Sistem",
+  SUPPORT_CHAT_ASSIGNED: "Chat Dukungan",
 };
 
 function formatDate(dateStr: string): string {
@@ -299,10 +303,14 @@ export default function NotificationsPage() {
             const Icon = TYPE_ICONS[notif.type] || TbInfoCircle;
             const colorClass = TYPE_COLORS[notif.type] || "bg-gray-100 text-gray-600";
             const label = TYPE_LABELS[notif.type] || "Lainnya";
+            const chatId = typeof notif.metadata?.chatId === "string" ? notif.metadata.chatId : undefined;
 
             return (
               <motion.div
                 key={notif.id}
+                role={chatId ? "link" : undefined}
+                tabIndex={chatId ? 0 : undefined}
+                onClick={chatId ? () => { window.location.assign(`/support-chats/${chatId}`); } : undefined}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}

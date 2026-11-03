@@ -1,12 +1,43 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { AttendanceController } from "../controllers/attendance.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();
 
+const attendanceActionLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user!.userId,
+  message: { success: false, message: "Terlalu banyak percobaan absensi. Coba lagi beberapa menit." },
+});
+
+const attendanceMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user!.userId,
+  message: { success: false, message: "Terlalu banyak perubahan data absensi. Coba lagi nanti." },
+});
+
+const qrChallengeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user!.userId,
+  message: { success: false, message: "Terlalu banyak permintaan QR. Tunggu sebentar." },
+});
+
+router.get("/config", authenticate, AttendanceController.getPublicConfig);
+router.post("/qr/challenge", authenticate, authorize("KOORDINATOR_LAB"), qrChallengeLimiter, AttendanceController.createQrChallenge);
+
 // Aslab: Check-in / Check-out
-router.post("/checkin", authenticate, authorize("ASISTEN_LAB"), AttendanceController.checkin);
-router.post("/checkout", authenticate, authorize("ASISTEN_LAB"), AttendanceController.checkout);
+router.post("/checkin", authenticate, authorize("ASISTEN_LAB", "MAGANG"), attendanceActionLimiter, AttendanceController.checkin);
+router.post("/checkout", authenticate, authorize("ASISTEN_LAB", "MAGANG"), attendanceActionLimiter, AttendanceController.checkout);
 router.get("/me", authenticate, AttendanceController.getMyAttendance);
 router.get("/stats", authenticate, AttendanceController.getAttendanceStats);
 router.get("/today-count", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getTodayCount);
@@ -21,7 +52,7 @@ router.get("/tasks/stats", authenticate, AttendanceController.getDailyTaskStats)
 router.get("/shift-schedules/me", authenticate, AttendanceController.getMyShiftSchedules);
 
 // Aslab: Correction Requests
-router.post("/corrections", authenticate, authorize("ASISTEN_LAB"), AttendanceController.createCorrectionRequest);
+router.post("/corrections", authenticate, authorize("ASISTEN_LAB"), attendanceMutationLimiter, AttendanceController.createCorrectionRequest);
 router.get("/corrections/me", authenticate, AttendanceController.getMyCorrectionRequests);
 
 // Koordinator: Monitoring & Verification
@@ -38,16 +69,16 @@ router.get("/tasks/all", authenticate, authorize("KOORDINATOR_LAB"), AttendanceC
 router.patch("/tasks/:taskId/review", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.reviewTask);
 
 // Koordinator: Shift Schedule Management
-  router.get("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getShiftSchedules);
-  router.post("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.createShiftSchedule);
-  router.post("/shift-schedules/weekly-preview", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.previewWeeklyShiftPlan);
-  router.post("/shift-schedules/weekly-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveWeeklyShiftPlan);
-  router.get("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getRecurringShiftPattern);
-  router.post("/shift-schedules/recurring-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveRecurringShiftPlan);
-  router.delete("/shift-schedules/week", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteWeekShiftSchedules);
-  router.delete("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteRecurringShiftPattern);
-  router.patch("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.updateShiftSchedule);
-  router.delete("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteShiftSchedule);
+router.get("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getShiftSchedules);
+router.post("/shift-schedules", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.createShiftSchedule);
+router.post("/shift-schedules/weekly-preview", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.previewWeeklyShiftPlan);
+router.post("/shift-schedules/weekly-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveWeeklyShiftPlan);
+router.get("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getRecurringShiftPattern);
+router.post("/shift-schedules/recurring-plan", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.saveRecurringShiftPlan);
+router.delete("/shift-schedules/week", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteWeekShiftSchedules);
+router.delete("/shift-schedules/recurring-pattern", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteRecurringShiftPattern);
+router.patch("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.updateShiftSchedule);
+router.delete("/shift-schedules/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteShiftSchedule);
 
 // Koordinator: Correction Review
 router.get("/corrections/pending", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.getPendingCorrections);
@@ -70,7 +101,7 @@ router.patch("/task-categories/:id", authenticate, authorize("KOORDINATOR_LAB"),
 router.delete("/task-categories/:id", authenticate, authorize("KOORDINATOR_LAB"), AttendanceController.deleteTaskCategory);
 
 // Aslab: Leave Requests
-router.post("/leaves", authenticate, authorize("ASISTEN_LAB"), AttendanceController.submitLeaveRequest);
+router.post("/leaves", authenticate, authorize("ASISTEN_LAB"), attendanceMutationLimiter, AttendanceController.submitLeaveRequest);
 router.get("/leaves/me", authenticate, AttendanceController.getMyLeaveRequests);
 
 // Koordinator: Leave Review

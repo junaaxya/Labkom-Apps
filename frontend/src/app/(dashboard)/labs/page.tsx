@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   TbBuilding,
+  TbAlertTriangle,
   TbCalendar,
   TbChevronRight,
   TbDeviceDesktop,
@@ -47,6 +48,8 @@ export default function LabsPage() {
   const toast = useToast();
   const [labs, setLabs] = useState<LabWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [canManageLabs, setCanManageLabs] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -89,13 +92,15 @@ export default function LabsPage() {
 
   const fetchLabs = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
 
     try {
       const response = await api.get<{ success: boolean; data: LabWithCount[] }>("/labs");
       setLabs(response.data ?? []);
     } catch (err) {
-      toast.error(errMsg(err, "Gagal memuat data lab"));
-      setLabs([]);
+      const message = errMsg(err, "Gagal memuat data lab");
+      toast.error(message);
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +111,18 @@ export default function LabsPage() {
       void fetchLabs();
     });
   }, [fetchLabs]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const stored = localStorage.getItem("user");
+        const role = stored ? (JSON.parse(stored) as { role?: string }).role : undefined;
+        setCanManageLabs(role === "KOORDINATOR_LAB");
+      } catch {
+        setCanManageLabs(false);
+      }
+    });
+  }, []);
 
   const resetCreateForm = () => {
     setNewLab({
@@ -250,14 +267,16 @@ export default function LabsPage() {
                 </p>
               </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowCreateModal(true)}
-              className="neo-btn flex min-h-[48px] w-full items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 text-sm font-black text-white sm:w-auto"
-            >
-              <TbPlus className="h-5 w-5" /> Tambah Lab
-            </motion.button>
+            {canManageLabs && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowCreateModal(true)}
+                className="neo-btn flex min-h-[48px] w-full items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 text-sm font-black text-white sm:w-auto"
+              >
+                <TbPlus className="h-5 w-5" /> Tambah Lab
+              </motion.button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -330,6 +349,13 @@ export default function LabsPage() {
             </div>
           ))}
         </div>
+      ) : loadError ? (
+        <div className="neo-card bg-white p-8 text-center">
+          <TbAlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+          <h2 className="font-heading text-xl font-black">Data lab gagal dimuat</h2>
+          <p className="mx-auto mt-2 mb-4 max-w-md text-sm text-[#5a5a5a]">{loadError}</p>
+          <button onClick={() => void fetchLabs()} className="neo-btn bg-[#f3701e] px-5 py-2.5 text-white">Coba Lagi</button>
+        </div>
       ) : labs.length === 0 ? (
         <div className="neo-card bg-[#f5ede6]/70 p-6 text-center sm:p-10">
           <div className="mx-auto mb-4 flex h-16 w-16 -rotate-6 items-center justify-center rounded-2xl bg-white text-[#4b607f] neo-border shadow-[4px_4px_0px_#1a1a1a] sm:h-20 sm:w-20">
@@ -339,14 +365,16 @@ export default function LabsPage() {
           <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-[#5a5a5a]">
             Mulai dengan menambahkan laboratorium baru untuk mengelola PC, jadwal, dan kapasitasnya.
           </p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowCreateModal(true)}
-            className="neo-btn mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 font-black text-white"
-          >
-            <TbPlus className="h-5 w-5" /> Tambah Lab Pertama
-          </motion.button>
+          {canManageLabs && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowCreateModal(true)}
+              className="neo-btn mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 bg-[#f3701e] px-5 py-3 font-black text-white"
+            >
+              <TbPlus className="h-5 w-5" /> Tambah Lab Pertama
+            </motion.button>
+          )}
         </div>
       ) : filteredLabs.length === 0 ? (
         <div className="neo-card bg-white p-6 text-center sm:p-8">
@@ -388,33 +416,35 @@ export default function LabsPage() {
                     <span className={`neo-badge max-w-full truncate px-2.5 py-1 text-[10px] sm:text-xs ${statusColor[lab.status]}`}>
                       {statusLabel[lab.status]}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => openEditModal(lab)}
-                        className="flex h-11 w-11 items-center justify-center bg-white text-[#1a1a1a] neo-btn"
-                        aria-label={`Edit ${lab.name}`}
-                      >
-                        <TbEdit className="h-5 w-5" />
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleDeleteLab(lab.id)}
-                        disabled={deletingLabId === lab.id}
-                        className="flex h-11 w-11 items-center justify-center bg-white text-[#ef4444] neo-btn disabled:opacity-60"
-                        aria-label={`Hapus ${lab.name}`}
-                      >
-                        {deletingLabId === lab.id ? (
-                          <TbLoader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <TbTrash className="h-5 w-5" />
-                        )}
-                      </motion.button>
-                    </div>
+                    {canManageLabs && (
+                      <div className="flex items-center gap-2">
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => openEditModal(lab)}
+                          className="flex h-11 w-11 items-center justify-center bg-white text-[#1a1a1a] neo-btn"
+                          aria-label={`Edit ${lab.name}`}
+                        >
+                          <TbEdit className="h-5 w-5" />
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleDeleteLab(lab.id)}
+                          disabled={deletingLabId === lab.id}
+                          className="flex h-11 w-11 items-center justify-center bg-white text-[#ef4444] neo-btn disabled:opacity-60"
+                          aria-label={`Hapus ${lab.name}`}
+                        >
+                          {deletingLabId === lab.id ? (
+                            <TbLoader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <TbTrash className="h-5 w-5" />
+                          )}
+                        </motion.button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

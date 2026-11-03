@@ -1,20 +1,23 @@
 import "dotenv/config";
 import app from "./app";
-import { config, validateConfig } from "./config";
+import { config, validateConfig, validateMagangEmailDelivery } from "./config";
 import prisma from "./config/database";
 import redis from "./config/redis";
 import { startCronJobs } from "./services/cron.service";
 import { ShiftScheduleService } from "./services/attendance.service";
+import { MagangApprovalEmailWorker } from "./services/magang-approval-email-worker.service";
 
 const startServer = async () => {
   try {
     validateConfig();
+    validateMagangEmailDelivery();
     await prisma.$connect();
     console.log("[Database] PostgreSQL connected successfully");
 
     console.log("[Redis] Auto-connecting on first use");
 
     startCronJobs();
+    MagangApprovalEmailWorker.start();
     ShiftScheduleService.maintainRecurringPicketHorizon().catch((error) => {
       console.error("[Recurring Picket] Horizon maintenance failed:", error);
     });
@@ -46,6 +49,7 @@ const startServer = async () => {
 // Graceful shutdown
 const shutdown = async () => {
   console.log("\n[Server] Shutting down gracefully...");
+  await MagangApprovalEmailWorker.stop();
   await prisma.$disconnect();
   redis.disconnect();
   process.exit(0);

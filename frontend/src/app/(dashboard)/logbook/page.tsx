@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
+import { jakartaDateKey } from "@/utils/jakarta-date";
 import {
   TbArrowRight,
   TbBook2,
@@ -33,6 +35,7 @@ type LabLite = {
 
 type ScheduleInfo = {
   id: string;
+  labId: string;
   title: string;
   lecturerName?: string | null;
   className?: string | null;
@@ -40,6 +43,13 @@ type ScheduleInfo = {
   startTime: string;
   endTime: string;
   type?: string | null;
+  specificDate?: string | null;
+};
+
+type CheckinSchedule = ScheduleInfo & {
+  lab?: LabLite | null;
+  isActive?: boolean;
+  status?: string;
 };
 
 type KeyLogInfo = {
@@ -92,6 +102,27 @@ type PaginatedLogbookResponse = {
   page?: number;
   totalPages?: number;
   total?: number;
+};
+
+type TicketAutomationAttempt = {
+  id: string;
+  status: "CREATED" | "DUPLICATE" | "FAILED";
+  errorCode?: string | null;
+  message: string;
+  createdAt: string;
+  ticket?: { id: string; title: string; status: string } | null;
+  condition: {
+    id: string;
+    kerusakanBaru?: string | null;
+    lab?: LabLite | null;
+    submittedBy?: UserLite | null;
+    logbook?: { id: string; date?: string | null } | null;
+  };
+};
+
+type TicketAutomationResponse = {
+  items: TicketAutomationAttempt[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
 };
 
 function asArray<T>(raw: unknown): T[] {
@@ -255,9 +286,12 @@ function ConditionCard({
                 onClick={() => onOpenPhoto(toPhotoUrl(photo))}
                 className="overflow-hidden rounded-lg border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a]"
               >
-                <img
+                <Image
                   src={toPhotoUrl(photo)}
                   alt={`Foto kondisi ${index + 1}`}
+                  width={600}
+                  height={400}
+                  unoptimized
                   className="max-h-32 w-full object-cover"
                 />
               </button>
@@ -320,6 +354,11 @@ export default function LogbookPage() {
 
   const [todayLogbook, setTodayLogbook] = useState<Logbook | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [checkinLabs, setCheckinLabs] = useState<LabLite[]>([]);
+  const [checkinSchedules, setCheckinSchedules] = useState<CheckinSchedule[]>([]);
+  const [checkinLabId, setCheckinLabId] = useState("");
+  const [checkinScheduleId, setCheckinScheduleId] = useState("");
+  const [occurrenceDate, setOccurrenceDate] = useState(() => jakartaDateKey(new Date()));
   const [checkingOut, setCheckingOut] = useState(false);
   const [confirmCheckout, setConfirmCheckout] = useState(false);
   const [verifyingConditionId, setVerifyingConditionId] = useState<string | null>(null);
@@ -332,6 +371,7 @@ export default function LogbookPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [ticketAutomation, setTicketAutomation] = useState<TicketAutomationResponse | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -343,7 +383,7 @@ export default function LogbookPage() {
   const isAsleb = role === "ASISTEN_LAB";
   const isKoordinator = role === "KOORDINATOR_LAB";
 
-  const fetchTodayLogbook = async () => {
+  const fetchTodayLogbook = useCallback(async () => {
     try {
       const response = await api.get<{ data?: Logbook }>("/logbooks/today");
       const payload = (response?.data as unknown as { data?: Logbook })?.data || response?.data;
@@ -356,16 +396,35 @@ export default function LogbookPage() {
       }
       throw err;
     }
-  };
+  }, []);
 
-  const fetchLogbookList = async (page = 1) => {
+  const fetchCheckinOptions = useCallback(async () => {
+    const [labsResponse, schedulesResponse] = await Promise.all([
+      api.get<{ data?: LabLite[] }>("/labs"),
+      api.get<{ data?: CheckinSchedule[] }>("/schedules/today"),
+    ]);
+    const labs = labsResponse.data || [];
+    const schedules = (schedulesResponse.data || []).filter((schedule) => schedule.type === "PRAKTIKUM");
+    setCheckinLabs(labs);
+    setCheckinSchedules(schedules);
+    setCheckinLabId((current) => current && labs.some((lab) => lab.id === current) ? current : schedules[0]?.labId || "");
+    setCheckinScheduleId((current) => current && schedules.some((schedule) => schedule.id === current) ? current : schedules[0]?.id || "");
+    setOccurrenceDate(jakartaDateKey(new Date()));
+  }, []);
+
+  const fetchLogbookList = useCallback(async (page = 1) => {
     const response = await api.get<PaginatedLogbookResponse>(`/logbooks?page=${page}&limit=10`);
     const payload = response?.data as unknown as PaginatedLogbookResponse;
     const items = asArray<Logbook>(payload);
     setLogbooks(items);
     setListPage(payload.page || page);
     setListTotalPages(payload.totalPages || 1);
-  };
+  }, []);
+
+  const fetchTicketAutomation = useCallback(async () => {
+    const response = await api.get<{ data?: TicketAutomationResponse }>("/logbooks/ticket-automation?limit=20");
+    setTicketAutomation(response?.data || null);
+  }, []);
 
   const fetchLogbookDetail = async (id: string) => {
     setDetailLoading(true);
@@ -380,25 +439,25 @@ export default function LogbookPage() {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!role) return;
     setLoading(true);
     try {
       if (isAsleb) {
-        await fetchTodayLogbook();
+        await Promise.all([fetchTodayLogbook(), fetchCheckinOptions()]);
       } else if (isKoordinator) {
-        await fetchLogbookList(1);
+        await Promise.all([fetchLogbookList(1), fetchTicketAutomation()]);
       }
     } catch (err) {
       toast.error(errMsg(err, "Gagal memuat data logbook."));
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchCheckinOptions, fetchLogbookList, fetchTicketAutomation, fetchTodayLogbook, isAsleb, isKoordinator, role, toast]);
 
   useEffect(() => {
     queueMicrotask(() => void loadData());
-  }, [role]);
+  }, [loadData]);
 
   const activeDetail = isAsleb ? todayLogbook : selectedLogbook;
   const allConditionsVerified = useMemo(
@@ -443,9 +502,18 @@ export default function LogbookPage() {
   }, [activeDetail, allConditionsVerified, keyReturned]);
 
   const handleCheckin = async () => {
+    const today = jakartaDateKey(new Date());
+    if (!checkinLabId || !checkinScheduleId || occurrenceDate !== today) {
+      toast.error("Pilih lab, jadwal praktikum, dan tanggal Jakarta hari ini.");
+      return;
+    }
     setCheckingIn(true);
     try {
-      await api.post("/logbooks/checkin", {});
+      await api.post("/logbooks/checkin", {
+        labId: checkinLabId,
+        scheduleId: checkinScheduleId,
+        occurrenceDate,
+      });
       await fetchTodayLogbook();
     } catch (err) {
       toast.error(errMsg(err, "Gagal check-in hari ini."));
@@ -504,14 +572,65 @@ export default function LogbookPage() {
         </div>
       ) : isAsleb ? (
         <section className="space-y-4">
-          {!todayLogbook ? (
-            <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-6 shadow-[4px_4px_0px_#1a1a1a]">
-              <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
-                Belum ada sesi logbook untuk hari ini.
-              </p>
-              <button
-                type="button"
-                disabled={checkingIn}
+           {!todayLogbook ? (
+             <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-6 shadow-[4px_4px_0px_#1a1a1a]">
+               <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
+                 Belum ada sesi logbook untuk hari ini.
+               </p>
+               <div className="grid gap-3 sm:grid-cols-2">
+                 <label className="text-sm font-bold text-[#1a1a1a]">
+                   Lab
+                   <select
+                     aria-label="Pilih lab untuk check-in"
+                     value={checkinLabId}
+                     onChange={(event) => {
+                       const labId = event.target.value;
+                       const firstSchedule = checkinSchedules.find((schedule) => schedule.labId === labId);
+                       setCheckinLabId(labId);
+                       setCheckinScheduleId(firstSchedule?.id || "");
+                     }}
+                     className="neo-input mt-1 min-h-[44px] w-full"
+                   >
+                     <option value="">Pilih lab</option>
+                     {checkinLabs.filter((lab) => checkinSchedules.some((schedule) => schedule.labId === lab.id)).map((lab) => (
+                       <option key={lab.id} value={lab.id}>{lab.name || lab.id}</option>
+                     ))}
+                   </select>
+                 </label>
+                 <label className="text-sm font-bold text-[#1a1a1a]">
+                   Jadwal praktikum
+                   <select
+                     aria-label="Pilih jadwal praktikum untuk check-in"
+                     value={checkinScheduleId}
+                     onChange={(event) => setCheckinScheduleId(event.target.value)}
+                     className="neo-input mt-1 min-h-[44px] w-full"
+                     disabled={!checkinLabId}
+                   >
+                     <option value="">Pilih jadwal</option>
+                     {checkinSchedules.filter((schedule) => schedule.labId === checkinLabId).map((schedule) => (
+                       <option key={schedule.id} value={schedule.id}>
+                         {schedule.title} ({schedule.startTime} - {schedule.endTime})
+                       </option>
+                     ))}
+                   </select>
+                 </label>
+                 <label className="text-sm font-bold text-[#1a1a1a] sm:col-span-2">
+                   Tanggal pertemuan (WIB)
+                   <input
+                     aria-label="Tanggal pertemuan Jakarta"
+                     type="date"
+                     value={occurrenceDate}
+                     min={jakartaDateKey(new Date())}
+                     max={jakartaDateKey(new Date())}
+                     onChange={(event) => setOccurrenceDate(event.target.value)}
+                     className="neo-input mt-1 min-h-[44px] w-full sm:w-auto"
+                   />
+                   <span className="mt-1 block text-xs font-medium text-[#5a5a5a]">Check-in hanya untuk tanggal hari ini di Jakarta.</span>
+                 </label>
+               </div>
+               <button
+                 type="button"
+                 disabled={checkingIn || !checkinLabId || !checkinScheduleId || occurrenceDate !== jakartaDateKey(new Date())}
                 onClick={handleCheckin}
                 className="inline-flex items-center gap-2 rounded-xl border-2 border-[#1a1a1a] bg-[#4b607f] px-4 py-2 font-bold text-white shadow-[4px_4px_0px_#1a1a1a] disabled:opacity-60"
               >
@@ -696,6 +815,32 @@ export default function LogbookPage() {
       ) : isKoordinator ? (
         <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-3">
+            <div className="rounded-xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-4 shadow-[4px_4px_0px_#1a1a1a]">
+              <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Monitoring Otomasi Ticket</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-white p-2 font-bold">Total: {ticketAutomation?.pagination.total ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-green-50 p-2 font-bold text-green-700">Dibuat: {ticketAutomation?.items.filter((item) => item.status === "CREATED").length ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-yellow-50 p-2 font-bold text-yellow-700">Duplikat: {ticketAutomation?.items.filter((item) => item.status === "DUPLICATE").length ?? 0}</span>
+                <span className="rounded-lg border-2 border-[#1a1a1a] bg-red-50 p-2 font-bold text-red-700">Gagal: {ticketAutomation?.items.filter((item) => item.status === "FAILED").length ?? 0}</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {(ticketAutomation?.items || []).length > 0 ? ticketAutomation!.items.map((attempt) => (
+                  <div key={attempt.id} className="rounded-lg border border-[#1a1a1a] bg-white p-3 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`rounded-md px-2 py-1 font-bold ${
+                        attempt.status === "CREATED" ? "bg-green-100 text-green-700" :
+                        attempt.status === "DUPLICATE" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                      }`}>{attempt.status === "CREATED" ? "Dibuat" : attempt.status === "DUPLICATE" ? "Duplikat" : "Gagal"}</span>
+                      <span className="font-medium text-[#5a5a5a]">{formatDateTime(attempt.createdAt)}</span>
+                    </div>
+                    <p className="mt-2 font-bold text-[#1a1a1a]">{attempt.condition.lab?.name || "Lab"} · {attempt.condition.submittedBy?.name || "Pelapor"}</p>
+                    <p className="mt-1 text-[#5a5a5a]">{attempt.condition.kerusakanBaru || attempt.message}</p>
+                    <p className="mt-1 font-medium text-[#4b607f]">{attempt.message}</p>
+                    {attempt.ticket?.id && <a href={`/tickets/${attempt.ticket.id}`} className="mt-2 inline-flex min-h-[44px] items-center font-bold text-[#f3701e] underline">Buka ticket</a>}
+                  </div>
+                )) : <p className="rounded-lg border border-dashed border-[#1a1a1a] bg-white p-3 text-sm font-medium text-[#5a5a5a]">Belum ada percobaan ticket otomatis.</p>}
+              </div>
+            </div>
             <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-4 shadow-[4px_4px_0px_#1a1a1a]">
               <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">Daftar Logbook</h2>
               <p className="text-xs font-medium text-[#5a5a5a]">
@@ -745,7 +890,7 @@ export default function LogbookPage() {
                 type="button"
                 disabled={listPage <= 1}
                 onClick={() => fetchLogbookList(listPage - 1)}
-                className="rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-1 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
+                className="min-h-[44px] min-w-[64px] rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-2 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
               >
                 Prev
               </button>
@@ -756,7 +901,7 @@ export default function LogbookPage() {
                 type="button"
                 disabled={listPage >= listTotalPages}
                 onClick={() => fetchLogbookList(listPage + 1)}
-                className="rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-1 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
+                className="min-h-[44px] min-w-[64px] rounded-lg border-2 border-[#1a1a1a] bg-[#f7f2ed] px-3 py-2 text-xs font-bold text-[#1a1a1a] disabled:opacity-50"
               >
                 Next
               </button>
@@ -858,7 +1003,7 @@ export default function LogbookPage() {
             >
               <TbX className="w-5 h-5" />
             </button>
-            <img src={photoPreview} alt="Preview foto kondisi" className="max-h-[80vh] w-full object-contain" />
+            <Image src={photoPreview} alt="Preview foto kondisi" width={1200} height={900} unoptimized className="max-h-[80vh] w-full object-contain" />
           </div>
         </div>
       )}

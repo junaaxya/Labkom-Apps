@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -23,7 +23,7 @@ export default function AssistantsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const isAslebUser = (value: unknown): value is AslebUser => {
+  const isAslebUser = useCallback((value: unknown): value is AslebUser => {
     if (!value || typeof value !== "object") return false;
     const v = value as Record<string, unknown>;
     return (
@@ -31,9 +31,9 @@ export default function AssistantsPage() {
       typeof v.name === "string" &&
       typeof v.email === "string"
     );
-  };
+  }, []);
 
-  const extractUsers = (data: unknown): AslebUser[] => {
+  const extractUsers = useCallback((data: unknown): AslebUser[] => {
     const rawItems: unknown = (() => {
       if (Array.isArray(data)) return data;
       if (data && typeof data === "object") {
@@ -50,25 +50,23 @@ export default function AssistantsPage() {
     })();
 
     return (rawItems as unknown[]).filter(isAslebUser);
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: unknown }>("/users?role=ASISTEN_LAB&limit=50");
-      setAslebs(extractUsers(res.data));
-    } catch {
-      // keep previous behavior: no toast, just stop loading
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAslebUser]);
 
   useEffect(() => {
     queueMicrotask(() => {
-      void fetchData();
+      void (async () => {
+        setLoading(true);
+        try {
+          const res = await api.get<{ data: unknown }>("/users?role=ASISTEN_LAB&limit=50");
+          setAslebs(extractUsers(res.data));
+        } catch {
+          // keep previous behavior: no toast, just stop loading
+        } finally {
+          setLoading(false);
+        }
+      })();
     });
-  }, []);
+  }, [extractUsers]);
 
   const filteredAslebs = aslebs.filter(
     (a) =>

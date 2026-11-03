@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   TbShieldCheck,
   TbAlertTriangle,
@@ -72,7 +72,7 @@ export default function PredictivePage() {
   const [loading, setLoading] = useState(true);
   const [selectedPC, setSelectedPC] = useState<PCRisk | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       switch (tab) {
@@ -99,13 +99,13 @@ export default function PredictivePage() {
       }
     } catch {}
     setLoading(false);
-  };
+  }, [tab]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchData();
     });
-  }, [tab]);
+  }, [fetchData]);
 
   const getRiskColor = (level: string) => {
     switch (level) {

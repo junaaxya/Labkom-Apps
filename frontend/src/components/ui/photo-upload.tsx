@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { TbPhoto, TbX, TbUpload } from "react-icons/tb";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
@@ -35,6 +36,7 @@ export function PhotoUpload({
 }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expiredUpload, setExpiredUpload] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,6 +52,7 @@ export function PhotoUpload({
     const filesToUpload = Array.from(files).slice(0, remaining);
     setUploading(true);
     setError(null);
+    setExpiredUpload(false);
 
     try {
       const formData = new FormData();
@@ -71,7 +74,9 @@ export function PhotoUpload({
       const urls: string[] = data.data?.urls || [];
       onChange([...value, ...urls]);
     } catch (err) {
-      setError(errMsg(err, "Upload gagal"));
+      const message = errMsg(err, "Upload gagal");
+      setError(message);
+      setExpiredUpload(message.toLowerCase().includes("kedaluwarsa"));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -90,7 +95,7 @@ export function PhotoUpload({
         <div className="flex flex-wrap gap-2">
           {value.map((url, i) => (
             <div key={i} className="relative w-20 h-20 rounded-lg border-2 border-[#1a1a1a] overflow-hidden group">
-              <img src={toUploadDisplayUrl(url)} alt="" className="w-full h-full object-cover" />
+              <Image src={toUploadDisplayUrl(url)} alt="" width={80} height={80} unoptimized className="w-full h-full object-cover" />
               {!disabled && (
                 <button
                   type="button"
@@ -140,7 +145,25 @@ export function PhotoUpload({
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
+      {error && (
+        <div className="space-y-2">
+          <p className="text-xs text-red-600 font-medium">{error}</p>
+          {expiredUpload && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange([]);
+                setError(null);
+                setExpiredUpload(false);
+                inputRef.current?.click();
+              }}
+              className="min-h-[44px] rounded-lg border-2 border-[#1a1a1a] bg-[#f5ede6] px-3 text-sm font-bold text-[#1a1a1a]"
+            >
+              Hapus foto lama dan unggah ulang
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -204,7 +227,7 @@ export function SinglePhotoUpload({
       <div className="flex items-center gap-3">
         {value && (
           <div className="relative w-16 h-16 rounded-full border-2 border-[#1a1a1a] overflow-hidden">
-            <img src={toUploadDisplayUrl(value)} alt="" className="w-full h-full object-cover" />
+            <Image src={toUploadDisplayUrl(value)} alt="" width={64} height={64} unoptimized className="w-full h-full object-cover" />
           </div>
         )}
 

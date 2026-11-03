@@ -1,34 +1,94 @@
 import prisma from "../config/database";
+import type { Prisma } from "@prisma/client";
 import { DayOfWeek } from "@prisma/client";
 import { TicketService } from "./ticket.service";
+import { TicketDuplicateError } from "./ticket-workflow.error";
+import {
+  canonicalDateOnly,
+  dateOnlyRange,
+  getJakartaClock,
+  jakartaTimestampRangeForDateOnly,
+  weekdayForDateOnly,
+} from "./jakarta-time";
+import { OPERATIONAL_SCHEDULE_STATUSES, withSerializableRetry } from "./schedule-availability";
+import { checkinLogbook } from "./logbook-checkin";
+import { LOGBOOK_INCLUDE } from "./logbook-include";
+import { resolveActualOccurrences } from "./actual-occurrence.service";
 
-function todayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
+function todayRange(now = new Date()) {
+  return dateOnlyRange(getJakartaClock(now).date);
 }
 
-function todayDate() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
+type DisplaySchedule = {
+  id: string;
+  labId: string;
+  title: string;
+  lecturerName: string | null;
+  className: string | null;
+  semester: string | null;
+  startTime: string;
+  endTime: string;
+  type: string;
+};
 
-const LOGBOOK_INCLUDE = {
-  officialCheckinBy: { select: { id: true, name: true } },
-  officialCheckoutBy: { select: { id: true, name: true } },
-  conditions: {
-    include: {
-      lab: { select: { id: true, name: true } },
-      submittedBy: { select: { id: true, name: true } },
-      verifiedBy: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" as const },
-  },
+type DisplayKeyLog = {
+  id: string;
+  action: string;
+  createdAt: Date;
+  notes: string | null;
+  user: { id: string; name: string };
+  key: { labId: string; keyCode: string };
 };
 
 export class LogbookService {
+  static async getTicketAutomationAttempts(filters?: {
+    status?: "CREATED" | "DUPLICATE" | "FAILED";
+    page?: number;
+    limit?: number;
+  }) {
+    const page = filters?.page && filters.page > 0 ? filters.page : 1;
+    const limit = Math.min(filters?.limit && filters.limit > 0 ? filters.limit : 20, 100);
+    const where = filters?.status ? { status: filters.status } : {};
+    const [items, total] = await Promise.all([
+      prisma.logbookTicketAutomationAttempt.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          ticket: { select: { id: true, title: true, status: true } },
+          logbookCondition: {
+            select: {
+              id: true,
+              kerusakanBaru: true,
+              createdAt: true,
+              lab: { select: { id: true, name: true } },
+              submittedBy: { select: { id: true, name: true } },
+              logbook: { select: { id: true, date: true } },
+            },
+          },
+        },
+      }),
+      prisma.logbookTicketAutomationAttempt.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        status: item.status,
+        errorCode: item.errorCode,
+        message: item.status === "FAILED"
+          ? "Ticket otomatis gagal dibuat. Tinjau kondisi dan buat ticket manual bila diperlukan."
+          : item.status === "DUPLICATE"
+            ? "Ticket aktif yang sama sudah tersedia."
+            : "Ticket otomatis berhasil dibuat.",
+        createdAt: item.createdAt,
+        ticket: item.ticket,
+        condition: item.logbookCondition,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   static async getAllLogbooks(filters?: {
     status?: string;
     startDate?: string;
@@ -78,22 +138,27 @@ export class LogbookService {
     const labIds = (logbook.conditions || []).map((c) => c.labId);
     if (labIds.length === 0) return logbook;
 
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const logbookDate = new Date(logbook.date);
-    const logbookDay = dayNames[logbookDate.getDay()];
+    const logbookDate = canonicalDateOnly(logbook.date);
+    const keyLogRange = jakartaTimestampRangeForDateOnly(logbookDate);
 
-    const [schedules, keyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: { labId: { in: labIds }, day: logbookDay as DayOfWeek, isActive: true },
-        select: {
-          id: true, labId: true, title: true, lecturerName: true,
-          className: true, semester: true, startTime: true, endTime: true, type: true,
-        },
-      }),
+    const [schedules, keyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, logbookDate, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => labIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: labIds },
+              isActive: true,
+              OR: [{ specificDate: logbookDate }, { specificDate: null, day: weekdayForDateOnly(logbookDate) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: labIds } },
-          createdAt: { gte: logbookDate },
+          createdAt: { gte: keyLogRange.start, lt: keyLogRange.end },
         },
         include: {
           user: { select: { id: true, name: true } },
@@ -103,7 +168,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof schedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of schedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);
@@ -123,27 +188,11 @@ export class LogbookService {
     return { ...logbook, conditions: enrichedConditions };
   }
 
-  static async checkin(userId: string) {
-    const date = todayDate();
+  static checkin = checkinLogbook;
 
-    const existing = await prisma.logbook.findFirst({
-      where: { officialCheckinById: userId, date },
-    });
-    if (existing) throw new Error("Anda sudah check-in hari ini.");
-
-    return prisma.logbook.create({
-      data: {
-        date,
-        officialCheckinById: userId,
-        officialCheckinAt: new Date(),
-        status: "CHECKED_IN",
-      },
-      include: LOGBOOK_INCLUDE,
-    });
-  }
-
-  static async getTodayLogbook(userId: string) {
-    const date = todayDate();
+  static async getTodayLogbook(userId: string, now = new Date()) {
+    const { date } = getJakartaClock(now);
+    const keyLogRange = jakartaTimestampRangeForDateOnly(date);
     const logbook = await prisma.logbook.findFirst({
       where: { officialCheckinById: userId, date },
       include: LOGBOOK_INCLUDE,
@@ -151,36 +200,28 @@ export class LogbookService {
     if (!logbook) return null;
 
     const labIds = (logbook.conditions || []).map((c) => c.labId);
-    const allLabIds = await prisma.lab.findMany({ select: { id: true } });
-    const relevantLabIds = labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
+    const allLabIds = !logbook.labId && labIds.length === 0 ? await prisma.lab.findMany({ select: { id: true } }) : [];
+    const relevantLabIds = logbook.labId ? [logbook.labId] : labIds.length > 0 ? labIds : allLabIds.map((l) => l.id);
 
-    const now = new Date();
-    const dayNames = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-    const todayDay = dayNames[now.getDay()];
-
-    const [todaySchedules, todayKeyLogs] = await Promise.all([
-      prisma.schedule.findMany({
-        where: {
-          labId: { in: relevantLabIds },
-          day: todayDay as DayOfWeek,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          labId: true,
-          title: true,
-          lecturerName: true,
-          className: true,
-          semester: true,
-          startTime: true,
-          endTime: true,
-          type: true,
-        },
-      }),
+    const [todaySchedules, todayKeyLogs]: [DisplaySchedule[], DisplayKeyLog[]] = await Promise.all([
+      logbook.scheduleId
+        ? resolveActualOccurrences(prisma as unknown as Prisma.TransactionClient, date, { scheduleId: logbook.scheduleId })
+            .then((occurrences) => occurrences
+              .filter((occurrence) => relevantLabIds.includes(occurrence.labId))
+              .map((occurrence) => ({ ...occurrence.schedule, labId: occurrence.labId, startTime: occurrence.startTime, endTime: occurrence.endTime })))
+        : prisma.schedule.findMany({
+            where: {
+              labId: { in: relevantLabIds },
+              isActive: true,
+              status: { in: [...OPERATIONAL_SCHEDULE_STATUSES] },
+              OR: [{ specificDate: date }, { specificDate: null, day: weekdayForDateOnly(date) as DayOfWeek }],
+            },
+            select: { id: true, labId: true, title: true, lecturerName: true, className: true, semester: true, startTime: true, endTime: true, type: true },
+          }),
       prisma.keyLog.findMany({
         where: {
           key: { labId: { in: relevantLabIds } },
-          createdAt: { gte: date },
+          createdAt: { gte: keyLogRange.start, lt: keyLogRange.end },
         },
         include: {
           user: { select: { id: true, name: true } },
@@ -190,7 +231,7 @@ export class LogbookService {
       }),
     ]);
 
-    const schedulesByLab: Record<string, typeof todaySchedules> = {};
+    const schedulesByLab: Record<string, DisplaySchedule[]> = {};
     for (const s of todaySchedules) {
       if (!schedulesByLab[s.labId]) schedulesByLab[s.labId] = [];
       schedulesByLab[s.labId].push(s);
@@ -246,6 +287,7 @@ export class LogbookService {
     const logbook = await prisma.logbook.findUnique({ where: { id: logbookId } });
     if (!logbook) throw new Error("Logbook tidak ditemukan");
     if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
+    if (logbook.labId && logbook.labId !== labId) throw new Error("Kondisi harus untuk lab pada logbook ini.");
 
     const lab = await prisma.lab.findUnique({ where: { id: labId } });
     if (!lab) throw new Error("Lab tidak ditemukan");
@@ -278,22 +320,53 @@ export class LogbookService {
       },
     });
 
+    let ticketAutomation: {
+      readonly status: "CREATED" | "DUPLICATE" | "FAILED";
+      readonly ticketId?: string;
+      readonly message: string;
+    } | null = null;
     if (conditionData.kerusakanBaru && conditionData.kerusakanBaru.trim().length > 0) {
       try {
-        await TicketService.createTicket({
+        const ticket = await TicketService.createTicket({
           labId,
           reportedBy: userId,
           category: "LAINNYA",
           title: `[Logbook] Kerusakan: ${conditionData.kerusakanBaru.substring(0, 80)}`,
           description: `Kerusakan dilaporkan via logbook.\n\nDetail: ${conditionData.kerusakanBaru}\n\nLogbook: ${logbookId}`,
           priority: "MEDIUM",
+          sourceLogbookConditionId: condition.id,
         });
-      } catch {
-        // fire-and-forget
+        await prisma.logbookTicketAutomationAttempt.create({
+          data: {
+            logbookConditionId: condition.id,
+            ticketId: ticket.id,
+            status: "CREATED",
+          },
+        });
+        ticketAutomation = {
+          status: "CREATED",
+          ticketId: ticket.id,
+          message: "Ticket kerusakan berhasil dibuat.",
+        };
+      } catch (error) {
+        const duplicate = error instanceof TicketDuplicateError;
+        const ticketId = duplicate ? error.existingTicket.id : undefined;
+        await prisma.logbookTicketAutomationAttempt.create({
+          data: {
+            logbookConditionId: condition.id,
+            ticketId,
+            status: duplicate ? "DUPLICATE" : "FAILED",
+            errorCode: duplicate ? "ACTIVE_DUPLICATE" : "TICKET_CREATE_FAILED",
+            errorMessage: duplicate ? "Ticket aktif yang sama sudah tersedia." : "Ticket otomatis gagal dibuat.",
+          },
+        });
+        ticketAutomation = duplicate
+          ? { status: "DUPLICATE", ticketId, message: "Ticket aktif untuk kondisi ini sudah tersedia." }
+          : { status: "FAILED", message: "Kondisi tersimpan, tetapi ticket gagal dibuat. Koordinator perlu menindaklanjuti." };
       }
     }
 
-    return condition;
+    return { ...condition, ticketAutomation };
   }
 
   static async verifyCondition(conditionId: string, userId: string) {
@@ -312,40 +385,50 @@ export class LogbookService {
   }
 
   static async checkout(logbookId: string, userId: string) {
-    const logbook = await prisma.logbook.findUnique({
-      where: { id: logbookId },
-      include: { conditions: true },
-    });
-    if (!logbook) throw new Error("Logbook tidak ditemukan");
-    if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
-
-    const borrowedKeys = await prisma.key.findMany({
-      where: { status: "BORROWED" },
-      include: { lab: { select: { name: true } } },
-    });
-    if (borrowedKeys.length > 0) {
-      const labNames = borrowedKeys.map((k) => k.lab.name).join(", ");
-      throw new Error(`Masih ada kunci yang belum dikembalikan: ${labNames}. Semua kunci harus dikembalikan sebelum checkout.`);
-    }
-
-    const unverified = logbook.conditions.filter((c) => !c.verified);
-    if (unverified.length > 0) {
-      const unverifiedLabs = await prisma.lab.findMany({
-        where: { id: { in: unverified.map((c) => c.labId) } },
-        select: { name: true },
+    return withSerializableRetry(async (tx) => {
+      const logbook = await tx.logbook.findUnique({
+        where: { id: logbookId },
+        include: { conditions: true },
       });
-      const names = unverifiedLabs.map((l) => l.name).join(", ");
-      throw new Error(`Masih ada kondisi lab yang belum diverifikasi: ${names}. Verifikasi semua kondisi sebelum checkout.`);
-    }
+      if (!logbook) throw new Error("Logbook tidak ditemukan");
+      if (logbook.status === "COMPLETED") throw new Error("Sesi sudah selesai");
 
-    return prisma.logbook.update({
-      where: { id: logbookId },
-      data: {
-        officialCheckoutById: userId,
-        officialCheckoutAt: new Date(),
-        status: "COMPLETED",
-      },
-      include: LOGBOOK_INCLUDE,
+      const conditionLabIds = [...new Set(logbook.conditions.map((condition) => condition.labId))];
+      if (conditionLabIds.length === 0) {
+        throw new Error("Belum ada kondisi lab yang disubmit. Submit kondisi lab sebelum checkout.");
+      }
+      if (logbook.labId && (conditionLabIds.length !== 1 || conditionLabIds[0] !== logbook.labId)) {
+        throw new Error("Kondisi harus untuk lab pada logbook ini sebelum checkout.");
+      }
+
+      const borrowedKeys = await tx.key.findMany({
+        where: { status: "BORROWED", labId: { in: conditionLabIds } },
+        include: { lab: { select: { name: true } } },
+      });
+      if (borrowedKeys.length > 0) {
+        const labNames = borrowedKeys.map((k) => k.lab.name).join(", ");
+        throw new Error(`Masih ada kunci yang belum dikembalikan: ${labNames}. Semua kunci harus dikembalikan sebelum checkout.`);
+      }
+
+      const unverified = logbook.conditions.filter((c) => !c.verified);
+      if (unverified.length > 0) {
+        const unverifiedLabs = await tx.lab.findMany({
+          where: { id: { in: unverified.map((c) => c.labId) } },
+          select: { name: true },
+        });
+        const names = unverifiedLabs.map((l) => l.name).join(", ");
+        throw new Error(`Masih ada kondisi lab yang belum diverifikasi: ${names}. Verifikasi semua kondisi sebelum checkout.`);
+      }
+
+      return tx.logbook.update({
+        where: { id: logbookId },
+        data: {
+          officialCheckoutById: userId,
+          officialCheckoutAt: new Date(),
+          status: "COMPLETED",
+        },
+        include: LOGBOOK_INCLUDE,
+      });
     });
   }
 
@@ -356,12 +439,12 @@ export class LogbookService {
     });
   }
 
-  static async getStats() {
-    const { start, end } = todayRange();
+  static async getStats(now = new Date()) {
+    const { start, end } = todayRange(now);
 
     const [statusGroups, todaySessions, activeSessions, total] = await Promise.all([
       prisma.logbook.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.logbook.count({ where: { date: { gte: start, lte: end } } }),
+      prisma.logbook.count({ where: { date: { gte: start, lt: end } } }),
       prisma.logbook.count({ where: { status: { in: ["CHECKED_IN"] } } }),
       prisma.logbook.count(),
     ]);

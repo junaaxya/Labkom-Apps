@@ -230,36 +230,121 @@ class NotificationService {
   // EVENT-BASED NOTIFICATION TRIGGERS
   // ============================================
 
+  async notifyTicketCreated(reporterId: string, ticketTitle: string, ticketId: string, eventId: string) {
+    try {
+      return await this.create({
+        userId: reporterId,
+        type: "SYSTEM",
+        title: "Ticket Berhasil Dibuat",
+        message: `Laporan "${ticketTitle}" telah tercatat dan menunggu penanganan.`,
+        metadata: { ticketId, ticketEventId: eventId, link: `/tickets/${ticketId}` },
+        reminderKey: `ticket:created:${eventId}:${reporterId}`,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+      throw error;
+    }
+  }
+
   /**
    * Notify when a ticket is assigned to someone
    */
-  async notifyTicketAssigned(assigneeId: string, ticketTitle: string, ticketId: string) {
+  async notifyTicketAssigned(assigneeId: string, ticketTitle: string, ticketId: string, eventId?: string) {
     return this.create({
       userId: assigneeId,
       type: "TICKET_ASSIGNED",
       title: "Ticket Baru Ditugaskan",
       message: `Anda ditugaskan untuk menangani ticket: "${ticketTitle}"`,
-      metadata: { ticketId, link: `/tickets` },
+      metadata: { ticketId, ...(eventId ? { ticketEventId: eventId } : {}), link: `/tickets/${ticketId}` },
+      ...(eventId ? { reminderKey: `ticket:assigned:${eventId}:${assigneeId}` } : {}),
+    });
+  }
+
+  async notifyTicketReporterInProgress(reporterId: string, ticketTitle: string, ticketId: string, eventId: string) {
+    return this.create({
+      userId: reporterId,
+      type: "SYSTEM",
+      title: "Ticket Sedang Ditangani",
+      message: `Ticket "${ticketTitle}" sedang ditangani oleh Asisten Lab.`,
+      metadata: { ticketId, ticketEventId: eventId, link: `/tickets/${ticketId}` },
+      reminderKey: `ticket:in-progress:${eventId}:${reporterId}`,
+    });
+  }
+
+  async notifyTicketWaiting(reporterId: string, ticketTitle: string, ticketId: string, eventId: string) {
+    return this.create({
+      userId: reporterId,
+      type: "SYSTEM",
+      title: "Ticket Menunggu Tindak Lanjut",
+      message: `Ticket "${ticketTitle}" sedang menunggu tindak lanjut.`,
+      metadata: { ticketId, ticketEventId: eventId, link: `/tickets/${ticketId}` },
+      reminderKey: `ticket:waiting:${eventId}:${reporterId}`,
+    });
+  }
+
+  async notifyTicketResumed(reporterId: string, ticketTitle: string, ticketId: string, eventId: string) {
+    return this.create({
+      userId: reporterId,
+      type: "SYSTEM",
+      title: "Ticket Dilanjutkan",
+      message: `Penanganan ticket "${ticketTitle}" telah dilanjutkan.`,
+      metadata: { ticketId, ticketEventId: eventId, link: `/tickets/${ticketId}` },
+      reminderKey: `ticket:resumed:${eventId}:${reporterId}`,
     });
   }
 
   /**
    * Notify when a ticket is resolved
    */
-  async notifyTicketResolved(reporterId: string, ticketTitle: string, ticketId: string) {
+  async notifyTicketResolved(reporterId: string, ticketTitle: string, ticketId: string, eventId?: string) {
     return this.create({
       userId: reporterId,
       type: "TICKET_RESOLVED",
       title: "Ticket Selesai",
       message: `Ticket "${ticketTitle}" telah diselesaikan`,
-      metadata: { ticketId, link: `/tickets` },
+      metadata: { ticketId, ...(eventId ? { ticketEventId: eventId } : {}), link: `/tickets/${ticketId}` },
+      ...(eventId ? { reminderKey: `ticket:resolved:${eventId}:${reporterId}` } : {}),
+    });
+  }
+
+  async notifyTicketRejected(reporterId: string, ticketTitle: string, ticketId: string, eventId: string) {
+    return this.create({
+      userId: reporterId,
+      type: "SYSTEM",
+      title: "Ticket Ditolak",
+      message: `Ticket "${ticketTitle}" tidak dapat diproses.`,
+      metadata: { ticketId, ticketEventId: eventId, link: `/tickets/${ticketId}` },
+      reminderKey: `ticket:rejected:${eventId}:${reporterId}`,
+    });
+  }
+
+  async notifySupportChatAssigned(input: {
+    assistantIds: readonly string[];
+    chatId: string;
+    studentName: string;
+    pcCode: string;
+    labName: string;
+  }) {
+    const userIds = [...new Set(input.assistantIds)];
+    if (userIds.length === 0) return;
+
+    return this.createBulk({
+      userIds,
+      type: "SUPPORT_CHAT_ASSIGNED",
+      title: "Permintaan Bantuan Baru",
+      message: `${input.studentName} membutuhkan bantuan di ${input.labName}, PC ${input.pcCode}.`,
+      metadata: {
+        chatId: input.chatId,
+        link: `/support-chats/${input.chatId}`,
+        source: "support-chat",
+      },
     });
   }
 
   /**
    * Notify when a new mission is available
    */
-  async notifyMissionAvailable(missionTitle: string, missionId: string) {
+  async notifyMissionAvailable(missionTitle: string, missionId: string, sourceTicketId?: string) {
     // Notify all ASISTEN_LAB
     const assistants = await prisma.user.findMany({
       where: { role: "ASISTEN_LAB", isActive: true },
@@ -268,13 +353,25 @@ class NotificationService {
 
     if (assistants.length === 0) return;
 
-    return this.createBulk({
-      userIds: assistants.map((a) => a.id),
+    if (!sourceTicketId) {
+      return this.createBulk({
+        userIds: assistants.map((a) => a.id),
+        type: "MISSION_AVAILABLE",
+        title: "Misi Baru Tersedia",
+        message: `Misi baru: "${missionTitle}" — Segera claim!`,
+        metadata: { missionId, link: `/missions` },
+      });
+    }
+
+    const results = await Promise.allSettled(assistants.map((assistant) => this.create({
+      userId: assistant.id,
       type: "MISSION_AVAILABLE",
       title: "Misi Baru Tersedia",
       message: `Misi baru: "${missionTitle}" — Segera claim!`,
-      metadata: { missionId, link: `/missions` },
-    });
+      metadata: { missionId, sourceTicketId, link: "/missions" },
+      reminderKey: `ticket:mission:${sourceTicketId}:${assistant.id}`,
+    })));
+    return results;
   }
 
   /**
@@ -326,14 +423,20 @@ class NotificationService {
   /**
    * Schedule reminder: notify user about upcoming schedule
    */
-  async notifyScheduleReminder(userId: string, scheduleTitle: string, labName: string, time: string) {
-    return this.create({
-      userId,
-      type: "SCHEDULE_REMINDER",
-      title: "Jadwal Segera Dimulai",
-      message: `"${scheduleTitle}" di ${labName} akan dimulai pukul ${time}`,
-      metadata: { link: `/schedules` },
-    });
+  async notifyScheduleReminder(userId: string, scheduleTitle: string, labName: string, time: string, scheduleId: string, businessDate: string) {
+    try {
+      return await this.create({
+        userId,
+        type: "SCHEDULE_REMINDER",
+        title: "Jadwal Segera Dimulai",
+        message: `"${scheduleTitle}" di ${labName} akan dimulai pukul ${time}`,
+        reminderKey: `schedule:${scheduleId}:${businessDate}:15m`,
+        metadata: { link: `/schedules`, scheduleId, businessDate },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+      throw error;
+    }
   }
 
   /**
@@ -352,13 +455,14 @@ class NotificationService {
   /**
    * Attendance reminder for assistant
    */
-  async notifyAttendanceReminder(aslebId: string) {
+  async notifyAttendanceReminder(aslebId: string, shiftScheduleId: string) {
     return this.create({
       userId: aslebId,
       type: "ATTENDANCE_REMINDER",
       title: "Reminder Absensi",
       message: "Anda belum melakukan check-in hari ini. Segera absen!",
-      metadata: { link: `/attendance` },
+      reminderKey: `attendance:${shiftScheduleId}:checkin`,
+      metadata: { link: `/attendance`, shiftScheduleId },
     });
   }
 }

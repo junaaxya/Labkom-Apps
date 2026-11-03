@@ -87,6 +87,7 @@ export default function SmartSchedulingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [duration, setDuration] = useState(120);
+  const [targetDate, setTargetDate] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -94,7 +95,9 @@ export default function SmartSchedulingPage() {
     try {
       switch (tab) {
         case "suggest": {
-          const res = await api.get<{ data: OptimalSlot[] }>(`/ai/scheduling/suggest?duration=${duration}`);
+          const query = new URLSearchParams({ duration: String(duration) });
+          if (targetDate) query.set("targetDate", targetDate);
+          const res = await api.get<{ data: OptimalSlot[] }>(`/ai/scheduling/suggest?${query.toString()}`);
           setSlots(res.data);
           break;
         }
@@ -124,13 +127,13 @@ export default function SmartSchedulingPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, duration]);
+  }, [tab, duration, targetDate]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void fetchData();
     });
-  }, [tab, duration, fetchData]);
+  }, [tab, duration, targetDate, fetchData]);
 
   const DAYS = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
   const HOURS = Array.from({ length: 15 }, (_, i) => i + 7);
@@ -213,10 +216,19 @@ export default function SmartSchedulingPage() {
                       <option value={180}>180</option>
                     </select>
                   </div>
+                  <label className="flex items-center gap-3 w-full sm:w-auto text-sm font-bold font-heading">
+                    Tanggal (opsional):
+                    <input
+                      type="date"
+                      value={targetDate}
+                      onChange={(e) => setTargetDate(e.target.value)}
+                      className="neo-input min-h-[44px] flex-1 sm:flex-initial"
+                    />
+                  </label>
                 </div>
                 <div className="flex items-start gap-2 bg-[#fff8f0] p-3 rounded-lg border border-[#f3701e]/30 text-sm text-[#4b607f]">
                   <TbAlertTriangle className="w-5 h-5 text-[#f3701e] shrink-0 mt-0.5" />
-                  <p><span className="font-bold text-[#1a1a1a]">Catatan:</span> saran slot hanya memverifikasi ketersediaan lab. Validasi dosen dan asisten dilakukan saat jadwal disimpan.</p>
+                  <p><span className="font-bold text-[#1a1a1a]">Catatan:</span> saran mingguan memakai jadwal aktif. Saat tanggal dipilih, server juga mengecek booking yang sudah disetujui. Saran ini tidak membuat reservasi; validasi akhir tetap dilakukan saat jadwal atau booking disimpan.</p>
                 </div>
                 <button 
                   onClick={fetchData} 

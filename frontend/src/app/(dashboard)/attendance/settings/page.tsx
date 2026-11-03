@@ -65,25 +65,32 @@ function extractResponseData<T>(value: T | ApiWrapped<T>): T {
 function ToggleSwitch({
   checked,
   onToggle,
+  label,
+  disabled = false,
 }: {
   checked: boolean;
   onToggle: () => void;
+  label: string;
+  disabled?: boolean;
 }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onToggle}
-      className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors border-2 border-[#1a1a1a] ${
+      disabled={disabled}
+      className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors border-2 border-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50 ${
         checked ? "bg-[#4b607f]" : "bg-gray-300"
       }`}
       role="switch"
       aria-checked={checked}
+      aria-label={`${checked ? "Nonaktifkan" : "Aktifkan"} ${label}`}
     >
-      <div
-        className={`h-5 w-5 rounded-full bg-white transition-transform ${
+      <span
+        className={`block h-5 w-5 rounded-full bg-white transition-transform ${
           checked ? "translate-x-6" : "translate-x-0"
         }`}
       />
-    </div>
+    </button>
   );
 }
 
@@ -158,6 +165,7 @@ export default function AttendanceSettingsPage() {
         "/attendance/settings",
         {
           isGeofencingEnabled: settingsForm.isGeofencingEnabled,
+          isQrRequired: settingsForm.isQrRequired,
           defaultRadiusMeter: settingsForm.defaultRadiusMeter,
           lateToleranceMinutes: settingsForm.lateToleranceMinutes,
           checkoutGraceMinutes: settingsForm.checkoutGraceMinutes,
@@ -244,16 +252,31 @@ export default function AttendanceSettingsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <fieldset disabled={isLoading.savingSettings} className="grid grid-cols-1 gap-5 disabled:opacity-60 md:grid-cols-2">
           <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
             <p className="font-bold text-[#1a1a1a]">Aktifkan Geofencing</p>
             <p className="text-sm text-[#5a5a5a]">Wajib validasi lokasi saat check-in dan check-out.</p>
             <ToggleSwitch
               checked={settingsForm.isGeofencingEnabled}
+              label="geofencing"
+              disabled={isLoading.savingSettings}
               onToggle={() =>
                 setSettingsForm((prev) =>
                   prev ? { ...prev, isGeofencingEnabled: !prev.isGeofencingEnabled } : prev
                 )
+              }
+            />
+          </div>
+
+          <div className="neo-border bg-[#f5ede6] p-4 space-y-2">
+            <p className="font-bold text-[#1a1a1a]">Wajib QR Dinamis</p>
+            <p className="text-sm text-[#5a5a5a]">Aslab memindai QR yang berlaku 30 detik dan diperbarui otomatis sebelum kedaluwarsa saat check-in dan check-out.</p>
+            <ToggleSwitch
+              checked={settingsForm.isQrRequired}
+              label="QR dinamis wajib"
+              disabled={isLoading.savingSettings}
+              onToggle={() =>
+                setSettingsForm((prev) => prev ? { ...prev, isQrRequired: !prev.isQrRequired } : prev)
               }
             />
           </div>
@@ -331,6 +354,8 @@ export default function AttendanceSettingsPage() {
               <p className="font-bold text-[#1a1a1a]">Verifikasi Koordinator Wajib</p>
               <ToggleSwitch
                 checked={settingsForm.isVerificationRequired}
+                label="verifikasi koordinator wajib"
+                disabled={isLoading.savingSettings}
                 onToggle={() =>
                   setSettingsForm((prev) =>
                     prev
@@ -371,7 +396,7 @@ export default function AttendanceSettingsPage() {
               })}
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
     );
   };
@@ -422,7 +447,7 @@ export default function AttendanceSettingsPage() {
           </div>
         )}
 
-        <div className="space-y-3">
+        <fieldset disabled={isLoading.savingLocation} className="space-y-3 disabled:opacity-60">
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Nama Lokasi</label>
             <input
@@ -491,7 +516,7 @@ export default function AttendanceSettingsPage() {
               placeholder="50"
             />
           </div>
-        </div>
+        </fieldset>
 
         <button
           type="button"

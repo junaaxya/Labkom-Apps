@@ -1,4 +1,4 @@
-import { TbError404, TbArrowLeft, TbHome } from "react-icons/tb";
+import { TbError404, TbHome } from "react-icons/tb";
 import Link from "next/link";
 
 export default function NotFound() {

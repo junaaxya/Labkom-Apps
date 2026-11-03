@@ -26,7 +26,7 @@ router.post("/bulk-command", authenticate, authorize("KOORDINATOR_LAB"), PCContr
 router.post("/bulk-specs", authenticate, authorize("KOORDINATOR_LAB"), PCController.bulkUpdateSpecs);
 router.post("/bulk-qr", authenticate, authorize("KOORDINATOR_LAB"), PCController.bulkGenerateQR);
 
-router.post("/:id/command", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.sendCommand);
+router.post("/:id/command", authenticate, authorize("KOORDINATOR_LAB"), PCController.sendCommand);
 router.post("/:id/specs", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.updateSpecs);
 router.post("/:id/qr", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.generateQRCode);
 router.post("/:id/generate-token", authenticate, authorize("KOORDINATOR_LAB"), PCController.generateAgentToken);

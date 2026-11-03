@@ -6,23 +6,25 @@ import type { Role } from "@/types";
 import { TbShieldX } from "react-icons/tb";
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
-  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/dashboard": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/profile": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
+  "/academic": ["KOORDINATOR_LAB", "DOSEN", "MAHASISWA"],
 
-  "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/schedule-changes": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/users": ["KOORDINATOR_LAB"],
   "/assistants": ["KOORDINATOR_LAB"],
-  "/settings": ["KOORDINATOR_LAB"],
+  "/settings": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
 
   "/logbook": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/logbook/condition": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/keys": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
   "/tickets": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
-  "/attendance": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/attendance": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAGANG"],
   "/attendance/shifts": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/attendance/settings": ["KOORDINATOR_LAB"],
   "/attendance/monitoring": ["KOORDINATOR_LAB"],
@@ -38,14 +40,16 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/pc-monitoring": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/inventory": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
 
-  "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
+  "/ai-assistant": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/ai-quality": ["KOORDINATOR_LAB"],
   "/predictive": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/smart-scheduling": ["KOORDINATOR_LAB"],
 
-  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/lab-booking": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
   "/access-requests": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
-  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/guide": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/scan": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
+  "/support-chats": ["MAHASISWA", "ASISTEN_LAB"],
 };
 
 function hasAccess(pathname: string, role: Role): boolean {
@@ -57,7 +61,7 @@ function hasAccess(pathname: string, role: Role): boolean {
     if (allowedRoles) return allowedRoles.includes(role);
   }
 
-  return true;
+  return false;
 }
 
 interface RoleGuardProps {

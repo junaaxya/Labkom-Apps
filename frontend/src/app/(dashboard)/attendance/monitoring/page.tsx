@@ -30,6 +30,7 @@ import {
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { MobileCard } from "@/components/ui/mobile-card";
+import { AttendanceQrPanel } from "@/components/attendance/attendance-qr-panel";
 import type {
   AttendanceEntry,
   AsLabPicketDestination,
@@ -44,7 +45,7 @@ import type {
   TaskCategoryConfig,
 } from "@/types/index";
 
-type MonitoringTab = "TODAY" | "TASKS" | "SHIFTS" | "LEAVES" | "CORRECTIONS" | "CATEGORIES";
+type MonitoringTab = "TODAY" | "MAGANG" | "TASKS" | "SHIFTS" | "LEAVES" | "CORRECTIONS" | "CATEGORIES";
 type VerifyAction = "APPROVED" | "REJECTED";
 type ReviewAction = "APPROVED" | "REJECTED" | "NEED_REVISION";
 
@@ -60,6 +61,11 @@ type TodayMonitoringData = {
   summary: TodaySummary;
   attendances: AttendanceEntry[];
   notCheckedInUsers: User[];
+};
+
+type AttendanceHistoryResponse = {
+  items: AttendanceEntry[];
+  pagination?: { total: number };
 };
 
 type ShiftCreatePayload = {
@@ -127,6 +133,7 @@ interface LeaveRequestItem {
 
 const TABS: Array<{ key: MonitoringTab; label: string; icon: typeof TbCalendarStats }> = [
   { key: "TODAY", label: "Kehadiran", icon: TbCalendarStats },
+  { key: "MAGANG", label: "MAGANG", icon: TbUserCheck },
   { key: "TASKS", label: "Verifikasi Task", icon: TbChecklist },
   { key: "SHIFTS", label: "Shift", icon: TbClockCog },
   { key: "LEAVES", label: "Izin / Sakit", icon: TbNotes },
@@ -142,20 +149,22 @@ function ToggleSwitch({
   onToggle: () => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onToggle}
       className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors border-2 border-[#1a1a1a] ${
         checked ? "bg-[#4b607f]" : "bg-gray-300"
       }`}
       role="switch"
       aria-checked={checked}
+      aria-label={checked ? "Nonaktifkan opsi" : "Aktifkan opsi"}
     >
-      <div
-        className={`h-5 w-5 rounded-full bg-white transition-transform ${
+      <span
+        className={`block h-5 w-5 rounded-full bg-white transition-transform ${
           checked ? "translate-x-6" : "translate-x-0"
         }`}
       />
-    </div>
+    </button>
   );
 }
 
@@ -267,6 +276,13 @@ function formatDate(dateString?: string): string {
   return date.toLocaleDateString("id-ID", { dateStyle: "medium" });
 }
 
+function formatTime(dateString?: string): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
 function formatDuration(minutes?: number): string {
   if (!minutes || minutes <= 0) return "-";
   const h = Math.floor(minutes / 60);
@@ -292,6 +308,9 @@ export default function AttendanceMonitoringPage() {
   const [todayAttendances, setTodayAttendances] = useState<AttendanceEntry[]>([]);
   const [notCheckedInUsers, setNotCheckedInUsers] = useState<User[]>([]);
 
+  const [magangLoading, setMagangLoading] = useState(false);
+  const [magangAttendances, setMagangAttendances] = useState<AttendanceEntry[]>([]);
+
   const [tasksLoading, setTasksLoading] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<DailyTaskLog[]>([]);
   const [submittedTasks, setSubmittedTasks] = useState<DailyTaskLog[]>([]);
@@ -300,7 +319,7 @@ export default function AttendanceMonitoringPage() {
   const [shiftLoading, setShiftLoading] = useState(false);
   const [scheduleMonth, setScheduleMonth] = useState(monthNow());
   const [shiftSchedules, setShiftSchedules] = useState<ShiftSchedule[]>([]);
-  const [aslabUsers, setAslabUsers] = useState<User[]>([]);
+  const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [leavesLoading, setLeavesLoading] = useState(false);
@@ -388,6 +407,22 @@ export default function AttendanceMonitoringPage() {
     }
   }, [toast]);
 
+  const loadMagangAttendance = useCallback(async () => {
+    setMagangLoading(true);
+    try {
+      const response = await api.get<ApiMaybeWrapped<AttendanceHistoryResponse> | Record<string, unknown>>(
+        "/attendance/all?role=MAGANG&limit=100"
+      );
+      const data = unwrapData<AttendanceHistoryResponse>(response, { items: [] });
+      setMagangAttendances(safeArray<AttendanceEntry>(data.items));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal memuat riwayat MAGANG.");
+      setMagangAttendances([]);
+    } finally {
+      setMagangLoading(false);
+    }
+  }, [toast]);
+
   const loadTaskVerifications = useCallback(async () => {
     setTasksLoading(true);
     try {
@@ -411,14 +446,17 @@ export default function AttendanceMonitoringPage() {
 
   const loadShiftReferences = useCallback(async () => {
     try {
-      const [usersRes, shiftsRes] = await Promise.all([
+      const [aslabRes, magangRes, shiftsRes] = await Promise.all([
         api.get<ApiMaybeWrapped<User[]> | Record<string, unknown>>("/users?role=ASISTEN_LAB"),
+        api.get<ApiMaybeWrapped<User[]> | Record<string, unknown>>("/users?role=MAGANG"),
         api.get<ApiMaybeWrapped<Shift[]> | Record<string, unknown>>("/shifts"),
       ]);
-      setAslabUsers(safeArray<User>(usersRes, ["users", "rows"]));
+      const users = [...safeArray<User>(aslabRes, ["users", "rows"]), ...safeArray<User>(magangRes, ["users", "rows"])]
+        .filter((user, index, all) => all.findIndex((candidate) => candidate.id === user.id) === index);
+      setStaffUsers(users);
       setShifts(safeArray<Shift>(shiftsRes, ["shifts", "rows"]));
     } catch {
-      setAslabUsers([]);
+      setStaffUsers([]);
       setShifts([]);
     }
   }, []);
@@ -449,6 +487,10 @@ export default function AttendanceMonitoringPage() {
   useEffect(() => {
     queueMicrotask(() => void loadShiftSchedules());
   }, [loadShiftSchedules]);
+
+  useEffect(() => {
+    if (activeTab === "MAGANG") queueMicrotask(() => void loadMagangAttendance());
+  }, [activeTab, loadMagangAttendance]);
 
   const loadPendingLeaves = useCallback(async () => {
     setLeavesLoading(true);
@@ -735,6 +777,7 @@ export default function AttendanceMonitoringPage() {
   };
 
   const openVerifyModal = (attendance: AttendanceEntry) => {
+    if (attendance.status !== "WAITING_VERIFICATION") return;
     setSelectedAttendance(attendance);
     setVerifyAction("APPROVED");
     setVerifyNote("");
@@ -786,7 +829,7 @@ export default function AttendanceMonitoringPage() {
   };
 
   const submitVerifyAttendance = async () => {
-    if (!selectedAttendance) return;
+    if (!selectedAttendance || selectedAttendance.status !== "WAITING_VERIFICATION" || verifySubmitting) return;
     setVerifySubmitting(true);
     try {
       await api.patch(`/attendance/${selectedAttendance.id}/verify`, {
@@ -895,6 +938,9 @@ export default function AttendanceMonitoringPage() {
   };
 
   const deleteShiftSchedule = async (scheduleId: string) => {
+    const schedule = shiftSchedules.find((item) => item.id === scheduleId);
+    const label = schedule ? `${schedule.user?.name ?? "Aslab"} pada ${formatDate(schedule.scheduleDate)}` : "ini";
+    if (!window.confirm(`Hapus jadwal shift ${label}? Tindakan ini tidak dapat dibatalkan.`)) return;
     try {
       await api.delete(`/attendance/shift-schedules/${scheduleId}`);
       toast.success("Jadwal shift berhasil dihapus.");
@@ -952,6 +998,8 @@ export default function AttendanceMonitoringPage() {
           </div>
         </div>
       </header>
+
+      <AttendanceQrPanel />
 
       <div className="neo-card p-2">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
@@ -1053,14 +1101,14 @@ export default function AttendanceMonitoringPage() {
                               { label: "Check-in", value: formatDateTime(attendance.checkinAt) },
                               { label: "Durasi Kerja", value: formatDuration(attendance.workDurationMinutes) },
                             ]}
-                            actions={[
+                            actions={attendance.status === "WAITING_VERIFICATION" ? [
                               {
                                 label: "Verify",
                                 icon: <TbCheck className="w-4 h-4" />,
                                 onClick: () => openVerifyModal(attendance),
                                 variant: "primary",
                               },
-                            ]}
+                            ] : []}
                           />
                         );
                       })}
@@ -1092,9 +1140,11 @@ export default function AttendanceMonitoringPage() {
                                 </td>
                                 <td className="p-3 text-sm text-[#5a5a5a]">{formatDuration(attendance.workDurationMinutes)}</td>
                                 <td className="p-3">
-                                  <button onClick={() => openVerifyModal(attendance)} className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold">
-                                    Verify
-                                  </button>
+                                  {attendance.status === "WAITING_VERIFICATION" ? (
+                                    <button onClick={() => openVerifyModal(attendance)} className="neo-btn px-3 py-1.5 bg-[#4b607f] text-white text-xs font-bold">
+                                      Verify
+                                    </button>
+                                  ) : <span className="text-sm text-[#5a5a5a]">—</span>}
                                 </td>
                               </tr>
                             );
@@ -1126,6 +1176,73 @@ export default function AttendanceMonitoringPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === "MAGANG" && (
+            <div className="neo-card p-3 sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-heading text-base sm:text-lg md:text-xl font-black text-[#1a1a1a]">Riwayat Absensi MAGANG</h2>
+                {magangLoading && (
+                  <span className="inline-flex items-center gap-2 text-sm text-[#5a5a5a]">
+                    <TbLoader2 className="h-4 w-4 animate-spin" /> Loading...
+                  </span>
+                )}
+              </div>
+              {magangLoading ? (
+                <div className="py-12 text-center text-[#5a5a5a] font-semibold">Memuat riwayat MAGANG...</div>
+              ) : magangAttendances.length === 0 ? (
+                <div className="py-12 text-center text-[#5a5a5a] font-semibold">Belum ada riwayat absensi MAGANG.</div>
+              ) : (
+                <>
+                  <div className="space-y-3 md:hidden">
+                    {magangAttendances.map((attendance) => {
+                      const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                      return (
+                        <MobileCard
+                          key={attendance.id}
+                          title={attendance.user?.name ?? "-"}
+                          badge={<span className={`rounded-full px-2 py-1 text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>{statusCfg?.label ?? attendance.status}</span>}
+                          fields={[
+                            { label: "Nama", value: attendance.user?.name ?? "-" },
+                            { label: "Tanggal", value: formatDate(attendance.checkinAt ?? attendance.createdAt) },
+                            { label: "Jam Masuk", value: formatTime(attendance.checkinAt) },
+                            { label: "Jam Pulang", value: formatTime(attendance.checkoutAt) },
+                            { label: "Status", value: statusCfg?.label ?? attendance.status },
+                          ]}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[720px] border-collapse">
+                      <thead>
+                        <tr className="bg-[#e8d8c9] text-[#1a1a1a]">
+                          <th className="p-3 text-left text-sm font-black">Nama</th>
+                          <th className="p-3 text-left text-sm font-black">Tanggal</th>
+                          <th className="p-3 text-left text-sm font-black">Jam Masuk</th>
+                          <th className="p-3 text-left text-sm font-black">Jam Pulang</th>
+                          <th className="p-3 text-left text-sm font-black">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {magangAttendances.map((attendance) => {
+                          const statusCfg = ATTENDANCE_STATUS_CONFIG[attendance.status];
+                          return (
+                            <tr key={attendance.id} className="border-b border-[#e8d8c9] hover:bg-[#f5ede6]">
+                              <td className="p-3 font-semibold text-[#1a1a1a]">{attendance.user?.name ?? "-"}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatDate(attendance.checkinAt ?? attendance.createdAt)}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatTime(attendance.checkinAt)}</td>
+                              <td className="p-3 text-sm text-[#5a5a5a]">{formatTime(attendance.checkoutAt)}</td>
+                              <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${statusCfg?.className ?? "bg-gray-100 text-gray-700"}`}>{statusCfg?.label ?? attendance.status}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1431,12 +1548,18 @@ export default function AttendanceMonitoringPage() {
                     </div>
                     <div className="flex gap-2 ml-3 sm:ml-4">
                       <button
+                        type="button"
+                        aria-label={`Setujui pengajuan ${leave.type === "SICK" ? "sakit" : "izin"} ${leave.user?.name || "Aslab"}`}
+                        title="Setujui pengajuan"
                         onClick={() => { setLeaveReviewAction("APPROVED"); openLeaveReview(leave); }}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
                       >
                         <TbCheck className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
+                        aria-label={`Tolak pengajuan ${leave.type === "SICK" ? "sakit" : "izin"} ${leave.user?.name || "Aslab"}`}
+                        title="Tolak pengajuan"
                         onClick={() => { setLeaveReviewAction("REJECTED"); openLeaveReview(leave); }}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
                       >
@@ -1497,12 +1620,18 @@ export default function AttendanceMonitoringPage() {
                     </div>
                     <div className="flex gap-2 ml-3 sm:ml-4">
                       <button
+                        type="button"
+                        aria-label={`Setujui koreksi absensi ${correction.user?.name || "Aslab"}`}
+                        title="Setujui koreksi"
                         onClick={() => openCorrectionReview(correction, "APPROVED")}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-green-700 flex items-center justify-center"
                       >
                         <TbCheck className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
+                        aria-label={`Tolak koreksi absensi ${correction.user?.name || "Aslab"}`}
+                        title="Tolak koreksi"
                         onClick={() => openCorrectionReview(correction, "REJECTED")}
                         className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg neo-border hover:bg-red-700 flex items-center justify-center"
                       >
@@ -1856,17 +1985,17 @@ export default function AttendanceMonitoringPage() {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold uppercase text-[#5a5a5a] flex items-center gap-1">
-                    <TbUsers className="w-4 h-4" /> Aslab
+                     <TbUsers className="w-4 h-4" /> Petugas
                   </label>
                   <select
                     value={shiftForm.userId}
                     onChange={(event) => setShiftForm((prev) => ({ ...prev, userId: event.target.value }))}
                     className="neo-input neo-border mt-1 w-full rounded-lg px-3 py-2 bg-white text-[#1a1a1a]"
                   >
-                    <option value="">Pilih Aslab</option>
-                    {aslabUsers.map((user) => (
+                    <option value="">Pilih petugas</option>
+                    {staffUsers.map((user) => (
                       <option key={user.id} value={user.id}>
-                        {user.name}
+                        {user.name} · {user.role === "MAGANG" ? "Magang" : "Asisten Lab"}
                       </option>
                     ))}
                   </select>

@@ -1,8 +1,25 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TbTarget, TbTrophy, TbClipboardList, TbUsers, TbChecklist, TbCheck, TbX, TbPlus, TbClock, TbInbox, TbUpload, TbSend } from "react-icons/tb";
+import {
+  TbTarget,
+  TbTrophy,
+  TbClipboardList,
+  TbUsers,
+  TbChecklist,
+  TbCheck,
+  TbX,
+  TbPlus,
+  TbClock,
+  TbInbox,
+  TbUpload,
+  TbSend,
+  TbFileText,
+  TbMapPin,
+  TbDeviceDesktop,
+  TbAlertCircle,
+} from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { PhotoUpload } from "@/components/ui/photo-upload";
@@ -18,6 +35,18 @@ interface MissionItem {
   deadline?: string;
   claimedBy?: string;
   claimId?: string;
+  sourceTicket?: {
+    id: string;
+    category?: string;
+    priority?: string;
+    lab?: { id?: string; name?: string; location?: string };
+    pc?: { id?: string; pcCode?: string; name?: string };
+  };
+  claims?: Array<{
+    id?: string;
+    status?: string;
+    asleb?: { id?: string; name?: string };
+  }>;
 }
 
 interface MyMissionClaim {
@@ -31,12 +60,19 @@ interface MyMissionClaim {
     points: number;
     deadline?: string;
     status: MissionStatus;
+    sourceTicket?: {
+      id: string;
+      category?: string;
+      priority?: string;
+      lab?: { id?: string; name?: string; location?: string };
+      pc?: { id?: string; pcCode?: string; name?: string };
+    };
   };
 }
 
 const statusConfig: Record<MissionStatus, { label: string; color: string }> = {
   OPEN: { label: "Tersedia", color: "bg-green-500 text-white neo-border-sm" },
-  TAKEN: { label: "Diklaim", color: "bg-blue-500 text-white neo-border-sm" },
+  TAKEN: { label: "Dikerjakan", color: "bg-blue-500 text-white neo-border-sm" },
   SUBMITTED: { label: "Disubmit", color: "bg-yellow-500 text-white neo-border-sm" },
   APPROVED: { label: "Disetujui", color: "bg-[#4b607f] text-white neo-border-sm" },
   REJECTED: { label: "Ditolak", color: "bg-red-500 text-white neo-border-sm" },
@@ -53,11 +89,17 @@ interface MissionStats {
 
 interface LeaderboardEntry {
   id?: string;
+  userId?: string;
   name?: string;
   userName?: string;
   points?: number;
   totalPoints?: number;
   avatar?: string;
+  user?: {
+    id?: string;
+    name?: string;
+    avatar?: string;
+  };
 }
 
 const INITIAL_STATS: MissionStats = {
@@ -81,6 +123,10 @@ export default function MissionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<MyMissionClaim | null>(null);
+  const [selectedMissionDetail, setSelectedMissionDetail] = useState<{
+    mission: MissionItem;
+    claim?: MyMissionClaim;
+  } | null>(null);
   const [proofPhotos, setProofPhotos] = useState<string[]>([]);
   const [proofNote, setProofNote] = useState("");
   const [submittingProof, setSubmittingProof] = useState(false);
@@ -101,7 +147,7 @@ export default function MissionsPage() {
     }
   };
 
-  const fetchMissions = async () => {
+  const fetchMissions = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get<{ data: { items?: MissionItem[] } | MissionItem[] }>("/missions");
@@ -114,7 +160,7 @@ export default function MissionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const fetchLeaderboard = async () => {
     try {
@@ -146,7 +192,7 @@ export default function MissionsPage() {
     };
     initData();
     return () => { mounted = false; };
-  }, []);
+  }, [fetchMissions]);
 
   const handleCreateMission = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -219,7 +265,7 @@ export default function MissionsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-16">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] flex items-center justify-center flex-shrink-0">
@@ -241,53 +287,53 @@ export default function MissionsPage() {
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4">
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white mb-1">
-            <TbClipboardList size={20} strokeWidth={2.2} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 sm:gap-4">
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white mb-0.5">
+            <TbClipboardList size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#1a1a1a]">{stats.total}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Total</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#1a1a1a] leading-none">{stats.total}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Total</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1 neo-border-sm">
-            <TbInbox size={20} strokeWidth={2.2} />
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-0.5 neo-border-sm">
+            <TbInbox size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-green-600">{stats.open}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Open</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-green-600 leading-none">{stats.open}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Tersedia</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-1 neo-border-sm">
-            <TbUsers size={20} strokeWidth={2.2} />
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-0.5 neo-border-sm">
+            <TbUsers size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-blue-600">{stats.taken}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Taken</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-blue-600 leading-none">{stats.taken}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Dikerjakan</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 mb-1 neo-border-sm">
-            <TbChecklist size={20} strokeWidth={2.2} />
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-9 h-9 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 mb-0.5 neo-border-sm">
+            <TbChecklist size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-yellow-600">{stats.submitted}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Submitted</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-yellow-600 leading-none">{stats.submitted}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Disubmit</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-[#4b607f]/10 flex items-center justify-center text-[#4b607f] mb-1 neo-border-sm">
-            <TbCheck size={20} strokeWidth={2.2} />
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-9 h-9 rounded-full bg-[#4b607f]/10 flex items-center justify-center text-[#4b607f] mb-0.5 neo-border-sm">
+            <TbCheck size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#4b607f]">{stats.approved}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Approved</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-[#4b607f] leading-none">{stats.approved}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Disetujui</p>
         </motion.div>
         
-        <motion.div whileHover={{ y: -4 }} className="neo-card p-3 sm:p-5 min-h-[116px] flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-1 neo-border-sm">
-            <TbX size={20} strokeWidth={2.2} />
+        <motion.div whileHover={{ y: -2 }} className="neo-card p-3 sm:p-5 min-h-[104px] flex flex-col items-center justify-center gap-1.5 border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-0.5 neo-border-sm">
+            <TbX size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-red-600">{stats.rejected}</p>
-          <p className="text-sm font-bold text-[#5a5a5a]">Rejected</p>
+          <p className="text-2xl sm:text-3xl font-heading font-bold text-red-600 leading-none">{stats.rejected}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#5a5a5a]">Ditolak</p>
         </motion.div>
       </div>
 
@@ -360,15 +406,33 @@ export default function MissionsPage() {
               >
                 <div className={`h-1.5 w-full absolute top-0 left-0 ${statusConfig[mission.status]?.color.split(' ')[0] || "bg-gray-300"}`}></div>
                 <div className="p-4 sm:p-5 flex-1 flex flex-col">
-                  <div className="flex items-start justify-between mb-3 gap-2">
+                  <div className="flex items-start justify-between mb-2 gap-2">
                     <h3 className="font-heading font-bold text-base sm:text-lg text-[#1a1a1a] leading-tight line-clamp-2 min-w-0">{mission.title}</h3>
                     <span className={`neo-badge px-2.5 py-1 text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${statusConfig[mission.status]?.color || "bg-gray-300 text-black neo-border-sm"}`}>
                       {statusConfig[mission.status]?.label || mission.status}
                     </span>
                   </div>
-                  <p className="text-sm text-[#5a5a5a] mb-6 flex-1 line-clamp-3">{mission.description}</p>
+
+                  {mission.sourceTicket && (
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                      {mission.sourceTicket.lab?.name && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-[#4b607f]/10 text-[#4b607f] rounded-md border border-[#4b607f]/20">
+                          <TbMapPin size={12} />
+                          {mission.sourceTicket.lab.name}
+                        </span>
+                      )}
+                      {mission.sourceTicket.pc && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-gray-100 text-[#1a1a1a] rounded-md border border-gray-300">
+                          <TbDeviceDesktop size={12} />
+                          {mission.sourceTicket.pc.pcCode || mission.sourceTicket.pc.name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-sm text-[#5a5a5a] mb-5 flex-1 line-clamp-2 leading-relaxed">{mission.description}</p>
                   
-                  <div className="mt-auto space-y-4">
+                  <div className="mt-auto space-y-3.5">
                     <div className="flex items-center gap-4 text-xs font-bold text-[#5a5a5a]">
                       <div className="flex items-center gap-1.5">
                         <TbClock size={16} strokeWidth={2.2} className="text-[#1a1a1a]" />
@@ -376,23 +440,33 @@ export default function MissionsPage() {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t-2 border-[#1a1a1a]/10">
-                      <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg neo-border-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-[#1a1a1a]/15">
+                      <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] w-fit">
                         <TbTrophy size={16} strokeWidth={2.2} />
-                        <span className="font-bold">{mission.points} Poin</span>
+                        <span className="font-bold text-sm">{mission.points} Poin</span>
                       </div>
                       
-                      {mission.status === "OPEN" && (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleClaimMission(mission.id)}
-                          disabled={claimingId === mission.id}
-                          className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-[#4b607f] text-white neo-btn text-sm font-bold disabled:opacity-50 flex items-center justify-center"
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMissionDetail({ mission })}
+                          className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2 bg-white text-[#1a1a1a] border border-[#1a1a1a] shadow-[1.5px_1.5px_0px_#1a1a1a] rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-[#f5ede6] transition-colors"
                         >
-                          {claimingId === mission.id ? "Memproses..." : "Klaim"}
-                        </motion.button>
-                      )}
+                          <TbFileText size={16} strokeWidth={2.2} />
+                          Lihat Detail
+                        </button>
+                        {mission.status === "OPEN" && (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleClaimMission(mission.id)}
+                            disabled={claimingId === mission.id}
+                            className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2 bg-[#4b607f] text-white neo-btn text-xs sm:text-sm font-bold disabled:opacity-50 flex items-center justify-center"
+                          >
+                            {claimingId === mission.id ? "Memproses..." : "Klaim"}
+                          </motion.button>
+                        )}
+                      </div>
                     </div>
                     
                     {mission.claimedBy && (
@@ -451,23 +525,49 @@ export default function MissionsPage() {
                          claim.status === "REJECTED" ? "Ditolak" : claim.status}
                       </span>
                     </div>
+                    {claim.mission.sourceTicket && (
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                        {claim.mission.sourceTicket.lab?.name && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-[#4b607f]/10 text-[#4b607f] rounded-md border border-[#4b607f]/20">
+                            <TbMapPin size={12} />
+                            {claim.mission.sourceTicket.lab.name}
+                          </span>
+                        )}
+                        {claim.mission.sourceTicket.pc && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-gray-100 text-[#1a1a1a] rounded-md border border-gray-300">
+                            <TbDeviceDesktop size={12} />
+                            {claim.mission.sourceTicket.pc.pcCode || claim.mission.sourceTicket.pc.name}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <p className="text-sm text-[#5a5a5a] mb-4 line-clamp-2">{claim.mission.description}</p>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg neo-border-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                      <div className="flex items-center gap-2 bg-[#f3701e] text-white px-3 py-1.5 rounded-lg border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] w-fit">
                         <TbTrophy size={14} strokeWidth={2.2} />
                         <span className="font-bold text-sm">{claim.mission.points} Poin</span>
                       </div>
-                      {claim.status === "TAKEN" && (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => openSubmitProof(claim)}
-                          className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-[#f3701e] text-white neo-btn text-sm font-bold flex items-center justify-center gap-2"
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMissionDetail({ mission: claim.mission, claim })}
+                          className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2 bg-white text-[#1a1a1a] border border-[#1a1a1a] shadow-[1.5px_1.5px_0px_#1a1a1a] rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-[#f5ede6] transition-colors"
                         >
-                          <TbUpload size={16} strokeWidth={2.2} />
-                          Submit Bukti
-                        </motion.button>
-                      )}
+                          <TbFileText size={16} strokeWidth={2.2} />
+                          Lihat Detail
+                        </button>
+                        {claim.status === "TAKEN" && (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => openSubmitProof(claim)}
+                            className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2 bg-[#f3701e] text-white neo-btn text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5"
+                          >
+                            <TbUpload size={16} strokeWidth={2.2} />
+                            Submit Bukti
+                          </motion.button>
+                        )}
+                      </div>
                     </div>
                     {claim.proof && (
                       <div className="mt-3 p-2 bg-gray-50 rounded-lg neo-border-sm">
@@ -492,40 +592,44 @@ export default function MissionsPage() {
             <h2 className="font-heading text-xl sm:text-2xl font-bold text-[#1a1a1a]">Top Achievers</h2>
           </div>
           <div className="space-y-4">
-            {leaderboard.map((user, i) => (
-              <motion.div
-                key={user.id || user.name || user.userName || i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white neo-border shadow-[4px_4px_0px_#1a1a1a] ${
-                  i === 0 ? "border-[#f3701e] ring-2 ring-[#f3701e]/20" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 flex flex-col items-center justify-center neo-border shadow-[2px_2px_0px_#1a1a1a] flex-shrink-0 ${
-                    i === 0 ? "bg-[#FFD700]" : i === 1 ? "bg-[#C0C0C0]" : i === 2 ? "bg-[#CD7F32]" : "bg-white"
-                  }`}>
-                    <span className="font-heading font-bold text-lg text-[#1a1a1a] leading-none">{i + 1}</span>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#4b607f] flex items-center justify-center text-white text-sm font-bold neo-border-sm flex-shrink-0">
-                      {(user.avatar || user.name || user.userName || "?").charAt(0).toUpperCase()}
+            {leaderboard.map((user, i) => {
+              const displayName = user.name || user.userName || user.user?.name || "Asisten Lab";
+              const avatarLetter = (user.avatar || displayName).charAt(0).toUpperCase();
+              return (
+                <motion.div
+                  key={user.id || user.name || user.userName || i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className={`flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border border-[#1a1a1a] sm:border-2 shadow-[2px_2px_0px_#1a1a1a] sm:shadow-[3px_3px_0px_#1a1a1a] rounded-xl ${
+                    i === 0 ? "border-[#f3701e] ring-2 ring-[#f3701e]/20" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg flex flex-col items-center justify-center border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] flex-shrink-0 ${
+                      i === 0 ? "bg-[#FFD700]" : i === 1 ? "bg-[#C0C0C0]" : i === 2 ? "bg-[#CD7F32]" : "bg-[#f5ede6]"
+                    }`}>
+                      <span className="font-heading font-bold text-base sm:text-lg text-[#1a1a1a] leading-none">{i + 1}</span>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-base sm:text-lg text-[#1a1a1a] leading-tight truncate">{user.name || user.userName || "Unknown User"}</p>
-                      {i === 0 && <p className="text-xs font-bold text-[#f3701e]">🌟 Top Performer</p>}
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#4b607f] flex items-center justify-center text-white text-sm font-bold neo-border-sm flex-shrink-0">
+                        {avatarLetter}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm sm:text-base text-[#1a1a1a] leading-tight truncate">{displayName}</p>
+                        {i === 0 && <p className="text-xs font-bold text-[#f3701e]">🌟 Top Performer</p>}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="px-3 sm:px-4 py-2 bg-[#1a1a1a] text-white font-heading font-bold text-base sm:text-lg neo-border shadow-[2px_2px_0px_#f3701e]">
-                    {user.points ?? user.totalPoints ?? 0}
-                  </span>
-                  <span className="text-[10px] font-bold text-[#5a5a5a] uppercase tracking-wider mt-1">Total Points</span>
-                </div>
-              </motion.div>
-            ))}
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="px-2.5 sm:px-3.5 py-1.5 bg-[#1a1a1a] text-white font-heading font-bold text-sm sm:text-base rounded-lg border border-[#f3701e] shadow-[1.5px_1.5px_0px_#f3701e]">
+                      {user.points ?? user.totalPoints ?? 0}
+                    </span>
+                    <span className="text-[10px] font-bold text-[#5a5a5a] uppercase tracking-wider mt-0.5">Poin</span>
+                  </div>
+                </motion.div>
+              );
+            })}
             {leaderboard.length === 0 && (
               <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
                 <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-2 neo-border">
@@ -741,6 +845,193 @@ export default function MissionsPage() {
                   >
                     Batal
                   </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMissionDetail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setSelectedMissionDetail(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-t-4 sm:border-4 border-[#1a1a1a] rounded-t-2xl sm:rounded-2xl shadow-[0_-8px_24px_rgba(0,0,0,0.15)] sm:shadow-[8px_8px_0px_#1a1a1a] p-5 sm:p-7 w-full sm:max-w-xl max-h-[88vh] overflow-y-auto relative pb-28 sm:pb-7"
+            >
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
+              <div className="absolute top-0 left-0 w-full h-2.5 bg-[#f3701e] border-b-2 border-[#1a1a1a] rounded-t-2xl hidden sm:block" />
+
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-md border border-[#1a1a1a] ${
+                      statusConfig[(selectedMissionDetail.claim?.status || selectedMissionDetail.mission.status) as MissionStatus]?.color || "bg-gray-100 text-[#1a1a1a]"
+                    }`}>
+                      {statusConfig[(selectedMissionDetail.claim?.status || selectedMissionDetail.mission.status) as MissionStatus]?.label || selectedMissionDetail.mission.status}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold bg-[#f3701e] text-white rounded-md border border-[#1a1a1a]">
+                      <TbTrophy size={14} />
+                      {selectedMissionDetail.mission.points} Poin Reward
+                    </span>
+                  </div>
+                  <h2 className="font-heading text-lg sm:text-2xl font-bold text-[#1a1a1a] leading-snug">
+                    {selectedMissionDetail.mission.title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMissionDetail(null)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#5a5a5a] transition-colors shrink-0"
+                >
+                  <TbX size={22} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-sm">
+                <div className="p-4 bg-[#fcf8f4] border border-[#1a1a1a] rounded-xl">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#5a5a5a] mb-1.5 flex items-center gap-1.5">
+                    <TbFileText size={15} className="text-[#f3701e]" />
+                    Deskripsi & Instruksi Misi
+                  </p>
+                  <p className="text-sm text-[#1a1a1a] font-medium whitespace-pre-wrap leading-relaxed">
+                    {selectedMissionDetail.mission.description}
+                  </p>
+                </div>
+
+                {selectedMissionDetail.mission.sourceTicket && (
+                  <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#4b607f] flex items-center gap-1.5">
+                      <TbDeviceDesktop size={15} />
+                      Informasi Terkait Lab & Kerusakan
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {selectedMissionDetail.mission.sourceTicket.lab && (
+                        <div className="flex items-center gap-1.5 text-[#1a1a1a]">
+                          <TbMapPin size={15} className="text-[#4b607f] shrink-0" />
+                          <span className="font-semibold">{selectedMissionDetail.mission.sourceTicket.lab.name}</span>
+                          {selectedMissionDetail.mission.sourceTicket.lab.location && (
+                            <span className="text-[#5a5a5a]">({selectedMissionDetail.mission.sourceTicket.lab.location})</span>
+                          )}
+                        </div>
+                      )}
+                      {selectedMissionDetail.mission.sourceTicket.pc && (
+                        <div className="flex items-center gap-1.5 text-[#1a1a1a]">
+                          <TbDeviceDesktop size={15} className="text-[#4b607f] shrink-0" />
+                          <span className="font-semibold">{selectedMissionDetail.mission.sourceTicket.pc.pcCode || selectedMissionDetail.mission.sourceTicket.pc.name}</span>
+                        </div>
+                      )}
+                      {selectedMissionDetail.mission.sourceTicket.category && (
+                        <div className="text-[#5a5a5a]">
+                          Kategori: <strong className="text-[#1a1a1a]">{selectedMissionDetail.mission.sourceTicket.category}</strong>
+                        </div>
+                      )}
+                      {selectedMissionDetail.mission.sourceTicket.priority && (
+                        <div className="text-[#5a5a5a]">
+                          Prioritas: <strong className="text-[#1a1a1a]">{selectedMissionDetail.mission.sourceTicket.priority}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 bg-white border border-[#1a1a1a]/20 rounded-xl flex items-center gap-2.5">
+                    <TbClock size={18} className="text-[#f3701e] shrink-0" />
+                    <div>
+                      <p className="text-[#5a5a5a] font-medium">Batas Waktu</p>
+                      <p className="font-bold text-[#1a1a1a]">
+                        {selectedMissionDetail.mission.deadline
+                          ? new Date(selectedMissionDetail.mission.deadline).toLocaleDateString("id-ID", { dateStyle: "long" })
+                          : "Tanpa batas waktu"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white border border-[#1a1a1a]/20 rounded-xl flex items-center gap-2.5">
+                    <TbUsers size={18} className="text-[#4b607f] shrink-0" />
+                    <div>
+                      <p className="text-[#5a5a5a] font-medium">Status Pengerjaan</p>
+                      <p className="font-bold text-[#1a1a1a]">
+                        {selectedMissionDetail.mission.claimedBy
+                          ? `Dikerjakan oleh ${selectedMissionDetail.mission.claimedBy}`
+                          : selectedMissionDetail.mission.status === "OPEN"
+                          ? "Tersedia untuk diklaim"
+                          : statusConfig[selectedMissionDetail.mission.status as MissionStatus]?.label || selectedMissionDetail.mission.status}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1.5">
+                  <p className="font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                    <TbAlertCircle size={15} className="text-[#f3701e]" />
+                    Petunjuk Submit Bukti:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 text-[#5a5a5a] pl-1 font-medium">
+                    <li>Selesaikan tugas perbaikan atau piket lab sesuai instruksi.</li>
+                    <li>Ambil foto bukti kondisi lab atau PC yang sudah ditangani.</li>
+                    <li>Klik tombol &quot;Submit Bukti&quot; untuk mengirimkan laporan kepada Koordinator Lab.</li>
+                  </ol>
+                </div>
+
+                {selectedMissionDetail.claim?.proof && (
+                  <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
+                    <p className="font-bold text-[#1a1a1a]">Bukti yang Disubmit:</p>
+                    <p className="text-[#5a5a5a] whitespace-pre-wrap break-all">{selectedMissionDetail.claim.proof}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-[#1a1a1a]/15">
+                  {selectedMissionDetail.mission.status === "OPEN" && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        const mId = selectedMissionDetail.mission.id;
+                        setSelectedMissionDetail(null);
+                        handleClaimMission(mId);
+                      }}
+                      disabled={claimingId === selectedMissionDetail.mission.id}
+                      className="w-full sm:flex-1 min-h-[48px] px-5 py-3 bg-[#4b607f] text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
+                    >
+                      {claimingId === selectedMissionDetail.mission.id ? "Memproses..." : "Klaim Misi Ini"}
+                    </motion.button>
+                  )}
+
+                  {selectedMissionDetail.claim?.status === "TAKEN" && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        const claim = selectedMissionDetail.claim;
+                        setSelectedMissionDetail(null);
+                        if (claim) openSubmitProof(claim);
+                      }}
+                      className="w-full sm:flex-1 min-h-[48px] px-5 py-3 bg-[#f3701e] text-white neo-btn font-bold text-sm flex items-center justify-center gap-2"
+                    >
+                      <TbUpload size={18} />
+                      Submit Bukti Pengerjaan
+                    </motion.button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMissionDetail(null)}
+                    className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 bg-white text-[#1a1a1a] border border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-lg font-bold text-sm"
+                  >
+                    Tutup
+                  </button>
                 </div>
               </div>
             </motion.div>

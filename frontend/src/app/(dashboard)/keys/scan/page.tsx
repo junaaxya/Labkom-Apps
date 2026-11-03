@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   TbQrcode,
   TbKey,
@@ -38,11 +38,22 @@ const statusMap: Record<KeyStatus, { label: string; classes: string }> = {
   MAINTENANCE: { label: "Maintenance", classes: "bg-yellow-400 text-[#1a1a1a]" },
 };
 
+type KeyEligibility = {
+  keyId: string;
+  keyStatus: string;
+  canTake: boolean;
+  takeReason?: string;
+  canReturn: boolean;
+  returnReason?: string;
+  needsEvidence: boolean;
+};
+
 export default function ScanKeysPage() {
   const toast = useToast();
   const [user, setUser] = useState<UserContext>({});
   const [qrCode, setQrCode] = useState("");
   const [foundKey, setFoundKey] = useState<Key | null>(null);
+  const [foundEligibility, setFoundEligibility] = useState<KeyEligibility | null>(null);
   const [keys, setKeys] = useState<Key[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -55,7 +66,7 @@ export default function ScanKeysPage() {
     });
   }, []);
 
-  const fetchKeys = async () => {
+  const fetchKeys = useCallback(async () => {
     setLoadingList(true);
     try {
       const res = await api.get<{ data: Key[] }>("/keys");
@@ -66,34 +77,41 @@ export default function ScanKeysPage() {
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchKeys());
-  }, []);
+  }, [fetchKeys]);
 
   const scanQrCode = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setScanning(true);
     try {
       const res = await api.post<{ data: Key }>("/keys/scan", { qrCode: qrCode.trim() });
-      setFoundKey(res.data ?? null);
-      if (!res.data) {
+      const item = res.data ?? null;
+      setFoundKey(item);
+      if (!item) {
+        setFoundEligibility(null);
         toast.error("Kunci tidak ditemukan.");
+      } else {
+        try {
+          const eligRes = await api.get<{ data?: KeyEligibility }>(`/keys/${item.id}/eligibility`);
+          setFoundEligibility(eligRes.data || null);
+        } catch {
+          setFoundEligibility(null);
+        }
       }
     } catch (err) {
       setFoundKey(null);
+      setFoundEligibility(null);
       toast.error(errMsg(err, "Gagal membaca QR kunci."));
     } finally {
       setScanning(false);
     }
   };
 
-  const canTake = useMemo(() => foundKey?.status === "AVAILABLE", [foundKey]);
-  const canReturn = useMemo(() => {
-    if (!foundKey || foundKey.status !== "BORROWED") return false;
-    return foundKey.currentHolder?.id === user.userId;
-  }, [foundKey, user.userId]);
+  const canTake = Boolean(foundEligibility ? foundEligibility.canTake : foundKey?.status === "AVAILABLE");
+  const canReturn = Boolean(foundEligibility ? foundEligibility.canReturn : foundKey?.status === "BORROWED" && foundKey.currentHolder?.id === user.userId);
 
   const handleTake = async () => {
     if (!foundKey) return;
@@ -132,9 +150,21 @@ export default function ScanKeysPage() {
     if (!targetQrCode?.trim()) return;
     try {
       const res = await api.post<{ data: Key }>("/keys/scan", { qrCode: targetQrCode.trim() });
-      setFoundKey(res.data ?? null);
+      const item = res.data ?? null;
+      setFoundKey(item);
+      if (item) {
+        try {
+          const eligRes = await api.get<{ data?: KeyEligibility }>(`/keys/${item.id}/eligibility`);
+          setFoundEligibility(eligRes.data || null);
+        } catch {
+          setFoundEligibility(null);
+        }
+      } else {
+        setFoundEligibility(null);
+      }
     } catch {
       setFoundKey(null);
+      setFoundEligibility(null);
     }
   };
 

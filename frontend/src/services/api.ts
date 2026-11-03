@@ -8,6 +8,18 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+export class ApiError<T = unknown> extends Error {
+  readonly status: number;
+  readonly data?: T;
+
+  constructor(message: string, status: number, data?: T) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
 function clearAuthSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem("token");
@@ -33,6 +45,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const config: RequestInit = {
     method,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders(),
@@ -50,6 +63,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     const error = await response.json().catch(() => ({ message: "Request failed" })) as {
       message?: string;
       errors?: Array<{ field?: string; message?: string } | string | { message?: string }>;
+      data?: unknown;
     };
 
     if (response.status === 401) {
@@ -69,7 +83,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
           .find((msg) => msg.length > 0)
       : undefined;
 
-    throw new Error(firstFieldError || error.message || `HTTP ${response.status}`);
+    throw new ApiError(firstFieldError || error.message || `HTTP ${response.status}`, response.status, error.data);
   }
 
   return response.json();

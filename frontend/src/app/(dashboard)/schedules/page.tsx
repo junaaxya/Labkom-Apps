@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TbTrash,
@@ -8,13 +8,13 @@ import {
   TbSquare,
   TbSquareCheck,
   TbEdit,
-  TbCalendarEvent,
+
   TbArrowsExchange,
   TbCalendarOff,
   TbCalendarPlus,
   TbCheck,
   TbX,
-  TbClock,
+
   TbLoader2,
 } from "react-icons/tb";
 import type {
@@ -238,7 +238,7 @@ export default function SchedulesPage() {
     });
   };
 
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     setIsLabsLoading(true);
     try {
       const response = await api.get<{ data: { id: string; name: string }[] }>("/labs");
@@ -248,9 +248,9 @@ export default function SchedulesPage() {
     } finally {
       setIsLabsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -286,9 +286,9 @@ export default function SchedulesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedDay, selectedLab, toast]);
 
-  const fetchMyRequests = async () => {
+  const fetchMyRequests = useCallback(async () => {
     setIsRequestsLoading(true);
     try {
       const response = await api.get<{ data: ScheduleChangeItem[] }>("/schedule-changes/my");
@@ -298,9 +298,9 @@ export default function SchedulesPage() {
     } finally {
       setIsRequestsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchAllRequests = async () => {
+  const fetchAllRequests = useCallback(async () => {
     setIsRequestsLoading(true);
     try {
       const response = await api.get<{ data: ScheduleChangeListResponse | ScheduleChangeItem[] }>("/schedule-changes");
@@ -315,9 +315,9 @@ export default function SchedulesPage() {
     } finally {
       setIsRequestsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchRequestStats = async () => {
+  const fetchRequestStats = useCallback(async () => {
     setIsStatsLoading(true);
     try {
       const response = await api.get<{ data: { pending?: number; approved?: number; rejected?: number } }>("/schedule-changes/stats");
@@ -332,15 +332,15 @@ export default function SchedulesPage() {
     } finally {
       setIsStatsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchLabs());
-  }, []);
+  }, [fetchLabs]);
 
   useEffect(() => {
     queueMicrotask(() => void fetchSchedules());
-  }, [selectedDay, selectedLab]);
+  }, [fetchSchedules]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -356,17 +356,17 @@ export default function SchedulesPage() {
   useEffect(() => {
     if (!isKetuaKelas) return;
     queueMicrotask(() => void fetchMyRequests());
-  }, [isKetuaKelas]);
+  }, [fetchMyRequests, isKetuaKelas]);
 
   useEffect(() => {
     if (!canReviewRequests) return;
     queueMicrotask(() => void fetchRequestStats());
-  }, [canReviewRequests]);
+  }, [canReviewRequests, fetchRequestStats]);
 
   useEffect(() => {
     if (!(canReviewRequests && activeTab === "REQUESTS")) return;
     queueMicrotask(() => void fetchAllRequests());
-  }, [canReviewRequests, activeTab]);
+  }, [activeTab, canReviewRequests, fetchAllRequests]);
 
   const groupedByDay = useMemo(
     () =>

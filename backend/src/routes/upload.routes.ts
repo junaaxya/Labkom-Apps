@@ -1,17 +1,23 @@
 import { Router, Request, Response, NextFunction } from "express";
+import crypto from "crypto";
+import fs from "fs/promises";
 import multer from "multer";
 import { authenticate } from "../middlewares/auth.middleware";
+import prisma from "../config/database";
 import {
   createUploadFilename,
   ensureUploadDirectories,
   getImageExtension,
+  hasImageSignature,
   getUploadCategoryDir,
+  getUploadPath,
   isUploadCategory,
   toUploadUrl,
   uploadCategories,
   uploadLimits,
   type UploadCategory,
 } from "../config/upload";
+import { registerTemporaryUploadOwner } from "../services/protected-file-access.service";
 
 ensureUploadDirectories();
 
@@ -76,22 +82,48 @@ const conditionUpload = createImageUpload("conditions", 5);
 const genericUpload = createImageUpload("general", 5);
 const avatarUpload = createImageUpload("avatars", 1);
 
+async function rememberOwners(req: Request, category: UploadCategory, files: Express.Multer.File[]): Promise<void> {
+  await Promise.all(files.map((file) => registerTemporaryUploadOwner(req.user!.userId, category, file.filename)));
+}
+
 const router = Router();
+
+async function removeFiles(files: Express.Multer.File[]): Promise<void> {
+  await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => undefined)));
+}
 
 router.post(
   "/condition-photos",
   authenticate,
   conditionUpload.array("photos", 5),
   handleMulterError,
-  (req: Request, res: Response): void => {
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
-      res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
-      return;
+  async (req: Request, res: Response): Promise<void> => {
+    const files = (req.files as Express.Multer.File[]) || [];
+    try {
+      if (!req.user) throw new Error("Unauthorized");
+      if (files.length === 0) throw new Error("Tidak ada file yang diupload");
+      const keyBorrowCycleId = typeof req.body.keyBorrowCycleId === "string" ? req.body.keyBorrowCycleId : "";
+      if (!keyBorrowCycleId) throw new Error("Siklus peminjaman wajib diisi");
+      const cycle = await prisma.keyBorrowCycle.findFirst({
+        where: { id: keyBorrowCycleId, borrowerId: req.user.userId, status: "ACTIVE" },
+        select: { id: true },
+      });
+      if (!cycle) throw new Error("Siklus peminjaman aktif tidak ditemukan");
+      const uploads = await Promise.all(files.map(async (file) => {
+        const content = await fs.readFile(getUploadPath("conditions", file.filename));
+        if (!hasImageSignature(content, file.mimetype)) throw new Error("Isi file bukan gambar yang valid");
+        return { url: toUploadUrl("conditions", file.filename), sha256: crypto.createHash("sha256").update(content).digest("hex") };
+      }));
+      await prisma.conditionPhotoUpload.createMany({
+        data: uploads.map((upload) => ({ ...upload, ownerId: req.user!.userId, keyBorrowCycleId: cycle.id })),
+      });
+      await rememberOwners(req, "conditions", files);
+      res.json({ success: true, data: { urls: uploads.map((upload) => upload.url) } });
+    } catch (error) {
+      await removeFiles(files);
+      const message = error instanceof Error ? error.message : "Upload gagal";
+      res.status(message === "Unauthorized" ? 401 : 400).json({ success: false, message });
     }
-
-    const urls = files.map((file) => toUploadUrl("conditions", file.filename));
-    res.json({ success: true, data: { urls } });
   }
 );
 
@@ -100,7 +132,7 @@ router.post(
   authenticate,
   genericUpload.array("photos", 5),
   handleMulterError,
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const category = resolveCategory(req, "general");
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -108,8 +140,21 @@ router.post(
       return;
     }
 
-    const urls = files.map((file) => toUploadUrl(category, file.filename));
-    res.json({ success: true, data: { urls } });
+    try {
+      await Promise.all(files.map(async (file) => {
+        const content = await fs.readFile(file.path);
+        if (!hasImageSignature(content, file.mimetype)) {
+          throw new Error("Isi file bukan gambar yang valid");
+        }
+      }));
+      await rememberOwners(req, category, files);
+      const urls = files.map((file) => toUploadUrl(category, file.filename));
+      res.json({ success: true, data: { urls } });
+    } catch (error) {
+      await removeFiles(files);
+      const message = error instanceof Error ? error.message : "Upload gagal";
+      res.status(400).json({ success: false, message });
+    }
   }
 );
 
@@ -118,14 +163,22 @@ router.post(
   authenticate,
   avatarUpload.single("photo"),
   handleMulterError,
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response): Promise<void> => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ success: false, message: "Tidak ada file yang diupload" });
       return;
     }
 
-    res.json({ success: true, data: { url: toUploadUrl("avatars", file.filename) } });
+    try {
+      const content = await fs.readFile(file.path);
+      if (!hasImageSignature(content, file.mimetype)) throw new Error("Isi file bukan gambar yang valid");
+      res.json({ success: true, data: { url: toUploadUrl("avatars", file.filename) } });
+    } catch (error) {
+      await removeFiles([file]);
+      const message = error instanceof Error ? error.message : "Upload gagal";
+      res.status(400).json({ success: false, message });
+    }
   }
 );
 

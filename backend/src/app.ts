@@ -7,8 +7,13 @@ import { config } from "./config";
 import { ensureUploadDirectories, getUploadCategoryDir } from "./config/upload";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import routes from "./routes";
+import { auditSuccessfulMutation } from "./middlewares/audit.middleware";
 
 const app = express();
+
+// The API is only reachable through the internal reverse proxy. Trust exactly
+// that hop so rate limiting sees the real client IP from X-Forwarded-For.
+app.set("trust proxy", 1);
 
 ensureUploadDirectories();
 
@@ -55,7 +60,7 @@ app.use(
   })
 );
 
-app.use("/api/v1", routes);
+app.use("/api/v1", auditSuccessfulMutation, routes);
 
 // Error handling
 app.use(notFoundHandler);

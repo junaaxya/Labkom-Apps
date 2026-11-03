@@ -8,9 +8,12 @@ router.get("/", authenticate, KeyController.getAllKeys);
 router.get("/logs", authenticate, KeyController.getKeyLogs);
 router.post("/scan", authenticate, KeyController.findByQR);
 router.patch("/:id/force-return", authenticate, authorize("KOORDINATOR_LAB"), KeyController.forceReturnKey);
+router.patch("/:id/reconcile-legacy", authenticate, authorize("KOORDINATOR_LAB"), KeyController.reconcileLegacyBorrowedKey);
 router.get("/:id", authenticate, KeyController.getKeyById);
+router.get("/:id/eligibility", authenticate, KeyController.getEligibility);
 router.patch("/:id/take", authenticate, KeyController.takeKey);
 router.get("/:id/return-status", authenticate, KeyController.getReturnStatus);
+router.patch("/:id/return-evidence", authenticate, KeyController.saveReturnEvidence);
 router.patch("/:id/return", authenticate, KeyController.returnKey);
 
 export default router;

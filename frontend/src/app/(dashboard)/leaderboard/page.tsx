@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TbTrophy, TbMedal, TbTarget, TbFlame, TbCalendarCheck, TbTicket, TbClipboardList, TbCrown, TbChevronDown, TbX } from "react-icons/tb";
 import api from "@/services/api";
 
@@ -9,7 +9,6 @@ interface LeaderboardEntry {
   userId: string;
   name: string;
   avatar: string | null;
-  email: string;
   totalPoints: number;
   missionsCompleted: number;
   totalAttendance: number;
@@ -43,6 +42,7 @@ interface LeaderboardUserDetail {
   ticketsResolved?: number;
   achievements?: unknown[];
   pointsHistory?: Array<{ id?: string; reason?: string; amount?: number }>;
+  pointBreakdown?: { attendance?: number; mission?: number; other?: number };
   streak?: number;
   missionStats?: {
     completed?: number;
@@ -62,6 +62,10 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [userDetail, setUserDetail] = useState<LeaderboardUserDetail | null>(null);
+  const [viewer] = useState<{ id?: string; userId?: string; role?: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+  });
 
   const isLeaderboardEntry = (value: unknown): value is LeaderboardEntry => {
     if (!value || typeof value !== "object") return false;
@@ -70,7 +74,6 @@ export default function LeaderboardPage() {
       typeof v.rank === "number" &&
       typeof v.userId === "string" &&
       typeof v.name === "string" &&
-      typeof v.email === "string" &&
       typeof v.totalPoints === "number"
     );
   };
@@ -87,7 +90,7 @@ export default function LeaderboardPage() {
     );
   };
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get<{ data: unknown }>(`/leaderboard?period=${period}`);
@@ -98,18 +101,20 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const res = await api.get<{ data: unknown }>("/leaderboard/stats");
+      const res = await api.get<{ data: unknown }>(`/leaderboard/stats?period=${period}`);
       setStats(isOverallStats(res.data) ? res.data : null);
     } catch {
       setStats(null);
     }
-  };
+  }, [period]);
 
+  const canOpenDetail = (userId: string) => viewer?.role === "KOORDINATOR_LAB" || (viewer?.id || viewer?.userId) === userId;
   const fetchUserDetail = async (userId: string) => {
+    if (!canOpenDetail(userId)) return;
     try {
       const res = await api.get<{ data: unknown }>(`/leaderboard/user/${userId}`);
       setUserDetail((res.data as LeaderboardUserDetail) ?? null);
@@ -124,7 +129,7 @@ export default function LeaderboardPage() {
       void fetchLeaderboard();
       void fetchStats();
     });
-  }, [period]);
+  }, [fetchLeaderboard, fetchStats]);
 
   const periodLabels: Record<Period, string> = {
     all: "Semua Waktu",
@@ -270,7 +275,7 @@ export default function LeaderboardPage() {
                 
                 <div className="flex-1 min-w-[150px]">
                   <p className="font-bold font-heading text-lg text-[#1a1a1a] truncate">{entry.name}</p>
-                  <p className="text-sm font-medium text-[#5a5a5a] truncate">{entry.email}</p>
+                  <p className="text-sm font-medium text-[#5a5a5a] truncate">{entry.totalAttendance} shift selesai</p>
                 </div>
                 
                 <div className="hidden lg:flex items-center gap-6 text-sm flex-1 justify-center">
@@ -344,6 +349,14 @@ export default function LeaderboardPage() {
                 <p className="text-2xl sm:text-3xl font-heading font-bold text-green-600 truncate">{userDetail.streak} <span className="text-sm sm:text-base">hari</span></p>
                 <p className="text-xs sm:text-sm font-bold text-[#5a5a5a] mt-1">Streak</p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mb-6 text-center">
+              {[
+                { label: "Absensi", value: userDetail.pointBreakdown?.attendance ?? 0 },
+                { label: "Misi", value: userDetail.pointBreakdown?.mission ?? 0 },
+                { label: "Lainnya", value: userDetail.pointBreakdown?.other ?? 0 },
+              ].map((item) => <div key={item.label} className="bg-white neo-border rounded-lg p-2"><p className="font-bold text-[#f3701e]">{item.value}</p><p className="text-[10px] font-bold text-[#5a5a5a]">{item.label}</p></div>)}
             </div>
 
             <div className="mb-6 sm:mb-8">

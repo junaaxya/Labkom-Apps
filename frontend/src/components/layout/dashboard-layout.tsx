@@ -7,6 +7,7 @@ import { NeoTopbar } from "./neo-topbar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { SidebarProvider } from "@/providers/sidebar-context";
 import type { User } from "@/types";
+import { CurrentUserProvider } from "@/providers/current-user-context";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -17,7 +18,8 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
   const pathname = usePathname();
 
   return (
-    <SidebarProvider>
+    <CurrentUserProvider user={user}>
+      <SidebarProvider>
       <div className="min-h-screen bg-[#e8d8c9] neo-grain safe-area-inset">
         <NeoSidebar
           role={user.role}
@@ -46,6 +48,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
 
         <MobileBottomNav role={user.role} />
       </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </CurrentUserProvider>
   );
 }

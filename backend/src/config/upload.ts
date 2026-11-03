@@ -49,6 +49,9 @@ export function getUploadCategoryDir(category: UploadCategory): string {
 }
 
 export function getUploadPath(category: UploadCategory, filename: string): string {
+  if (!filename || filename !== path.basename(filename)) {
+    throw new Error("Path file upload tidak valid");
+  }
   const safeFilename = path.basename(filename);
   const resolved = path.resolve(getUploadCategoryDir(category), safeFilename);
   const categoryRoot = path.resolve(getUploadCategoryDir(category));
@@ -92,6 +95,20 @@ export function safeDeleteUpload(url?: string | null, allowedCategories: UploadC
 
 export function getImageExtension(mimetype: string): string | null {
   return allowedImageMimeToExt[mimetype] || null;
+}
+
+export function hasImageSignature(file: Buffer, mimetype: string): boolean {
+  if (mimetype === "image/jpeg") {
+    return file.length >= 3 && file[0] === 0xff && file[1] === 0xd8 && file[2] === 0xff;
+  }
+  if (mimetype === "image/png") {
+    return file.length >= 8
+      && file.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+  return mimetype === "image/webp"
+    && file.length >= 12
+    && file.subarray(0, 4).toString("ascii") === "RIFF"
+    && file.subarray(8, 12).toString("ascii") === "WEBP";
 }
 
 export function createUploadFilename(prefix: string, mimetype: string): string {

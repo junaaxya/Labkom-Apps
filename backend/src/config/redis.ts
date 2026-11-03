@@ -1,12 +1,16 @@
 import Redis from "ioredis";
+import { config } from "./index";
 
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+const redis = new Redis(config.redisUrl, {
   maxRetriesPerRequest: 3,
   lazyConnect: true,
+  enableReadyCheck: true,
   retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
+    return Math.min(times * 50, 2000);
   },
 });
+
+redis.on("error", () => console.warn("[Redis] Koneksi belum tersedia"));
+redis.on("ready", () => console.info("[Redis] Siap"));
 
 export default redis;
