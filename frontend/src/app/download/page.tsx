@@ -2,9 +2,9 @@ import Link from "next/link";
 import { TbArrowLeft, TbBrandAndroid, TbDownload, TbListCheck, TbShieldCheck, TbVersions } from "react-icons/tb";
 
 const apkUrl = process.env.NEXT_PUBLIC_ANDROID_APK_URL || "/downloads/labkom-management.apk";
-const apkVersion = process.env.NEXT_PUBLIC_ANDROID_APK_VERSION || "1.0.0";
+const apkVersion = process.env.NEXT_PUBLIC_ANDROID_APK_VERSION || "1.0";
 const apkUpdatedAt = process.env.NEXT_PUBLIC_ANDROID_APK_UPDATED_AT || "02 Agustus 2026";
-const apkSize = process.env.NEXT_PUBLIC_ANDROID_APK_SIZE || "Belum diisi";
+const apkSize = process.env.NEXT_PUBLIC_ANDROID_APK_SIZE || "9,3 MB";
 
 const installSteps = [
   "Tekan tombol Download APK dan tunggu file selesai diunduh.",
