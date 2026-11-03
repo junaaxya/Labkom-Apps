@@ -10,6 +10,7 @@ Rules:
 
 ## Entries
 
+- 2026-11-03 WIB — Claude: fixed public APK download by tracking verified `labkom-management.apk` plus SHA-256 sidecar, retaining `/downloads/labkom-management.apk`, and aligning proven version/date/size metadata; added deterministic asset/hash contract test -> `frontend/public/downloads`, `frontend/src/app/download/page.tsx`, `frontend/scripts/download-apk.test.mjs`
 - 2026-11-03 WIB — Sisyphus: integrated Support Chat inbox/detail and PC-scan entry on latest Android frontend while preserving ApiError metadata, QR ticket privacy/duplicate handling, Academic navigation, and current RBAC; chat stays polling-based and role-scoped to MAHASISWA/ASISTEN_LAB -> frontend/src/app/(dashboard)/support-chats, frontend/src/app/(dashboard)/scan/pc/[code]/page.tsx
 - 2026-11-02 WIB — Sisyphus: completed Academic P0–P2 UI remediation, Logbook access fix, Misi detail modal, and Key Return UX: removed /logbook/condition from student menu, memoized ToastProvider, added MissionDetailModal with full description and location badges, flattened Leaderboard names, added key return textareas and photo controls, added rejection dialog portal, capability-driven action gating, and ResourceError retry states -> frontend/src/{app/(dashboard)/{academic,missions,logbook/condition,scan/key/[code]},components/layout/{neo-sidebar,mobile-bottom-nav},providers/toast-provider}.tsx
 
