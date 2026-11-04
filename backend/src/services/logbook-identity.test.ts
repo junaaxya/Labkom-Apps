@@ -116,6 +116,8 @@ test("bound today lookup uses only recorded schedule and lab before condition su
     replace(prisma.logbook, "findFirst", async () => ({ id: "logbook-1", labId: "lab-1", scheduleId: "schedule-1", conditions: [] })),
     replace(prisma.lab, "findMany", async () => { labQueries += 1; return []; }),
     replace(prisma.schedule, "findMany", async (query: { where: Record<string, unknown> }) => { scheduleQueries.push(query); return []; }),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.keyLog, "findMany", async (query: { where: { key: unknown } }) => { keyQueries.push(query); return []; }),
   ];
   try {

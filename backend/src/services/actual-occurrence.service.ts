@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { canonicalDateOnly, weekdayForDateOnly } from "./jakarta-time";
 import { isOperationalSchedule, operationalScheduleWhere } from "./schedule-availability";
 
@@ -110,6 +110,30 @@ export async function resolveActualOccurrences(
   const structuredScheduleIds = schedules
     .filter((schedule) => Boolean(schedule.academicOffering || schedule.allocatedSlotRequest?.targetOffering))
     .map((schedule) => schedule.id);
+  const smartMoveDelegate = (tx as unknown as { smartAcademicMoveRequest?: typeof tx.smartAcademicMoveRequest }).smartAcademicMoveRequest;
+  let smartMoves: { id: string; sourceReport: { scheduleId: string }; targetScheduleId: string; labId: string; startTime: string; endTime: string }[] = [];
+  if (smartMoveDelegate) {
+    try {
+      smartMoves = await smartMoveDelegate.findMany({
+        where: { status: { in: ["AUTO_APPROVED", "APPROVED"] }, occurrenceDate: date },
+        select: { id: true, sourceReport: { select: { scheduleId: true } }, targetScheduleId: true, labId: true, startTime: true, endTime: true },
+      });
+    } catch (error) {
+      // ponytail: rolling deploy fallback; remove after every environment has migration 20261103010000.
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021")) throw error;
+    }
+  }
+  const smartReportDelegate = (tx as unknown as { smartAcademicOccurrenceReport?: typeof tx.smartAcademicOccurrenceReport }).smartAcademicOccurrenceReport;
+  let smartReleasedScheduleIds: string[] = [];
+  if (smartReportDelegate) {
+    try {
+      smartReleasedScheduleIds = (await smartReportDelegate.findMany({
+        where: { occurrenceDate: date, status: { in: ["KOSONG", "ONLINE"] } }, select: { scheduleId: true },
+      })).map((item) => item.scheduleId);
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021")) throw error;
+    }
+  }
   const swapDelegate = (tx as unknown as { academicOccurrenceSwap?: typeof tx.academicOccurrenceSwap }).academicOccurrenceSwap;
   const swaps = structuredScheduleIds.length === 0 || !swapDelegate
     ? []
@@ -144,9 +168,14 @@ export async function resolveActualOccurrences(
       ? (schedule.occurrenceReleases ?? []).find((item) => item.status === "RELEASED" || item.status === "ALLOCATED")
       : undefined;
     if (release) return [];
+    const smartMove = smartMoves.find((item) => item.targetScheduleId === schedule.id);
+    const smartSourceReleased = smartMoves.some((item) => item.sourceReport.scheduleId === schedule.id) || smartReleasedScheduleIds.includes(schedule.id);
+    if (smartSourceReleased && !smartMove) return [];
 
     const swap = swaps.find((item) => item.sourceScheduleId === schedule.id || item.targetScheduleId === schedule.id);
-    const projected = swap?.sourceScheduleId === schedule.id
+    const projected = smartMove
+      ? { labId: smartMove.labId, startTime: smartMove.startTime, endTime: smartMove.endTime, swapId: smartMove.id }
+      : swap?.sourceScheduleId === schedule.id
       ? { labId: swap.targetLabId, startTime: swap.targetStartTime, endTime: swap.targetEndTime, swapId: swap.id }
       : swap?.targetScheduleId === schedule.id
         ? { labId: swap.sourceLabId, startTime: swap.sourceStartTime, endTime: swap.sourceEndTime, swapId: swap.id }

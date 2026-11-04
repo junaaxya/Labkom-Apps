@@ -11,7 +11,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/notifications": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
-  "/academic": ["KOORDINATOR_LAB", "DOSEN", "MAHASISWA"],
+  "/academic": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
 
   "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],

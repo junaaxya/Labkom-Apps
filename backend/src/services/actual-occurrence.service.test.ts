@@ -21,6 +21,8 @@ const rawSchedule = {
 test("structured occurrence projects approved swap without mutating official schedule", async () => {
   const restores = [
     replace(prisma.schedule, "findMany", async () => [rawSchedule]),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.academicOccurrenceSwap, "findMany", async () => [{
       id: "swap-1", sourceScheduleId: "schedule-1", targetScheduleId: "schedule-2",
       sourceLabId: "lab-1", targetLabId: "lab-1", sourceStartTime: "08:00", sourceEndTime: "10:00",
@@ -41,6 +43,8 @@ test("structured occurrence projects approved swap without mutating official sch
 test("release suppresses only structured source occurrence", async () => {
   const restores = [
     replace(prisma.schedule, "findMany", async () => [{ ...rawSchedule, occurrenceReleases: [{ id: "release-1", status: "ALLOCATED" }] }]),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.academicOccurrenceSwap, "findMany", async () => []),
   ];
   try {
@@ -52,13 +56,17 @@ test("release suppresses only structured source occurrence", async () => {
 
 test("legacy occurrence remains raw when no academic binding exists", async () => {
   const legacy = { ...rawSchedule, academicOffering: null, occurrenceReleases: [], startTime: "13:00", endTime: "15:00" };
-  const restore = replace(prisma.schedule, "findMany", async () => [legacy]);
+  const restores = [
+    replace(prisma.schedule, "findMany", async () => [legacy]),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
+  ];
   try {
     const [actual] = await resolveActualOccurrences(prisma as never, date);
     assert.equal(actual.startTime, "13:00");
     assert.equal(actual.swapId, null);
   } finally {
-    restore();
+    restores.reverse().forEach((restore) => restore());
   }
 });
 
@@ -79,6 +87,8 @@ test("approved allocation projects the dated schedule as the target offering occ
   };
   const restores = [
     replace(prisma.schedule, "findMany", async () => [allocated]),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.academicOccurrenceSwap, "findMany", async () => []),
   ];
   try {

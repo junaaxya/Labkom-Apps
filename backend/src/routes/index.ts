@@ -31,6 +31,7 @@ import assetRoutes from "./asset.routes";
 import accessRequestRoutes from "./access-request.routes";
 import academicRoutes from "./academic.routes";
 import supportChatRoutes from "./support-chat.routes";
+import smartAcademicRoutes from "./smart-academic.routes";
 
 
 const router = Router();
@@ -74,6 +75,7 @@ router.use("/hosting", hostingRoutes);
 router.use("/assets", assetRoutes);
 router.use("/access-requests", accessRequestRoutes);
 router.use("/academic", academicRoutes);
+router.use("/smart-academic", smartAcademicRoutes);
 router.use("/support-chats", supportChatRoutes);
 
 export default router;

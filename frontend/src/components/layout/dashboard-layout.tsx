@@ -1,7 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { NeoSidebar } from "./neo-sidebar";
 import { NeoTopbar } from "./neo-topbar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
@@ -15,8 +13,6 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, user }: DashboardLayoutProps) {
-  const pathname = usePathname();
-
   return (
     <CurrentUserProvider user={user}>
       <SidebarProvider>
@@ -31,18 +27,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
           <NeoTopbar user={user} />
 
           <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full relative z-10 pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-safe">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="w-full"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            <div className="w-full">
+              {children}
+            </div>
           </main>
         </div>
 

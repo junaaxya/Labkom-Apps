@@ -52,6 +52,25 @@ enum AcademicOccurrenceSwapStatus {
   CANCELLED
 }
 
+enum SmartAcademicMeetingStatus {
+  MASUK
+  KOSONG
+  ONLINE
+}
+
+enum SmartAcademicMoveStatus {
+  AUTO_APPROVED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SmartAcademicRiskLevel {
+  GREEN
+  YELLOW
+}
+
 enum AccessRequestType {
   PEMINJAMAN_LAB
   MAGANG
@@ -386,6 +405,11 @@ model User {
   academicSwapsRequested     AcademicOccurrenceSwap[]             @relation("AcademicSwapRequester")
   academicSwapsReviewed      AcademicOccurrenceSwap[]             @relation("AcademicSwapReviewer")
   academicSwapConfirmations  AcademicOccurrenceSwapConfirmation[]
+  smartAcademicPjAssignments SmartAcademicPj[]                    @relation("SmartAcademicPjStudent")
+  smartAcademicPjAssigned    SmartAcademicPj[]                    @relation("SmartAcademicPjAssigner")
+  smartAcademicReports       SmartAcademicOccurrenceReport[]      @relation("SmartAcademicReportActor")
+  smartAcademicMoveRequests  SmartAcademicMoveRequest[]           @relation("SmartAcademicMoveRequester")
+  smartAcademicMoveReviews   SmartAcademicMoveRequest[]           @relation("SmartAcademicMoveReviewer")
   supportChatsStarted        SupportChat[]                        @relation("SupportChatStudent")
   supportChatsAssigned       SupportChat[]                        @relation("SupportChatAssistant")
   supportChatRecipients      SupportChatRecipient[]               @relation("SupportChatRecipientAssistant")
@@ -426,6 +450,8 @@ model Lab {
   picketPatternAssignments   AsLabPicketPatternAssignment[]
   academicOccurrenceReleases AcademicOccurrenceRelease[]
   supportChats               SupportChat[]
+  smartAcademicReports       SmartAcademicOccurrenceReport[]
+  smartAcademicMoveRequests  SmartAcademicMoveRequest[]
 
   @@map("labs")
 }
@@ -651,6 +677,81 @@ model PcWarning {
 // ============================================
 // SCHEDULING
 // ============================================
+
+model SmartAcademicPj {
+  id           String   @id @default(cuid())
+  scheduleId   String
+  studentId    String
+  assignedById String
+  isActive     Boolean  @default(true)
+  assignedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  student    User     @relation("SmartAcademicPjStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  assignedBy User     @relation("SmartAcademicPjAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@unique([scheduleId, studentId])
+  @@index([scheduleId, isActive])
+  @@index([studentId, isActive])
+  @@map("smart_academic_pjs")
+}
+
+model SmartAcademicOccurrenceReport {
+  id             String                     @id @default(cuid())
+  scheduleId     String
+  occurrenceDate DateTime                   @db.Date
+  status         SmartAcademicMeetingStatus
+  source         String
+  notes          String?
+  reportedById   String
+  labId          String
+  startTime      String
+  endTime        String
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  schedule   Schedule                  @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  reportedBy User                      @relation("SmartAcademicReportActor", fields: [reportedById], references: [id], onDelete: Restrict)
+  lab        Lab                       @relation(fields: [labId], references: [id], onDelete: Restrict)
+  move       SmartAcademicMoveRequest? @relation("SmartAcademicMoveSource")
+
+  @@unique([scheduleId, occurrenceDate])
+  @@index([occurrenceDate, status])
+  @@index([labId, occurrenceDate, status])
+  @@map("smart_academic_occurrence_reports")
+}
+
+model SmartAcademicMoveRequest {
+  id               String                  @id @default(cuid())
+  sourceReportId   String                  @unique
+  targetScheduleId String
+  requestedById    String
+  reviewedById     String?
+  occurrenceDate   DateTime                @db.Date
+  labId            String
+  startTime        String
+  endTime          String
+  status           SmartAcademicMoveStatus
+  riskLevel        SmartAcademicRiskLevel
+  riskReasons      Json                    @default("[]")
+  reason           String?
+  rejectionReason  String?
+  reviewedAt       DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  sourceReport   SmartAcademicOccurrenceReport @relation("SmartAcademicMoveSource", fields: [sourceReportId], references: [id], onDelete: Restrict)
+  targetSchedule Schedule                      @relation("SmartAcademicMoveTarget", fields: [targetScheduleId], references: [id], onDelete: Restrict)
+  requestedBy    User                          @relation("SmartAcademicMoveRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy     User?                         @relation("SmartAcademicMoveReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  lab            Lab                           @relation(fields: [labId], references: [id], onDelete: Restrict)
+
+  @@index([status, occurrenceDate])
+  @@index([targetScheduleId, occurrenceDate])
+  @@index([labId, occurrenceDate, status])
+  @@map("smart_academic_move_requests")
+}
 
 model AcademicTerm {
   id        String    @id @default(cuid())
@@ -983,6 +1084,9 @@ model Schedule {
   swapsAsTarget        AcademicOccurrenceSwap[]            @relation("AcademicSwapTargetSchedule")
   swapReservations     AcademicOccurrenceSwapReservation[]
   allocatedSlotRequest AcademicSlotRequest?                @relation("AcademicSlotRequestAllocatedSchedule")
+  smartAcademicPjs     SmartAcademicPj[]
+  smartAcademicReports SmartAcademicOccurrenceReport[]
+  smartAcademicMoves   SmartAcademicMoveRequest[]          @relation("SmartAcademicMoveTarget")
 
   @@index([labId, startTime])
   @@index([status, startTime])

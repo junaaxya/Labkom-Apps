@@ -9,7 +9,6 @@ import {
   TbQrcode,
   TbRobot,
   TbChecklist,
-  TbBook2,
   TbTicket,
   TbMenu2,
   TbBuildingWarehouse,
@@ -41,7 +40,7 @@ const navByRole: Record<Role, NavItem[]> = {
   ASISTEN_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
     { label: "Absensi", href: "/attendance", icon: TbChecklist, match: (p) => p.startsWith("/attendance") },
-    { label: "Logbook", href: "/logbook", icon: TbBook2, match: (p) => p.startsWith("/logbook") },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
     { label: "Tiket", href: "/tickets", icon: TbTicket, match: (p) => p.startsWith("/tickets") },
   ],
   MAHASISWA: [
