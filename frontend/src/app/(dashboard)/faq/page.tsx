@@ -259,7 +259,7 @@ export default function HelpCenterPage() {
         onSelectCategory={(cat) => setCategory(cat)}
       />
 
-      <section className="neo-card overflow-hidden bg-white p-0">
+      <section className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-white">
         <div className="border-b-2 border-[#1a1a1a] bg-[#fff8f0] p-5 sm:p-8">
           <div>
             <h1 className="font-heading text-3xl font-black tracking-tight text-[#1a1a1a] sm:text-4xl">Pusat Bantuan</h1>
@@ -401,12 +401,12 @@ export default function HelpCenterPage() {
                   const Icon = CATEGORY_ICONS[faq.category] || TbHelpCircle;
 
                   return (
-                    <article key={key} className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-white shadow-[2px_2px_0px_#1a1a1a] sm:shadow-[3px_3px_0px_#1a1a1a]">
+                    <article key={key} className="overflow-hidden border-b border-[#1a1a1a]/25 bg-white last:border-b-0">
                       <button
                         type="button"
                         onClick={() => setOpenQuestion(isOpen ? null : key)}
                         aria-expanded={isOpen}
-                        className="flex min-h-[56px] sm:min-h-[60px] w-full items-center gap-2.5 sm:gap-3 p-3 text-left hover:bg-[#fff8f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] sm:p-4"
+                        className="flex min-h-[60px] w-full items-center gap-3 px-1 py-4 text-left hover:bg-[#fff8f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] sm:px-2"
                       >
                         <span className="hidden w-24 shrink-0 items-center gap-1.5 text-xs font-semibold text-[#405574] sm:flex">
                           <Icon className="h-4 w-4" />
@@ -416,7 +416,7 @@ export default function HelpCenterPage() {
                         <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                       </button>
                       {isOpen && (
-                        <div className="border-t-2 border-[#1a1a1a] bg-[#fffdf9] p-3.5 sm:p-5">
+                        <div className="border-t border-[#1a1a1a]/20 bg-[#fffdf9] px-1 pb-5 pt-4 sm:px-[7.25rem]">
                           <p className="whitespace-pre-line text-sm leading-6 text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
                           {feature && (
                             <Link href={feature.href} className="mt-3 sm:mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-3.5 py-1.5 text-xs sm:text-sm font-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]">
@@ -435,7 +435,7 @@ export default function HelpCenterPage() {
       </section>
 
       <section
-        className="flex flex-col gap-3 rounded-xl border-2 sm:border-[3px] border-[#1a1a1a] p-4 shadow-[3px_3px_0px_#1a1a1a] sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        className="flex flex-col gap-4 rounded-xl border-2 border-[#1a1a1a] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
         style={{ backgroundColor: "#4b607f", color: "#ffffff" }}
       >
         <div className="flex items-start gap-3">
