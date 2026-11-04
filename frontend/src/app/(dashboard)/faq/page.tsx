@@ -7,7 +7,6 @@ import {
   TbAlertCircle,
   TbApps,
   TbAward,
-  TbBook2,
   TbBuilding,
   TbCalendar,
   TbCertificate,
@@ -261,21 +260,15 @@ export default function HelpCenterPage() {
       />
 
       <section className="neo-card overflow-hidden bg-white p-0">
-        <div className="border-b-2 border-[#1a1a1a] bg-[#fff8f0] p-4 sm:p-7">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#f3701e] text-white shadow-[3px_3px_0px_#1a1a1a] sm:h-14 sm:w-14">
-              <TbBook2 className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2.2} />
-            </span>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#f3701e]">Panduan LabKom</p>
-              <h1 className="font-heading text-2xl font-black text-[#1a1a1a] sm:text-4xl">Pusat Bantuan</h1>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#4b607f] sm:text-base">
-                Temukan prosedur dan jawaban resmi dengan cepat. Untuk pertanyaan yang lebih spesifik, gunakan AI Assistant.
-              </p>
-            </div>
+        <div className="border-b-2 border-[#1a1a1a] bg-[#fff8f0] p-5 sm:p-8">
+          <div>
+            <h1 className="font-heading text-3xl font-black tracking-tight text-[#1a1a1a] sm:text-4xl">Pusat Bantuan</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#4b607f] sm:text-base">
+              Cari prosedur resmi penggunaan layanan LabKom.
+            </p>
           </div>
 
-          <div className="relative mt-4 sm:mt-5">
+          <div className="relative mt-5 border-l-4 border-[#f3701e] sm:mt-6">
             <label htmlFor="help-search" className="sr-only">Cari panduan LabKom</label>
             <TbSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4b607f]" />
             <input
