@@ -302,12 +302,7 @@ export default function HelpCenterPage() {
               className="flex min-h-[52px] w-full items-center gap-3 rounded-lg border-2 border-[#1a1a1a] bg-[#fff8f0] px-3 text-left hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:hidden"
               aria-label="Pilih kategori panduan"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3701e] text-white">
-                {(() => {
-                  const ActiveIcon = CATEGORY_ICONS[category] || TbFilter;
-                  return <ActiveIcon className="h-5 w-5" />;
-                })()}
-              </span>
+              <TbFilter className="h-5 w-5 shrink-0 text-[#f3701e]" />
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-semibold text-[#5a5a5a]">Kategori</span>
                 <span className="block truncate text-sm font-bold text-[#1a1a1a]">{category}</span>
@@ -438,8 +433,7 @@ export default function HelpCenterPage() {
         className="flex flex-col gap-4 rounded-xl border-2 border-[#1a1a1a] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
         style={{ backgroundColor: "#4b607f", color: "#ffffff" }}
       >
-        <div className="flex items-start gap-3">
-          <TbRobot className="mt-0.5 h-6 w-6 sm:h-7 sm:w-7 shrink-0" style={{ color: "#ffffff" }} />
+        <div>
           <div>
             <h2 className="font-heading text-base font-bold text-white sm:text-lg">
               Pertanyaan belum terjawab?
