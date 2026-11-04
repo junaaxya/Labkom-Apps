@@ -10,6 +10,7 @@ Rules:
 
 ## Entries
 
+- 2026-11-04 WIB — Claude: made schedule class input semester-aware: `S5`/`Semester 5` auto-fills Semester `5`, with form guidance distinguishing semester-wide aliases from explicit class `5A` -> frontend/src/app/(dashboard)/schedules/page.tsx
 - 2026-11-04 WIB — Claude: unslopped `/faq` into a calm operational index: search is sole first-screen focus, FAQ cards became divided rows, category controls and copy were simplified, decorative shadows/icons/motion removed, contrast/touch targets improved, and mobile bottom nav made solid/readable; 12 reversible pass commits plus `.enowx/brief.md`, desktop/phone QA, accordion/category QA, and frontend build passed -> frontend/src/app/(dashboard)/faq/page.tsx, frontend/src/components/layout/mobile-bottom-nav.tsx
 - 2026-11-04 WIB — Claude: removed duplicate sidebar help destinations by standardizing MAHASISWA, MAGANG, and DOSEN on one `Pusat Bantuan` item at `/faq`; kept `/guide` route available for old direct links -> frontend/src/components/layout/neo-sidebar.tsx
 - 2026-11-04 WIB — Claude: overhauled Pusat Bantuan (/faq) category selector: mobile now uses one stable full-width Android-style selector opening a 2-column icon bottom sheet (no horizontal scrolling/state), while tablet/desktop uses wrapped chips; includes counts, active reset, and bottom-nav safe spacing -> frontend/src/app/(dashboard)/faq/page.tsx
