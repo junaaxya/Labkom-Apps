@@ -173,6 +173,8 @@ test("eligibility blocks every borrower after occurrence cycle exists", async ()
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => chair),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.labBooking, "findMany", async () => []),
     replace(prisma.keyBorrowCycle, "findUnique", async () => ({ id: "cycle-closed" })),
   ];
