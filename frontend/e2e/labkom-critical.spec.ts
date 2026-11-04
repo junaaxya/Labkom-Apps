@@ -40,7 +40,7 @@ test("Pusat Bantuan terbaca dan CTA AI memiliki kontras", async ({ page }) => {
   await installAuthenticatedState(page);
   await page.goto("/faq");
   await expect(page.getByRole("heading", { name: "Pusat Bantuan" })).toBeVisible();
-  const cta = page.getByText("Butuh jawaban yang lebih spesifik?");
+  const cta = page.getByText("Pertanyaan belum terjawab?");
   await expect(cta).toBeVisible();
   const colors = await cta.evaluate((element) => {
     const style = getComputedStyle(element);

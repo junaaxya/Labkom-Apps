@@ -27,6 +27,8 @@ test("dated suggestions exclude approved bookings but keep adjacent slots", asyn
       return [{ labId: "lab-a", startTime: "09:00", endTime: "10:00" }];
     },
   });
+  const restoreMoves = replaceProperty(prisma.smartAcademicMoveRequest, "findMany", async () => []);
+  const restoreReports = replaceProperty(prisma.smartAcademicOccurrenceReport, "findMany", async () => []);
 
   try {
     const slots = await smartSchedulingService.suggestOptimalSlots(60, undefined, undefined, new Date("2026-10-13T00:00:00.000Z"));
@@ -34,6 +36,8 @@ test("dated suggestions exclude approved bookings but keep adjacent slots", asyn
     assert.equal(slots.some((slot) => slot.startTime === "09:00"), false);
     assert.equal(slots.some((slot) => slot.startTime === "10:00"), true);
   } finally {
+    restoreReports();
+    restoreMoves();
     restoreBooking();
     restoreSchedule();
     restoreLab();

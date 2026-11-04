@@ -149,6 +149,8 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
       return 1;
     }),
     replaceProperty(prisma.schedule, "groupBy", async () => []),
+    replaceProperty(prisma.smartAcademicMoveRequest, "findMany", async () => []),
+    replaceProperty(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
   ];
 
   try {

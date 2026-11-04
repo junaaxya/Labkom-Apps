@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   TbAlertCircle, TbBulb, TbCheck, TbExternalLink, TbRefresh, TbRobot,
-  TbSend, TbSparkles, TbThumbDown, TbThumbUp, TbTrash,
+  TbArrowUpRight, TbCalendar, TbBuilding, TbSend, TbSparkles, TbThumbDown, TbThumbUp, TbTrash,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
@@ -130,32 +130,32 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-9rem)] flex-col gap-3 sm:gap-4">
-      <header className="flex items-center justify-between gap-3">
+    <div className="flex h-[calc(100dvh-9.25rem-env(safe-area-inset-bottom))] min-h-[520px] flex-col gap-3 pb-1 sm:h-[calc(100dvh-8rem)] sm:gap-4">
+      <header className="flex items-center justify-between gap-3 px-1">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#4b607f] shadow-[2px_2px_0_#1a1a1a]">
-            <TbRobot className="h-5 w-5 text-white" aria-hidden="true" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1f2d42] shadow-sm">
+            <TbRobot className="h-6 w-6 text-white" aria-hidden="true" />
           </div>
-          <div className="min-w-0"><h1 className="truncate font-heading text-xl font-bold sm:text-2xl">Asisten LabKom</h1><p className="truncate text-xs text-[#4b607f] sm:text-sm">Informasi lab berdasarkan hak akses akun</p></div>
+          <div className="min-w-0"><h1 className="truncate font-heading text-xl font-black sm:text-2xl">Asisten LabKom</h1><p className="truncate text-xs font-medium text-[#5a5a5a] sm:text-sm">Jawaban sesuai akses akunmu</p></div>
         </div>
-        <button type="button" onClick={() => setConfirmClear(true)} disabled={!messages.length} aria-label="Hapus riwayat percakapan" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-white disabled:opacity-40"><TbTrash className="h-5 w-5" /></button>
+        <button type="button" onClick={() => setConfirmClear(true)} disabled={!messages.length} aria-label="Hapus riwayat percakapan" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#1a1a1a]/10 bg-white text-[#5a5a5a] shadow-sm transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-30"><TbTrash className="h-5 w-5" /></button>
       </header>
 
       {insights.length > 0 && messages.length === 0 && !historyLoading && (
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Informasi terkini">
-          {insights.map((insight) => <div key={insight} className="flex min-w-[240px] items-start gap-2 rounded-xl border-2 border-[#f3701e] bg-[#fff8f0] p-3 text-sm"><TbBulb className="mt-0.5 h-4 w-4 shrink-0 text-[#f3701e]" />{insight}</div>)}
+          {insights.map((insight) => <div key={insight} className="flex min-w-[240px] items-start gap-2 rounded-xl border border-[#f3701e]/50 bg-[#fff8f0] p-3 text-sm"><TbBulb className="mt-0.5 h-4 w-4 shrink-0 text-[#f3701e]" />{insight.replace(/^\s*[\p{Emoji_Presentation}\p{Extended_Pictographic}️]+\s*/u, "")}</div>)}
         </div>
       )}
 
-      <section className="neo-card flex min-h-[520px] flex-1 flex-col overflow-hidden p-0">
-        <div className="flex-1 space-y-4 overflow-y-auto p-3 sm:p-5" aria-live="polite">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#1a1a1a]/10 bg-white shadow-sm">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5" aria-live="polite">
           {historyLoading && <div role="status" className="flex h-full flex-col items-center justify-center gap-3 text-[#4b607f]"><TbSparkles className="h-8 w-8 animate-pulse" /><span>Memuat percakapan…</span></div>}
           {historyError && !historyLoading && <div role="alert" className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-xl border-2 border-red-400 bg-red-50 p-5 text-center"><TbAlertCircle className="h-8 w-8 text-red-600" /><strong>Riwayat belum dapat dimuat</strong><button onClick={() => void loadInitial()} className="neo-btn flex min-h-11 items-center gap-2 bg-white px-4"><TbRefresh /> Coba lagi</button></div>}
           {!historyLoading && !historyError && messages.length === 0 && (
-            <div className="flex h-full min-h-[320px] flex-col items-center justify-center px-2 text-center">
-              <TbRobot className="mb-3 h-12 w-12 text-[#4b607f]" /><h2 className="font-heading text-xl font-bold">Apa yang ingin kamu cari?</h2><p className="mb-5 mt-1 max-w-sm text-sm text-[#4b607f]">Tanyakan jadwal, status fasilitas, tiket, atau panduan aplikasi.</p>
-              <div className="flex w-full max-w-full snap-x gap-2 overflow-x-auto pb-3 sm:flex-wrap sm:justify-center">
-                {actions.map((action) => <button key={action.id} onClick={() => void sendMessage(action.message, action.id)} className="min-h-11 shrink-0 snap-start rounded-full border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold shadow-[2px_2px_0_#1a1a1a] hover:bg-[#f3701e] hover:text-white">{action.label}</button>)}
+            <div className="mx-auto flex h-full w-full max-w-xl flex-col justify-center py-3 sm:py-8">
+              <div className="text-center"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf2f8] text-[#4b607f]"><TbRobot className="h-8 w-8" /></span><h2 className="mt-3 font-heading text-xl font-black">Apa yang ingin kamu cari?</h2><p className="mx-auto mt-1 max-w-sm text-sm leading-5 text-[#5a5a5a]">Pilih pertanyaan cepat atau tulis kebutuhanmu di bawah.</p></div>
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {actions.slice(0, 6).map((action, index) => { const Icon = index < 2 ? TbCalendar : index === 2 ? TbBuilding : TbSparkles; return <button key={action.id} onClick={() => void sendMessage(action.message, action.id)} className="group flex min-h-[72px] items-start justify-between gap-2 rounded-xl border border-[#1a1a1a]/10 bg-[#faf8f6] p-3 text-left text-sm font-bold leading-tight text-[#1f2d42] transition-colors hover:border-[#f3701e]/50 hover:bg-[#fff0e5]"><span><Icon className="mb-2 h-5 w-5 text-[#f3701e]" />{action.label}</span><TbArrowUpRight className="h-4 w-4 shrink-0 text-[#999] group-hover:text-[#f3701e]" /></button>; })}
               </div>
             </div>
           )}
@@ -177,9 +177,9 @@ export default function AIAssistantPage() {
           <div ref={endRef} />
         </div>
 
-        {!historyLoading && <div className="border-t-2 border-[#1a1a1a] bg-white p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-4">
-          {actions.length > 0 && messages.length > 0 && <div className="mb-2 flex gap-2 overflow-x-auto pb-1">{actions.slice(0,5).map((action) => <button key={action.id} onClick={() => void sendMessage(action.message, action.id)} className="shrink-0 rounded-full border border-[#4b607f] px-3 py-1.5 text-xs font-semibold">{action.label}</button>)}</div>}
-          <div className="flex items-end gap-2"><textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Tanya sesuatu tentang lab…" maxLength={1000} rows={1} disabled={loading} aria-label="Pesan untuk Asisten LabKom" className="neo-input min-h-11 flex-1 resize-none py-2.5 text-base" /><button type="button" onClick={() => void sendMessage()} disabled={!input.trim() || loading} aria-label="Kirim pesan" className="neo-btn flex h-11 w-11 shrink-0 items-center justify-center bg-[#f3701e] p-0 text-white disabled:opacity-50"><TbSend /></button></div>
+        {!historyLoading && <div className="shrink-0 border-t border-[#1a1a1a]/10 bg-white p-3 sm:p-4">
+          {actions.length > 0 && messages.length > 0 && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{actions.slice(0,5).map((action) => <button key={action.id} onClick={() => void sendMessage(action.message, action.id)} className="min-h-[40px] shrink-0 rounded-xl border border-[#1a1a1a]/10 bg-[#f5ede6] px-3 text-xs font-bold text-[#34445d]">{action.label}</button>)}</div>}
+          <div className="flex items-end gap-2 rounded-2xl border border-[#1a1a1a]/15 bg-[#faf8f6] p-1.5 focus-within:border-[#4b607f] focus-within:ring-2 focus-within:ring-[#4b607f]/15"><textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Tanya sesuatu tentang lab…" maxLength={1000} rows={1} disabled={loading} aria-label="Pesan untuk Asisten LabKom" className="min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-base outline-none" /><button type="button" onClick={() => void sendMessage()} disabled={!input.trim() || loading} aria-label="Kirim pesan" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f3701e] text-[#1a1a1a] shadow-sm disabled:bg-[#ddd] disabled:text-[#888]"><TbSend className="h-5 w-5" /></button></div>
           {input.length >= 850 && <p className="mt-1 text-right text-xs text-[#4b607f]">{input.length}/1000</p>}
         </div>}
       </section>
