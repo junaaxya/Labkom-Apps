@@ -249,7 +249,7 @@ export default function HelpCenterPage() {
   }, [category, faqs, query]);
 
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-4 pb-32 sm:space-y-6 sm:pb-16">
+    <main className="mx-auto w-full max-w-4xl space-y-6 pb-32 sm:space-y-8 sm:pb-16">
       <CategoryPickerModal
         isOpen={showCategorySheet}
         onClose={() => setShowCategorySheet(false)}
@@ -268,7 +268,7 @@ export default function HelpCenterPage() {
             </p>
           </div>
 
-          <div className="relative mt-5 border-l-4 border-[#f3701e] sm:mt-6">
+          <div className="relative mt-6 sm:mt-7">
             <label htmlFor="help-search" className="sr-only">Cari panduan LabKom</label>
             <TbSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4b607f]" />
             <input
@@ -357,7 +357,7 @@ export default function HelpCenterPage() {
           </div>
         )}
 
-        <div className="p-3 sm:p-6">
+        <div className="px-4 py-5 sm:px-8 sm:py-7">
           {loading && (
             <div aria-live="polite" aria-busy="true" className="space-y-3">
               <p className="sr-only">Memuat panduan…</p>
@@ -393,7 +393,7 @@ export default function HelpCenterPage() {
               <p className="mb-3 text-sm text-[#4b607f]" aria-live="polite">
                 {filteredFAQs.length} hasil
               </p>
-              <div className="space-y-2.5 sm:space-y-3">
+              <div className="space-y-0">
                 {filteredFAQs.map((faq) => {
                   const key = `${faq.category}:${faq.question}`;
                   const isOpen = openQuestion === key;
