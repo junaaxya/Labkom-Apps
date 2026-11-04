@@ -98,7 +98,7 @@ export default function SupportChatsPage() {
             </div>
             <p className="mt-1 text-sm font-semibold text-[#4b607f]">{chat.lab.name} · {chat.status === "WAITING" ? "Menunggu asisten lab" : `Ditangani oleh ${participant}`}</p>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="line-clamp-2 text-sm text-[#5a5a5a]">{chat.lastMessage?.body || "Belum ada pesan"}</p>
+              <p className="line-clamp-2 text-sm text-[#5a5a5a]">{chat.lastMessage?.body || (chat.lastMessage?.imageUrl ? "Foto" : "Belum ada pesan")}</p>
               {chat.lastMessage?.createdAt && (
                 <time className="shrink-0 text-xs font-semibold text-[#4b607f]">
                   {new Date(chat.lastMessage.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}

@@ -41,13 +41,13 @@ export async function authorizeProtectedFileAccess(
   category: UploadCategory,
   filename: string,
 ): Promise<boolean> {
-  if (role === "KOORDINATOR_LAB") return true;
+  if (role === "KOORDINATOR_LAB" && category !== "support-chats") return true;
 
   const temporaryOwner = await redis.get(`${TEMP_OWNER_PREFIX}${category}:${filename}`);
   if (temporaryOwner === userId) return true;
 
   const url = uploadUrl(category, filename);
-  const [ticket, claims, leave, correction, task, condition, avatar, template] = await Promise.all([
+  const [ticket, claims, leave, correction, task, condition, avatar, template, supportChatImage] = await Promise.all([
     prisma.ticket.findFirst({
       where: { photo: { has: url }, OR: [{ reportedBy: userId }, { assignedTo: userId }] },
       select: { id: true },
@@ -65,9 +65,18 @@ export async function authorizeProtectedFileAccess(
     }),
     prisma.user.findFirst({ where: { avatar: url, isActive: true }, select: { id: true } }),
     prisma.certificateTemplate.findFirst({ where: { imageUrl: url, isActive: true }, select: { id: true } }),
+    category === "support-chats" && (role === "MAHASISWA" || role === "ASISTEN_LAB")
+      ? prisma.supportChatMessage.findFirst({
+          where: {
+            imageUrl: url,
+            chat: { OR: [{ studentId: userId }, { assignedAssistantId: userId }] },
+          },
+          select: { id: true },
+        })
+      : null,
   ]);
 
   const claim = claims.some((item) => item.proof?.trim() === url);
 
-  return Boolean(ticket || claim || leave || correction || task || condition || avatar || template);
+  return Boolean(ticket || claim || leave || correction || task || condition || avatar || template || supportChatImage);
 }
