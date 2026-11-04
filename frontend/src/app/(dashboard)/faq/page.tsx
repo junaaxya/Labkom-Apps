@@ -7,7 +7,6 @@ import {
   TbAlertCircle,
   TbApps,
   TbAward,
-  TbBook2,
   TbBuilding,
   TbCalendar,
   TbCertificate,
@@ -97,9 +96,10 @@ function CategoryPickerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="category-picker-title"
       onClick={onClose}
     >
       <div
@@ -115,7 +115,7 @@ function CategoryPickerModal({
                 <TbFilter className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="font-heading text-lg font-black text-[#1a1a1a]">Pilih Kategori</h2>
+                <h2 id="category-picker-title" className="font-heading text-lg font-bold text-[#1a1a1a]">Pilih kategori</h2>
                 <p className="text-xs text-[#5a5a5a]">Filter panduan berdasarkan topik</p>
               </div>
             </div>
@@ -163,8 +163,8 @@ function CategoryPickerModal({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-xs sm:text-sm font-black leading-tight">{cat}</p>
-                      <p className={`text-[11px] ${isSelected ? "text-white/70" : "text-[#5a5a5a]"}`}>
+                      <p className="truncate text-sm font-semibold leading-tight">{cat}</p>
+                      <p className={`mt-0.5 text-xs ${isSelected ? "text-white" : "text-[#5a5a5a]"}`}>
                         {count} panduan
                       </p>
                     </div>
@@ -186,7 +186,7 @@ function CategoryPickerModal({
               onSelectCategory("Semua");
               onClose();
             }}
-            className="w-full rounded-xl border-2 border-[#1a1a1a] bg-white py-2.5 text-xs sm:text-sm font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]"
+            className="min-h-[44px] w-full rounded-lg border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Tampilkan Semua Kategori ({categoryCounts["Semua"] ?? 0})
           </button>
@@ -250,7 +250,7 @@ export default function HelpCenterPage() {
   }, [category, faqs, query]);
 
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-4 pb-32 sm:space-y-6 sm:pb-16">
+    <main className="mx-auto w-full max-w-4xl space-y-6 pb-32 sm:space-y-8 sm:pb-16">
       <CategoryPickerModal
         isOpen={showCategorySheet}
         onClose={() => setShowCategorySheet(false)}
@@ -260,22 +260,16 @@ export default function HelpCenterPage() {
         onSelectCategory={(cat) => setCategory(cat)}
       />
 
-      <section className="neo-card overflow-hidden bg-white p-0">
-        <div className="border-b-2 border-[#1a1a1a] bg-[#fff8f0] p-4 sm:p-7">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#f3701e] text-white shadow-[3px_3px_0px_#1a1a1a] sm:h-14 sm:w-14">
-              <TbBook2 className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2.2} />
-            </span>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#f3701e]">Panduan LabKom</p>
-              <h1 className="font-heading text-2xl font-black text-[#1a1a1a] sm:text-4xl">Pusat Bantuan</h1>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#4b607f] sm:text-base">
-                Temukan prosedur dan jawaban resmi dengan cepat. Untuk pertanyaan yang lebih spesifik, gunakan AI Assistant.
-              </p>
-            </div>
+      <section className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-white">
+        <div className="border-b-2 border-[#1a1a1a] bg-[#fff8f0] p-5 sm:p-8">
+          <div>
+            <h1 className="font-heading text-3xl font-black tracking-tight text-[#1a1a1a] sm:text-4xl">Pusat Bantuan</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#4b607f] sm:text-base">
+              Cari prosedur resmi penggunaan layanan LabKom.
+            </p>
           </div>
 
-          <div className="relative mt-4 sm:mt-5">
+          <div className="relative mt-6 sm:mt-7">
             <label htmlFor="help-search" className="sr-only">Cari panduan LabKom</label>
             <TbSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4b607f]" />
             <input
@@ -283,7 +277,7 @@ export default function HelpCenterPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari: jadwal, WiFi, kerusakan, kunci…"
-              className="neo-input min-h-[48px] sm:min-h-[50px] w-full pl-12 pr-12 text-sm sm:text-base"
+              className="neo-input min-h-[52px] w-full pl-12 pr-12 text-base"
               autoComplete="off"
             />
             {query && (
@@ -291,7 +285,7 @@ export default function HelpCenterPage() {
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Hapus pencarian"
-                className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg hover:bg-[#e8d8c9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg hover:bg-[#e8d8c9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <TbX className="h-4 w-4" />
               </button>
@@ -306,20 +300,15 @@ export default function HelpCenterPage() {
             <button
               type="button"
               onClick={() => setShowCategorySheet(true)}
-              className="flex min-h-[52px] w-full items-center gap-3 rounded-xl border-2 border-[#1a1a1a] bg-[#fff8f0] px-3 text-left shadow-[3px_3px_0px_#1a1a1a] transition-transform active:translate-x-[1px] active:translate-y-[1px] sm:hidden"
+              className="flex min-h-[52px] w-full items-center gap-3 rounded-lg border-2 border-[#1a1a1a] bg-[#fff8f0] px-3 text-left hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:hidden"
               aria-label="Pilih kategori panduan"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3701e] text-white">
-                {(() => {
-                  const ActiveIcon = CATEGORY_ICONS[category] || TbFilter;
-                  return <ActiveIcon className="h-5 w-5" />;
-                })()}
-              </span>
+              <TbFilter className="h-5 w-5 shrink-0 text-[#f3701e]" />
               <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-[#5a5a5a]">Kategori panduan</span>
-                <span className="block truncate text-sm font-black text-[#1a1a1a]">{category}</span>
+                <span className="block text-xs font-semibold text-[#5a5a5a]">Kategori</span>
+                <span className="block truncate text-sm font-bold text-[#1a1a1a]">{category}</span>
               </span>
-              <span className="rounded-full bg-[#4b607f] px-2 py-1 text-[11px] font-black text-white">
+              <span className="min-w-7 text-center text-xs font-semibold tabular-nums text-[#405574]">
                 {categoryCounts[category] ?? faqs.length}
               </span>
               <TbChevronDown className="h-5 w-5 shrink-0 text-[#1a1a1a]" />
@@ -336,10 +325,10 @@ export default function HelpCenterPage() {
                     type="button"
                     onClick={() => setCategory(item)}
                     aria-pressed={isSelected}
-                    className={`inline-flex min-h-[42px] items-center gap-2 rounded-xl border-2 border-[#1a1a1a] px-3 text-sm font-bold transition-all active:translate-x-[1px] active:translate-y-[1px] ${
+                    className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       isSelected
-                        ? "bg-[#4b607f] text-white shadow-[2px_2px_0px_#1a1a1a]"
-                        : "bg-white text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:bg-[#f5ede6]"
+                        ? "bg-[#4b607f] text-white"
+                        : "bg-white text-[#1a1a1a] hover:bg-[#f5ede6]"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -352,32 +341,24 @@ export default function HelpCenterPage() {
               })}
             </div>
 
-            {/* Active Filter Helper Tag */}
             {category !== "Semua" && (
-              <div className="mt-2.5 flex items-center justify-between rounded-lg border border-[#1a1a1a]/20 bg-[#fff8f0] px-2.5 py-1.5 text-xs">
-                <div className="flex items-center gap-1.5 text-[#1a1a1a]">
-                  <span className="font-medium text-[#5a5a5a]">Menampilkan topik:</span>
-                  <span className="font-black text-[#f3701e]">{category}</span>
-                  <span className="text-[#5a5a5a]">({filteredFAQs.length} panduan)</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCategory("Semua")}
-                  className="font-bold text-[#4b607f] hover:underline"
-                >
-                  Reset filter
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setCategory("Semua")}
+                className="mt-3 min-h-[44px] text-sm font-semibold text-[#405574] underline-offset-4 hover:underline"
+              >
+                Hapus filter {category}
+              </button>
             )}
           </div>
         )}
 
-        <div className="p-3 sm:p-6">
+        <div className="px-4 py-5 sm:px-8 sm:py-7">
           {loading && (
             <div aria-live="polite" aria-busy="true" className="space-y-3">
               <p className="sr-only">Memuat panduan…</p>
               {[0, 1, 2, 3].map((item) => (
-                <div key={item} className="h-16 animate-pulse rounded-xl border-2 border-[#1a1a1a]/20 bg-[#f5ede6]" />
+                <div key={item} className="h-16 rounded-lg border border-[#1a1a1a]/15 bg-[#f5ede6]" />
               ))}
             </div>
           )}
@@ -405,10 +386,10 @@ export default function HelpCenterPage() {
 
           {!loading && !error && filteredFAQs.length > 0 && (
             <div>
-              <p className="mb-3 text-xs sm:text-sm font-bold text-[#4b607f]" aria-live="polite">
-                {filteredFAQs.length} panduan ditemukan
+              <p className="mb-3 text-sm text-[#4b607f]" aria-live="polite">
+                {filteredFAQs.length} hasil
               </p>
-              <div className="space-y-2.5 sm:space-y-3">
+              <div className="space-y-0">
                 {filteredFAQs.map((faq) => {
                   const key = `${faq.category}:${faq.question}`;
                   const isOpen = openQuestion === key;
@@ -416,25 +397,25 @@ export default function HelpCenterPage() {
                   const Icon = CATEGORY_ICONS[faq.category] || TbHelpCircle;
 
                   return (
-                    <article key={key} className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-white shadow-[2px_2px_0px_#1a1a1a] sm:shadow-[3px_3px_0px_#1a1a1a]">
+                    <article key={key} className="overflow-hidden border-b border-[#1a1a1a]/25 bg-white last:border-b-0">
                       <button
                         type="button"
                         onClick={() => setOpenQuestion(isOpen ? null : key)}
                         aria-expanded={isOpen}
-                        className="flex min-h-[56px] sm:min-h-[60px] w-full items-center gap-2.5 sm:gap-3 p-3 text-left hover:bg-[#fff8f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] sm:p-4"
+                        className="flex min-h-[60px] w-full items-center gap-3 px-1 py-4 text-left hover:bg-[#fff8f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] sm:px-2"
                       >
-                        <span className="flex items-center gap-1 rounded-md bg-[#f5ede6] px-2 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wide text-[#4b607f] shrink-0">
-                          <Icon className="h-3 w-3" />
+                        <span className="hidden w-24 shrink-0 items-center gap-1.5 text-xs font-semibold text-[#405574] sm:flex">
+                          <Icon className="h-4 w-4" />
                           <span>{faq.category}</span>
                         </span>
-                        <span className="flex-1 text-xs sm:text-base font-black leading-snug text-[#1a1a1a]">{faq.question}</span>
-                        <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                        <span className="flex-1 text-sm font-semibold leading-5 text-[#1a1a1a] sm:text-base sm:leading-6">{faq.question}</span>
+                        <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`} />
                       </button>
                       {isOpen && (
-                        <div className="border-t-2 border-[#1a1a1a] bg-[#fffdf9] p-3.5 sm:p-5">
-                          <p className="whitespace-pre-line text-xs leading-relaxed text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
+                        <div className="border-t border-[#1a1a1a]/20 bg-[#fffdf9] px-1 pb-5 pt-4 sm:px-[7.25rem]">
+                          <p className="max-w-2xl whitespace-pre-line text-sm leading-6 text-[#283342] sm:text-base sm:leading-7">{faq.answer}</p>
                           {feature && (
-                            <Link href={feature.href} className="mt-3 sm:mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-3.5 py-1.5 text-xs sm:text-sm font-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]">
+                            <Link href={feature.href} className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
                               {feature.label} <TbExternalLink className="h-4 w-4" />
                             </Link>
                           )}
@@ -450,24 +431,23 @@ export default function HelpCenterPage() {
       </section>
 
       <section
-        className="flex flex-col gap-3 rounded-xl border-2 sm:border-[3px] border-[#1a1a1a] p-4 shadow-[3px_3px_0px_#1a1a1a] sm:flex-row sm:items-center sm:justify-between sm:p-6"
-        style={{ backgroundColor: "#263b5a", color: "#ffffff" }}
+        className="flex flex-col gap-4 rounded-xl border-2 border-[#1a1a1a] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        style={{ backgroundColor: "#4b607f", color: "#ffffff" }}
       >
-        <div className="flex items-start gap-3">
-          <TbRobot className="mt-0.5 h-6 w-6 sm:h-7 sm:w-7 shrink-0" style={{ color: "#ffffff" }} />
+        <div>
           <div>
-            <h2 className="font-heading text-base sm:text-xl font-black" style={{ color: "#ffffff" }}>
-              Butuh jawaban yang lebih spesifik?
+            <h2 className="font-heading text-base font-bold text-white sm:text-lg">
+              Pertanyaan belum terjawab?
             </h2>
-            <p className="mt-1 text-xs sm:text-sm font-semibold leading-relaxed" style={{ color: "#f3f6fb" }}>
-              AI Assistant dapat membantu berdasarkan panduan dan data LabKom sesuai hak aksesmu.
+            <p className="mt-1 text-sm leading-6 text-white">
+              Tanyakan konteks khususmu kepada AI Assistant.
             </p>
           </div>
         </div>
         <Link
           href="/ai-assistant"
-          className="neo-btn inline-flex min-h-[44px] sm:min-h-[48px] shrink-0 items-center justify-center gap-2 px-4 sm:px-5 text-xs sm:text-sm font-black active:translate-x-[1px] active:translate-y-[1px]"
-          style={{ backgroundColor: "#f3701e", color: "#ffffff" }}
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-white bg-white px-4 text-sm font-semibold text-[#263b5a] hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          style={{ color: "#263b5a" }}
         >
           Buka AI Assistant <TbExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
         </Link>

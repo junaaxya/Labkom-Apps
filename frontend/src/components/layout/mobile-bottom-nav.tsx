@@ -82,7 +82,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
   return (
     <nav
       aria-label="Navigasi utama"
-      className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-[#e8d8c9]/95 backdrop-blur-md neo-border-sm border-x-0 border-b-0 pb-safe-bottom"
+      className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t-2 border-[#1a1a1a] bg-[#e8d8c9] pb-safe-bottom"
     >
       <ul className="grid grid-cols-5 items-stretch">
         {items.slice(0, 4).map((item) => {
@@ -94,22 +94,22 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[60px] px-1 text-[10px] font-bold transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[64px] px-1 text-xs font-semibold transition-colors ${
                   active ? "text-[#1a1a1a]" : "text-[#5a5a5a]"
                 }`}
               >
                 <span
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-transform ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-lg ${
                     isHighlight
-                      ? "bg-[#f3701e] text-white shadow-[2px_2px_0px_#1a1a1a] scale-105 border border-[#1a1a1a]"
+                      ? "border border-[#1a1a1a] bg-[#f3701e] text-[#1a1a1a]"
                       : active
-                        ? "bg-[#f3701e] text-white shadow-[2px_2px_0px_#1a1a1a]"
+                        ? "bg-[#f3701e] text-[#1a1a1a]"
                         : "bg-transparent"
                   }`}
                 >
                   <Icon className="w-5 h-5" strokeWidth={isHighlight ? 2.4 : 2.2} />
                 </span>
-                <span className={`leading-tight tracking-wide uppercase ${isHighlight ? "font-extrabold text-[#f3701e]" : ""}`}>
+                <span className={`leading-tight ${isHighlight ? "font-bold text-[#1a1a1a]" : ""}`}>
                   {item.label}
                 </span>
               </Link>
@@ -121,12 +121,12 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
             type="button"
             onClick={openSidebar}
             aria-label="Buka menu lengkap"
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[60px] px-1 text-[10px] font-bold text-[#5a5a5a]"
+            className="flex min-h-[64px] flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs font-semibold text-[#5a5a5a]"
           >
-            <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-transparent">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-transparent">
               <TbMenu2 className="w-5 h-5" strokeWidth={2.2} />
             </span>
-            <span className="leading-tight tracking-wide uppercase">Menu</span>
+            <span className="leading-tight">Menu</span>
           </button>
         </li>
       </ul>
