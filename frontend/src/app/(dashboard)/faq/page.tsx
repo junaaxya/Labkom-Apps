@@ -357,7 +357,7 @@ export default function HelpCenterPage() {
             <div aria-live="polite" aria-busy="true" className="space-y-3">
               <p className="sr-only">Memuat panduan…</p>
               {[0, 1, 2, 3].map((item) => (
-                <div key={item} className="h-16 animate-pulse rounded-xl border-2 border-[#1a1a1a]/20 bg-[#f5ede6]" />
+                <div key={item} className="h-16 rounded-lg border border-[#1a1a1a]/15 bg-[#f5ede6]" />
               ))}
             </div>
           )}
@@ -408,7 +408,7 @@ export default function HelpCenterPage() {
                           <span>{faq.category}</span>
                         </span>
                         <span className="flex-1 text-sm font-semibold leading-5 text-[#1a1a1a] sm:text-base sm:leading-6">{faq.question}</span>
-                        <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                        <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`} />
                       </button>
                       {isOpen && (
                         <div className="border-t border-[#1a1a1a]/20 bg-[#fffdf9] px-1 pb-5 pt-4 sm:px-[7.25rem]">
