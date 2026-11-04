@@ -20,7 +20,8 @@ const indexSource = readFileSync(path.join(__dirname, "index.ts"), "utf8");
 test("support chat routes expose explicit assistant claim and student receipt endpoints", () => {
   assert.match(source, /router\.post\("\/", authenticate, authorize\("MAHASISWA"\), SupportChatController\.create\);/);
   assert.match(source, /router\.post\("\/:id\/claim", authenticate, authorize\("ASISTEN_LAB"\), SupportChatController\.claim\);/);
-  assert.match(source, /router\.post\("\/:id\/messages", authenticate, authorize\("MAHASISWA", "ASISTEN_LAB"\), SupportChatController\.createMessage\);/);
+  assert.match(source, /router\.post\("\/:id\/messages", authenticate, authorize\("MAHASISWA", "ASISTEN_LAB"\), uploadImage, SupportChatController\.createMessage\);/);
+  assert.match(source, /fileSize: uploadLimits\["support-chats"\]/);
   assert.match(source, /router\.patch\("\/:id\/messages\/:messageId\/receipt", authenticate, authorize\("MAHASISWA", "ASISTEN_LAB"\), SupportChatController\.recordReceipt\);/);
   assert.match(indexSource, /router\.use\("\/support-chats", supportChatRoutes\);/);
 

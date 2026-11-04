@@ -43,18 +43,19 @@ function getAuthHeaders(): Record<string, string> {
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
+  const isFormData = body instanceof FormData;
   const config: RequestInit = {
     method,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData && { "Content-Type": "application/json" }),
       ...getAuthHeaders(),
       ...headers,
     },
   };
 
   if (body) {
-    config.body = JSON.stringify(body);
+    config.body = isFormData ? body : JSON.stringify(body);
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);

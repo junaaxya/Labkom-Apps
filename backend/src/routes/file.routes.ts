@@ -74,7 +74,8 @@ router.get("/:category/:filename", authenticateFileRequest, async (req: Request,
     }
 
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.sendFile(filePath);
+    res.type(filePath);
+    fs.createReadStream(filePath).on("error", next).pipe(res);
   } catch (error) {
     next(error);
   }
