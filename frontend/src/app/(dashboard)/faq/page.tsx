@@ -99,6 +99,7 @@ function CategoryPickerModal({
       className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="category-picker-title"
       onClick={onClose}
     >
       <div
@@ -114,7 +115,7 @@ function CategoryPickerModal({
                 <TbFilter className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="font-heading text-lg font-black text-[#1a1a1a]">Pilih Kategori</h2>
+                <h2 id="category-picker-title" className="font-heading text-lg font-bold text-[#1a1a1a]">Pilih kategori</h2>
                 <p className="text-xs text-[#5a5a5a]">Filter panduan berdasarkan topik</p>
               </div>
             </div>
@@ -284,7 +285,7 @@ export default function HelpCenterPage() {
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Hapus pencarian"
-                className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg hover:bg-[#e8d8c9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg hover:bg-[#e8d8c9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <TbX className="h-4 w-4" />
               </button>
@@ -412,7 +413,7 @@ export default function HelpCenterPage() {
                       </button>
                       {isOpen && (
                         <div className="border-t border-[#1a1a1a]/20 bg-[#fffdf9] px-1 pb-5 pt-4 sm:px-[7.25rem]">
-                          <p className="whitespace-pre-line text-sm leading-6 text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
+                          <p className="max-w-2xl whitespace-pre-line text-sm leading-6 text-[#283342] sm:text-base sm:leading-7">{faq.answer}</p>
                           {feature && (
                             <Link href={feature.href} className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
                               {feature.label} <TbExternalLink className="h-4 w-4" />
