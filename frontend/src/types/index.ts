@@ -81,6 +81,10 @@ export interface SupportChatMessage {
   id: string;
   body: string;
   senderId: string;
+  imageUrl?: string | null;
+  imageMimeType?: string | null;
+  imageSize?: number | null;
+  imageExpiresAt?: string | null;
   chatStatus?: SupportChatStatus;
   sender?: Pick<User, "id" | "name" | "role">;
   deliveredAt?: string | null;

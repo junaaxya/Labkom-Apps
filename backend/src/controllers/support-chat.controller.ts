@@ -7,6 +7,7 @@ import {
   createSupportChatSchema,
   recordSupportChatReceiptSchema,
 } from "../validators/support-chat.validator";
+import { hasImageSignature } from "../config/upload";
 
 function getParam(req: Request, name: string): string {
   const value = req.params[name];
@@ -73,7 +74,15 @@ export class SupportChatController {
     }
     try {
       const input = createSupportChatMessageSchema.parse(req.body);
-      const message = await SupportChatService.createMessage(getParam(req, "id"), req.user, input);
+      if (!input.body && !req.file) {
+        res.status(400).json({ success: false, message: "Pesan atau foto wajib diisi", errors: [{ message: "Pesan atau foto wajib diisi" }] });
+        return;
+      }
+      if (req.file && !hasImageSignature(req.file.buffer, req.file.mimetype)) {
+        res.status(400).json({ success: false, message: "Isi file bukan gambar yang valid" });
+        return;
+      }
+      const message = await SupportChatService.createMessage(getParam(req, "id"), req.user, input, new Date(), req.file);
       res.status(201).json({ success: true, data: message });
     } catch (error) {
       respondError(res, error);

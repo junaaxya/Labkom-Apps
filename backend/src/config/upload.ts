@@ -8,11 +8,11 @@ const defaultUploadRoot = process.env.NODE_ENV === "production"
 
 export const uploadRoot = path.resolve(process.env.UPLOAD_DIR || defaultUploadRoot);
 
-export const uploadCategories = ["avatars", "tickets", "evidence", "conditions", "tasks", "templates", "general"] as const;
+export const uploadCategories = ["avatars", "tickets", "evidence", "conditions", "tasks", "templates", "general", "support-chats"] as const;
 export type UploadCategory = (typeof uploadCategories)[number];
 
 export const publicUploadCategories = ["avatars"] as const satisfies readonly UploadCategory[];
-export const protectedUploadCategories = ["tickets", "evidence", "conditions", "tasks", "templates", "general"] as const satisfies readonly UploadCategory[];
+export const protectedUploadCategories = ["tickets", "evidence", "conditions", "tasks", "templates", "general", "support-chats"] as const satisfies readonly UploadCategory[];
 
 export const uploadLimits: Record<UploadCategory, number> = {
   avatars: 5 * 1024 * 1024,
@@ -22,6 +22,7 @@ export const uploadLimits: Record<UploadCategory, number> = {
   tasks: 10 * 1024 * 1024,
   templates: 10 * 1024 * 1024,
   general: 10 * 1024 * 1024,
+  "support-chats": 2 * 1024 * 1024,
 };
 
 const allowedImageMimeToExt: Record<string, string> = {

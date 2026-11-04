@@ -8,7 +8,7 @@ export const createSupportChatSchema = z.object({
 }).strict();
 
 export const createSupportChatMessageSchema = z.object({
-  body: messageBody,
+  body: z.string().trim().max(5000, "Pesan maksimal 5000 karakter").default(""),
 }).strict();
 
 export const recordSupportChatReceiptSchema = z.object({

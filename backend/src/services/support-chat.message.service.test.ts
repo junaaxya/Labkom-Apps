@@ -14,7 +14,7 @@ test("assistant claims use a WAITING-and-unassigned CAS and notify captured reci
 });
 
 test("assistant replies require the winning claim and never implicitly claim a waiting chat", () => {
-  const createMessage = source.slice(source.indexOf("static async createMessage"), source.lastIndexOf("\n  }") + 4);
+  const createMessage = source.slice(source.indexOf("static async createMessage"), source.indexOf("static async cleanupExpiredImages"));
   assert.doesNotMatch(createMessage, /updateMany\(/);
   assert.match(createMessage, /if \(actor\.role === "ASISTEN_LAB" && chat\.assignedAssistantId !== actor\.userId\) \{\s*throw new SupportChatError\("NOT_PARTICIPANT"\);/s);
   assert.match(source, /sseManager\.sendToUser\([^\n]+, "support-chat\.message", \{ chatId/);

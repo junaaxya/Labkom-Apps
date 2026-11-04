@@ -2,8 +2,10 @@
 
 import { FormEvent, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { TbArrowLeft, TbCheck, TbChecks, TbHandStop, TbLoader2, TbMessageCircle, TbSend } from "react-icons/tb";
+import Image from "next/image";
+import { TbArrowLeft, TbCheck, TbChecks, TbHandStop, TbLoader2, TbMessageCircle, TbPhoto, TbSend, TbX } from "react-icons/tb";
 import api from "@/services/api";
+import { toUploadDisplayUrl } from "@/utils/upload-url";
 import { useSupportChatStream } from "@/components/notifications/support-chat-stream";
 import type { ApiResponse, SupportChat, SupportChatMessage, SupportChatStatus } from "@/types";
 
@@ -16,6 +18,8 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
   const [chat, setChat] = useState<SupportChat | null>(null);
   const [user, setUser] = useState<UserContext>({});
   const [body, setBody] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -24,6 +28,9 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
   const loadingRef = useRef(false);
   const reloadPendingRef = useRef(false);
   const acknowledgedReadRef = useRef<Set<string>>(new Set());
+  const acknowledgedDeliveredRef = useRef<Set<string>>(new Set());
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const loadChat = useCallback(async (showLoading = true) => {
     if (loadingRef.current) {
@@ -99,6 +106,11 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
   }, [loadChat, isStreamConnected]);
 
   const messages = useMemo(() => chat?.messages ?? [], [chat?.messages]);
+  useEffect(() => {
+    const panel = messagesRef.current;
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, [messages.length]);
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
   const isAssistant = user.role === "ASISTEN_LAB";
   const isOwnerAssistant = Boolean(
     isAssistant && chat && chat.assignedAssistantId === user.id,
@@ -119,6 +131,13 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     if (!chat?.messages || !user.id || document.visibilityState !== "visible") return;
+
+    for (const message of chat.messages) {
+      if (message.senderId === user.id || message.deliveredAt || acknowledgedDeliveredRef.current.has(message.id)) continue;
+      acknowledgedDeliveredRef.current.add(message.id);
+      void api.patch(`/support-chats/${id}/messages/${message.id}/receipt`, { status: "DELIVERED" })
+        .catch(() => acknowledgedDeliveredRef.current.delete(message.id));
+    }
 
     const unreadMessage = [...chat.messages]
       .reverse()
@@ -153,10 +172,31 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
     }
   };
 
+  const clearImage = () => {
+    setImage(null);
+    setImagePreview("");
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const chooseImage = (file?: File) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setSendError("Pilih foto JPG, PNG, atau WebP.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setSendError("Ukuran foto maksimal 2 MB.");
+      return;
+    }
+    setSendError("");
+    setImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
   const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = body.trim();
-    if (!trimmed || sending) return;
+    if ((!trimmed && !image) || sending) return;
 
     if (isAssistant && !isOwnerAssistant) {
       setSendError("Kamu harus mengambil chat terlebih dahulu sebelum membalas.");
@@ -166,11 +206,15 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
     setSending(true);
     setSendError("");
     try {
+      const payload = new FormData();
+      payload.append("body", trimmed);
+      if (image) payload.append("image", image);
       const response = await api.post<ApiResponse<Omit<SupportChatMessage, "chatStatus"> & { chatStatus: SupportChatStatus }>>(
         `/support-chats/${id}/messages`,
-        { body: trimmed },
+        payload,
       );
       setBody("");
+      clearImage();
       setChat((current) =>
         current
           ? {
@@ -218,11 +262,11 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
   const canSendMessage = !isAssistant || isOwnerAssistant;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex min-h-[420px] max-w-3xl flex-col gap-2.5 md:h-auto md:min-h-[calc(100dvh-9rem)] md:gap-4" style={{ height: "calc(100dvh - 12.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))" }}>
       <Link href="/support-chats" className="neo-btn inline-flex min-h-11 w-fit items-center gap-2 bg-white px-4">
         <TbArrowLeft /> Semua chat
       </Link>
-      <section className="neo-card flex min-h-[560px] flex-1 flex-col overflow-hidden bg-white p-0">
+      <section className="neo-card flex min-h-0 flex-1 flex-col overflow-hidden bg-white p-0">
         <header className="border-b-2 border-[#1a1a1a] bg-[#f5ede6] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -255,7 +299,7 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
           </p>
         </header>
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-5" aria-live="polite">
+        <div ref={messagesRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-5" aria-live="polite">
           {messages.length === 0 && (
             <p className="py-12 text-center text-sm text-[#5a5a5a]">Belum ada pesan. Tulis pertanyaan pertama.</p>
           )}
@@ -272,7 +316,9 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
                     mine ? "bg-[#f3701e] text-white" : "bg-[#f5ede6]"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
+                  {message.imageUrl && <a href={toUploadDisplayUrl(message.imageUrl)} target="_blank" rel="noreferrer" className="mb-2 block overflow-hidden rounded-lg border-2 border-[#1a1a1a] bg-white"><Image src={toUploadDisplayUrl(message.imageUrl)} alt="Foto kendala PC" width={640} height={480} unoptimized className="max-h-64 w-full object-cover" /></a>}
+                  {!message.imageUrl && message.imageExpiresAt && <p className="mb-2 rounded-lg border border-current px-2 py-3 text-center text-xs font-semibold opacity-75">Foto sudah tidak tersedia.</p>}
+                  {message.body && <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>}
                   <div className="mt-2 flex items-center justify-end gap-1.5 text-[11px] opacity-80">
                     <time>
                       {new Date(message.createdAt).toLocaleString("id-ID", {
@@ -306,13 +352,16 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
           })}
         </div>
 
-        <form onSubmit={sendMessage} className="border-t-2 border-[#1a1a1a] p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-4">
+        <form onSubmit={sendMessage} className="shrink-0 border-t-2 border-[#1a1a1a] bg-[#f5ede6] p-2.5 sm:p-4">
+          {imagePreview && <div className="mb-2 flex items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white p-2"><Image src={imagePreview} alt="Preview foto" width={56} height={56} unoptimized className="h-14 w-14 rounded-md object-cover" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold">{image?.name}</p><p className="text-[11px] text-[#5a5a5a]">Foto tersimpan 30 hari</p></div><button type="button" onClick={clearImage} disabled={sending} aria-label="Hapus foto" className="flex h-11 w-11 items-center justify-center rounded-lg text-red-600"><TbX size={20} /></button></div>}
           <div className="flex items-end gap-2">
+            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => chooseImage(event.target.files?.[0])} className="hidden" />
+            <button type="button" onClick={() => imageInputRef.current?.click()} disabled={sending || Boolean(image) || !canSendMessage} className="neo-btn flex h-12 w-12 shrink-0 items-center justify-center bg-white p-0 disabled:opacity-50" aria-label="Ambil atau pilih foto"><TbPhoto size={21} /></button>
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              maxLength={2000}
-              rows={2}
+              maxLength={5000}
+              rows={1}
               disabled={sending || !canSendMessage}
               aria-label="Pesan dukungan"
               placeholder={
@@ -320,12 +369,12 @@ export default function SupportChatDetailPage({ params }: { params: Promise<{ id
                   ? "Ambil chat terlebih dahulu untuk membalas..."
                   : "Tulis pesan..."
               }
-              className="neo-input min-h-11 flex-1 resize-none"
+              className="neo-input min-h-12 max-h-28 flex-1 resize-none bg-white px-3 py-3 text-base sm:text-sm"
             />
             <button
               type="submit"
-              disabled={!body.trim() || sending || !canSendMessage}
-              className="neo-btn flex h-11 w-11 shrink-0 items-center justify-center bg-[#f3701e] p-0 text-white disabled:opacity-50"
+              disabled={(!body.trim() && !image) || sending || !canSendMessage}
+              className="neo-btn flex h-12 w-12 shrink-0 items-center justify-center bg-[#f3701e] p-0 text-white disabled:opacity-50"
               aria-label="Kirim pesan"
             >
               {sending ? <TbLoader2 className="animate-spin" /> : <TbSend />}

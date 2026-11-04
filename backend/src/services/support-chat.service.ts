@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
+import fs from "fs/promises";
 import prisma from "../config/database";
+import { createUploadFilename, getUploadCategoryDir, safeDeleteUpload, toUploadUrl } from "../config/upload";
 import type {
   CreateSupportChatInput,
   CreateSupportChatMessageInput,
@@ -280,8 +282,18 @@ export class SupportChatService {
     return message;
   }
 
-  static async createMessage(chatId: string, actor: SupportChatActor, input: CreateSupportChatMessageInput, now = new Date()) {
-    const result = await withSerializableRetry(async (transaction) => {
+  static async createMessage(chatId: string, actor: SupportChatActor, input: CreateSupportChatMessageInput, now = new Date(), image?: Express.Multer.File) {
+    const filename = image ? createUploadFilename("support-chat", image.mimetype) : null;
+    const imageUrl = filename ? toUploadUrl("support-chats", filename) : null;
+    if (filename && image) await fs.writeFile(`${getUploadCategoryDir("support-chats")}/${filename}`, image.buffer, { flag: "wx" });
+    const attachment = imageUrl && image ? {
+      imageUrl,
+      imageMimeType: image.mimetype,
+      imageSize: image.size,
+      imageExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+    } : {};
+    try {
+      const result = await withSerializableRetry(async (transaction) => {
       const chat = await transaction.supportChat.findUnique({
         where: { id: chatId },
         select: { id: true, studentId: true, assignedAssistantId: true, status: true },
@@ -298,7 +310,7 @@ export class SupportChatService {
 
       await assertSupportChatParticipant(transaction, { chat, actor });
       const message = await transaction.supportChatMessage.create({
-        data: { chatId: chat.id, senderId: actor.userId, body: input.body, createdAt: now },
+        data: { chatId: chat.id, senderId: actor.userId, body: input.body, createdAt: now, ...attachment },
         include: { sender: { select: participantSelect } },
       });
       await transaction.supportChat.update({
@@ -321,9 +333,28 @@ export class SupportChatService {
       };
     });
 
-    for (const recipientId of result.recipientIds) {
-      sseManager.sendToUser(recipientId, "support-chat.message", { chatId, messageId: result.message.id });
+      for (const recipientId of result.recipientIds) {
+        sseManager.sendToUser(recipientId, "support-chat.message", { chatId, messageId: result.message.id });
+      }
+      return result.message;
+    } catch (error) {
+      if (imageUrl) safeDeleteUpload(imageUrl, ["support-chats"]);
+      throw error;
     }
-    return result.message;
+  }
+
+  static async cleanupExpiredImages(now = new Date()): Promise<number> {
+    const expired = await prisma.supportChatMessage.findMany({
+      where: { imageUrl: { not: null }, imageExpiresAt: { lte: now } },
+      select: { id: true, imageUrl: true },
+    });
+    for (const message of expired) safeDeleteUpload(message.imageUrl, ["support-chats"]);
+    if (expired.length > 0) {
+      await prisma.supportChatMessage.updateMany({
+        where: { id: { in: expired.map((message) => message.id) } },
+        data: { imageUrl: null, imageMimeType: null, imageSize: null },
+      });
+    }
+    return expired.length;
   }
 }

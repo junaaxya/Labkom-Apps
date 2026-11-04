@@ -8,6 +8,7 @@ import { AttendanceService, AttendanceSettingsService, ShiftScheduleService } fr
 import { evaluateShiftWindow, jakartaDate } from "./attendance-security";
 import { getJakartaClock as getJakartaBusinessClock } from "./jakarta-time";
 import { resolveActualOccurrences } from "./actual-occurrence.service";
+import { SupportChatService } from "./support-chat.service";
 
 const CRON_OPTIONS = { timezone: "Asia/Jakarta" };
 
@@ -276,9 +277,10 @@ export function startCronJobs() {
   }, CRON_OPTIONS);
 
 
-  // Daily at 02:00 WIB: cleanup old notifications
+  // Daily at 02:00 WIB: cleanup old notifications and expired support-chat images
   cron.schedule("0 2 * * *", () => {
     cleanupOldNotifications().catch(console.error);
+    SupportChatService.cleanupExpiredImages().catch(console.error);
   }, CRON_OPTIONS);
 
   // Daily at 01:00 WIB: expire overdue missions

@@ -1540,15 +1540,20 @@ model SupportChatMessage {
   id          String    @id @default(cuid())
   chatId      String
   senderId    String
-  body        String    @db.Text
-  deliveredAt DateTime?
-  readAt      DateTime?
-  createdAt   DateTime  @default(now())
+  body           String    @db.Text
+  imageUrl       String?
+  imageMimeType  String?
+  imageSize      Int?
+  imageExpiresAt DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
 
   chat   SupportChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender User        @relation("SupportChatMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
 
   @@index([chatId, createdAt, id])
+  @@index([imageExpiresAt])
   @@map("support_chat_messages")
 }
 

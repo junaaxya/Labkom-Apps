@@ -53,7 +53,7 @@ describe("support chat frontend contract", () => {
     assert.match(detail, /api\.post<ApiResponse<SupportChat>>\(`\/support-chats\/\$\{id\}\/claim`, \{\}\)/);
     assert.match(detail, /chat\.assignedAssistantId === user\.id/);
     assert.match(detail, /api\.patch\(`\/support-chats\/\$\{id\}\/messages\/\$\{message\.id\}\/receipt`, \{ status: "DELIVERED" \}\)/);
-    assert.match(detail, /api\.patch\(`\/support-chats\/\$\{id\}\/messages\/\$\{message\.id\}\/receipt`, \{ status: "READ" \}\)/);
+    assert.match(detail, /api\.patch\(`\/support-chats\/\$\{id\}\/messages\/\$\{unreadMessage\.id\}\/receipt`, \{ status: "READ" \}\)/);
     assert.match(types, /deliveredAt\?: string \| null/);
     assert.match(types, /readAt\?: string \| null/);
   });
