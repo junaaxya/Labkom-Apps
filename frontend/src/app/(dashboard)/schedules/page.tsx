@@ -48,6 +48,11 @@ interface LabOption {
   name: string;
 }
 
+function semesterFromClassInput(value: string): string | null {
+  const normalized = value.trim().toLocaleLowerCase("id-ID").replace(/[\s._-]+/g, "");
+  return normalized.match(/^(?:semester|s)0*(\d+)$/)?.[1] || null;
+}
+
 interface LocalUser {
   role?: Role;
   isKetuaKelas?: boolean;
@@ -1532,7 +1537,7 @@ export default function SchedulesPage() {
                       type="text"
                       value={form.semester}
                       onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value }))}
-                      placeholder="e.g. 4"
+                      placeholder="Contoh: 5 atau Semester 5"
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
@@ -1541,10 +1546,14 @@ export default function SchedulesPage() {
                     <input
                       type="text"
                       value={form.className}
-                      onChange={(e) => setForm((prev) => ({ ...prev, className: e.target.value }))}
-                      placeholder="e.g. TI-4A"
+                      onChange={(e) => {
+                        const className = e.target.value;
+                        setForm((prev) => ({ ...prev, className, semester: semesterFromClassInput(className) || prev.semester }));
+                      }}
+                      placeholder="Contoh: 5A atau S5"
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
+                    <p className="mt-1.5 text-xs leading-5 text-[#5a5a5a]">Gunakan kelas spesifik seperti 5A, atau S5/Semester 5 bila mata kuliah berlaku untuk seluruh mahasiswa semester 5.</p>
                   </div>
                 </div>
                 <div>
@@ -1714,7 +1723,7 @@ export default function SchedulesPage() {
                       type="text"
                       value={editForm.semester}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, semester: e.target.value }))}
-                      placeholder="e.g. 4"
+                      placeholder="Contoh: 5 atau Semester 5"
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
                   </div>
@@ -1723,10 +1732,14 @@ export default function SchedulesPage() {
                     <input
                       type="text"
                       value={editForm.className}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, className: e.target.value }))}
-                      placeholder="e.g. TI-4A"
+                      onChange={(e) => {
+                        const className = e.target.value;
+                        setEditForm((prev) => ({ ...prev, className, semester: semesterFromClassInput(className) || prev.semester }));
+                      }}
+                      placeholder="Contoh: 5A atau S5"
                       className="w-full px-4 py-3 min-h-[44px] neo-input focus:outline-none text-sm"
                     />
+                    <p className="mt-1.5 text-xs leading-5 text-[#5a5a5a]">Gunakan kelas spesifik seperti 5A, atau S5/Semester 5 bila mata kuliah berlaku untuk seluruh mahasiswa semester 5.</p>
                   </div>
                 </div>
                 <div>

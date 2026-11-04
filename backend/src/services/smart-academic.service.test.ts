@@ -17,12 +17,11 @@ test("smart academic uses Schedule as source and scopes PJ by schedule", () => {
   assert.doesNotMatch(service, /academicTerm\.create|academicCourse\.create|academicClass\.create|academicOffering\.create/);
 });
 
-test("PJ candidates require exact non-empty class and semester", () => {
-  assert.match(service, /Kelas mahasiswa harus sama persis dengan kelas jadwal/);
-  assert.match(service, /Semester mahasiswa harus sama persis dengan semester jadwal/);
-  assert.match(service, /className: \{ equals: schedule\.className!, mode: "insensitive" \}/);
-  assert.match(service, /semester: \{ equals: schedule\.semester!, mode: "insensitive" \}/);
-  assert.match(service, /Jadwal wajib memiliki kelas dan semester sebelum PJ dipilih/);
+test("PJ candidates use canonical cohort matching", () => {
+  assert.match(service, /matchesAcademicCohort/);
+  assert.match(service, /Mahasiswa harus berada pada kelas atau semester yang sesuai dengan jadwal/);
+  assert.match(service, /students[\s\S]*filter\(\(student\) => matchesAcademicCohort\(student, schedule\)\)/);
+  assert.match(service, /Jadwal wajib memiliki kelas serta semester yang dapat dikenali sebelum PJ dipilih/);
 });
 
 test("green requests auto approve and yellow requests await operations", () => {
@@ -38,7 +37,7 @@ test("hard conflicts reject before request creation", () => {
 });
 
 test("students can discover released slots across classes", () => {
-  assert.match(service, /status: \{ in: \["KOSONG", "ONLINE"\] \}/);
+  assert.match(service, /\["KOSONG", "ONLINE"\]\.includes\(report\.status\)/);
 });
 
 test("assistant review requires active checked-in shift for exact lab", () => {

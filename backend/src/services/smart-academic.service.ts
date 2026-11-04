@@ -3,6 +3,7 @@ import prisma from "../config/database";
 import { canonicalDateOnly, getJakartaClock, weekdayForDateOnly } from "./jakarta-time";
 import { AcademicAuthorizationError, AcademicConflictError, AcademicValidationError } from "./academic.service";
 import { operationalScheduleWhere, withSerializableRetry } from "./schedule-availability";
+import { academicCohortsOverlap, canonicalSemester, matchesAcademicCohort, semesterFromGenericClass } from "./academic-cohort";
 
 type Actor = { userId: string; role: string; ipAddress?: string };
 type ReviewInput = { approved: boolean; rejectionReason?: string | null };
@@ -32,15 +33,8 @@ async function activeActor(tx: Prisma.TransactionClient, actor: Actor) {
 }
 
 function assertClassMatch(user: { className: string | null; semester: string | null }, schedule: { className: string | null; semester: string | null }) {
-  const userClass = normalized(user.className);
-  const scheduleClass = normalized(schedule.className);
-  if (!userClass || !scheduleClass || userClass !== scheduleClass) {
-    throw new AcademicAuthorizationError("Kelas mahasiswa harus sama persis dengan kelas jadwal");
-  }
-  const userSemester = normalized(user.semester).replace(/^semester\s*/, "");
-  const scheduleSemester = normalized(schedule.semester).replace(/^semester\s*/, "");
-  if (!userSemester || !scheduleSemester || userSemester !== scheduleSemester) {
-    throw new AcademicAuthorizationError("Semester mahasiswa harus sama persis dengan semester jadwal");
+  if (!matchesAcademicCohort(user, schedule)) {
+    throw new AcademicAuthorizationError("Mahasiswa harus berada pada kelas atau semester yang sesuai dengan jadwal");
   }
 }
 
@@ -67,7 +61,7 @@ async function isActiveLabAssistant(tx: Prisma.TransactionClient | typeof prisma
   return Boolean(shift);
 }
 
-async function classOrLecturerConflict(tx: Prisma.TransactionClient, target: { id: string; className: string | null; lecturerName: string | null }, date: Date, startTime: string, endTime: string) {
+async function classOrLecturerConflict(tx: Prisma.TransactionClient, target: { id: string; className: string | null; semester: string | null; lecturerName: string | null }, date: Date, startTime: string, endTime: string) {
   const schedules = await tx.schedule.findMany({
     where: {
       ...operationalScheduleWhere,
@@ -75,9 +69,9 @@ async function classOrLecturerConflict(tx: Prisma.TransactionClient, target: { i
       startTime: { lt: endTime }, endTime: { gt: startTime },
       OR: [{ specificDate: date }, { specificDate: null, day: weekdayForDateOnly(date) }],
     },
-    select: { className: true, lecturerName: true, title: true },
+    select: { className: true, semester: true, lecturerName: true, title: true },
   });
-  const classConflict = schedules.find((item) => normalized(item.className) && normalized(item.className) === normalized(target.className));
+  const classConflict = schedules.find((item) => academicCohortsOverlap(item, target));
   if (classConflict) throw new AcademicConflictError(`Kelas memiliki jadwal lain: ${classConflict.title}`);
   const lecturerConflict = schedules.find((item) => normalized(item.lecturerName) && normalized(item.lecturerName) === normalized(target.lecturerName));
   if (lecturerConflict) throw new AcademicConflictError(`Dosen memiliki jadwal lain: ${lecturerConflict.title}`);
@@ -87,40 +81,37 @@ export class SmartAcademicService {
   static async listSchedules(actor: Actor) {
     const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, isActive: true, className: true, semester: true } });
     if (!user?.isActive) throw new AcademicAuthorizationError("Akun aktif diperlukan");
-    const where: Prisma.ScheduleWhereInput = {
-      ...operationalScheduleWhere,
-      type: "PRAKTIKUM",
-      ...(user.role === "MAHASISWA" ? { className: { equals: user.className || "", mode: "insensitive" } } : {}),
-    };
+    const where: Prisma.ScheduleWhereInput = { ...operationalScheduleWhere, type: "PRAKTIKUM" };
     if (!["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"].includes(user.role)) throw new AcademicAuthorizationError("Akses Ruang Akademik ditolak");
-    return prisma.schedule.findMany({ where, include: scheduleInclude, orderBy: [{ day: "asc" }, { startTime: "asc" }] });
+    const schedules = await prisma.schedule.findMany({ where, include: scheduleInclude, orderBy: [{ day: "asc" }, { startTime: "asc" }] });
+    return user.role === "MAHASISWA" ? schedules.filter((schedule) => matchesAcademicCohort(user, schedule)) : schedules;
   }
 
   static async listClassmates(scheduleId: string, actor: Actor) {
     const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId }, select: { id: true, className: true, semester: true } });
     if (!schedule) throw new AcademicConflictError("Jadwal tidak ditemukan");
-    if (!normalized(schedule.className) || !normalized(schedule.semester)) throw new AcademicValidationError("Jadwal wajib memiliki kelas dan semester sebelum PJ dipilih");
+    if (!normalized(schedule.className) || !(canonicalSemester(schedule.semester) || semesterFromGenericClass(schedule.className))) throw new AcademicValidationError("Jadwal wajib memiliki kelas serta semester yang dapat dikenali sebelum PJ dipilih");
     const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, isActive: true, isKetuaKelas: true, className: true, semester: true } });
     if (!user?.isActive) throw new AcademicAuthorizationError("Akun aktif diperlukan");
     if (user.role !== "KOORDINATOR_LAB") {
       if (user.role !== "MAHASISWA" || !user.isKetuaKelas) throw new AcademicAuthorizationError("Hanya Ketua Kelas atau Koordinator yang dapat memilih PJ");
       assertClassMatch(user, schedule);
     }
-    return prisma.user.findMany({
-      where: {
-        role: "MAHASISWA", isActive: true,
-        className: { equals: schedule.className!, mode: "insensitive" },
-        semester: { equals: schedule.semester!, mode: "insensitive" },
-      },
-      select: { id: true, name: true, email: true, nim: true }, orderBy: { name: "asc" },
+    const students = await prisma.user.findMany({
+      where: { role: "MAHASISWA", isActive: true },
+      select: { id: true, name: true, email: true, nim: true, className: true, semester: true },
+      orderBy: { name: "asc" },
     });
+    return students
+      .filter((student) => matchesAcademicCohort(student, schedule))
+      .map(({ className: _className, semester: _semester, ...student }) => student);
   }
 
   static async assignPj(scheduleId: string, studentId: string, actor: Actor) {
     return withSerializableRetry(async (tx) => {
       const schedule = await tx.schedule.findUnique({ where: { id: scheduleId }, select: { id: true, type: true, className: true, semester: true } });
       if (!schedule || schedule.type !== "PRAKTIKUM") throw new AcademicConflictError("Jadwal praktikum tidak ditemukan");
-      if (!normalized(schedule.className) || !normalized(schedule.semester)) throw new AcademicValidationError("Jadwal wajib memiliki kelas dan semester sebelum PJ ditetapkan");
+      if (!normalized(schedule.className) || !(canonicalSemester(schedule.semester) || semesterFromGenericClass(schedule.className))) throw new AcademicValidationError("Jadwal wajib memiliki kelas serta semester yang dapat dikenali sebelum PJ ditetapkan");
       const manager = await activeActor(tx, actor);
       if (manager.role !== "KOORDINATOR_LAB") {
         if (manager.role !== "MAHASISWA" || !manager.isKetuaKelas) throw new AcademicAuthorizationError("Hanya Ketua Kelas atau Koordinator yang dapat menetapkan PJ");
@@ -173,16 +164,15 @@ export class SmartAcademicService {
   }
 
   static async listReports(actor: Actor) {
-    const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, className: true, isActive: true } });
+    const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, className: true, semester: true, isActive: true } });
     if (!user?.isActive || !["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"].includes(user.role)) throw new AcademicAuthorizationError("Akses Ruang Akademik ditolak");
-    return prisma.smartAcademicOccurrenceReport.findMany({
-      where: user.role === "MAHASISWA" ? { OR: [
-        { schedule: { className: { equals: user.className || "", mode: "insensitive" } } },
-        { status: { in: ["KOSONG", "ONLINE"] } },
-      ] } : {},
+    const reports = await prisma.smartAcademicOccurrenceReport.findMany({
       include: { schedule: { include: { lab: true } }, reportedBy: { select: { id: true, name: true } }, move: { include: { requestedBy: { select: { id: true, name: true } }, reviewedBy: { select: { id: true, name: true } } } } },
       orderBy: [{ occurrenceDate: "desc" }, { startTime: "asc" }],
     });
+    return user.role === "MAHASISWA"
+      ? reports.filter((report) => matchesAcademicCohort(user, report.schedule) || ["KOSONG", "ONLINE"].includes(report.status))
+      : reports;
   }
 
   static async requestMove(input: { sourceReportId: string; targetScheduleId: string; reason?: string | null }, actor: Actor) {
@@ -224,7 +214,7 @@ export class SmartAcademicService {
   }
 
   static async listMoves(actor: Actor) {
-    const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, className: true, isActive: true } });
+    const user = await prisma.user.findUnique({ where: { id: actor.userId }, select: { role: true, className: true, semester: true, isActive: true } });
     if (!user?.isActive) throw new AcademicAuthorizationError("Akun aktif diperlukan");
     const include = { sourceReport: { include: { schedule: true } }, targetSchedule: { include: { lab: true } }, lab: { select: { id: true, name: true } }, requestedBy: { select: { id: true, name: true } }, reviewedBy: { select: { id: true, name: true } } } satisfies Prisma.SmartAcademicMoveRequestInclude;
     if (user.role === "ASISTEN_LAB") {
@@ -234,9 +224,11 @@ export class SmartAcademicService {
       ));
       return visible.filter((request): request is NonNullable<typeof request> => request !== null);
     }
-    const where: Prisma.SmartAcademicMoveRequestWhereInput = user.role === "MAHASISWA"
-      ? { targetSchedule: { className: { equals: user.className || "", mode: "insensitive" } } }
-      : user.role === "KOORDINATOR_LAB" ? {} : { id: { in: [] } };
+    if (user.role === "MAHASISWA") {
+      const requests = await prisma.smartAcademicMoveRequest.findMany({ include, orderBy: { createdAt: "desc" } });
+      return requests.filter((request) => matchesAcademicCohort(user, request.targetSchedule));
+    }
+    const where: Prisma.SmartAcademicMoveRequestWhereInput = user.role === "KOORDINATOR_LAB" ? {} : { id: { in: [] } };
     return prisma.smartAcademicMoveRequest.findMany({ where, include, orderBy: { createdAt: "desc" } });
   }
 
