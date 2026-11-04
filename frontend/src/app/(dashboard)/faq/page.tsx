@@ -162,8 +162,8 @@ function CategoryPickerModal({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-xs sm:text-sm font-black leading-tight">{cat}</p>
-                      <p className={`text-[11px] ${isSelected ? "text-white/70" : "text-[#5a5a5a]"}`}>
+                      <p className="truncate text-sm font-semibold leading-tight">{cat}</p>
+                      <p className={`mt-0.5 text-xs ${isSelected ? "text-white" : "text-[#5a5a5a]"}`}>
                         {count} panduan
                       </p>
                     </div>
@@ -276,7 +276,7 @@ export default function HelpCenterPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari: jadwal, WiFi, kerusakan, kunci…"
-              className="neo-input min-h-[48px] sm:min-h-[50px] w-full pl-12 pr-12 text-sm sm:text-base"
+              className="neo-input min-h-[52px] w-full pl-12 pr-12 text-base"
               autoComplete="off"
             />
             {query && (
@@ -312,7 +312,7 @@ export default function HelpCenterPage() {
                 <span className="block text-xs font-semibold text-[#5a5a5a]">Kategori</span>
                 <span className="block truncate text-sm font-bold text-[#1a1a1a]">{category}</span>
               </span>
-              <span className="rounded-full bg-[#4b607f] px-2 py-1 text-[11px] font-black text-white">
+              <span className="min-w-7 text-center text-xs font-semibold tabular-nums text-[#405574]">
                 {categoryCounts[category] ?? faqs.length}
               </span>
               <TbChevronDown className="h-5 w-5 shrink-0 text-[#1a1a1a]" />
@@ -408,16 +408,16 @@ export default function HelpCenterPage() {
                         aria-expanded={isOpen}
                         className="flex min-h-[56px] sm:min-h-[60px] w-full items-center gap-2.5 sm:gap-3 p-3 text-left hover:bg-[#fff8f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] sm:p-4"
                       >
-                        <span className="flex items-center gap-1 rounded-md bg-[#f5ede6] px-2 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wide text-[#4b607f] shrink-0">
-                          <Icon className="h-3 w-3" />
+                        <span className="hidden w-24 shrink-0 items-center gap-1.5 text-xs font-semibold text-[#405574] sm:flex">
+                          <Icon className="h-4 w-4" />
                           <span>{faq.category}</span>
                         </span>
-                        <span className="flex-1 text-xs sm:text-base font-black leading-snug text-[#1a1a1a]">{faq.question}</span>
+                        <span className="flex-1 text-sm font-semibold leading-5 text-[#1a1a1a] sm:text-base sm:leading-6">{faq.question}</span>
                         <TbChevronDown className={`h-5 w-5 shrink-0 text-[#1a1a1a] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                       </button>
                       {isOpen && (
                         <div className="border-t-2 border-[#1a1a1a] bg-[#fffdf9] p-3.5 sm:p-5">
-                          <p className="whitespace-pre-line text-xs leading-relaxed text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
+                          <p className="whitespace-pre-line text-sm leading-6 text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
                           {feature && (
                             <Link href={feature.href} className="mt-3 sm:mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-3.5 py-1.5 text-xs sm:text-sm font-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]">
                               {feature.label} <TbExternalLink className="h-4 w-4" />
