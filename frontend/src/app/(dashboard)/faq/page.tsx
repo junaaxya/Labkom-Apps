@@ -186,7 +186,7 @@ function CategoryPickerModal({
               onSelectCategory("Semua");
               onClose();
             }}
-            className="w-full rounded-xl border-2 border-[#1a1a1a] bg-white py-2.5 text-xs sm:text-sm font-bold text-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]"
+            className="min-h-[44px] w-full rounded-lg border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Tampilkan Semua Kategori ({categoryCounts["Semua"] ?? 0})
           </button>
