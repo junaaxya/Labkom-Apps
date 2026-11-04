@@ -309,8 +309,8 @@ export default function HelpCenterPage() {
                 })()}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-[#5a5a5a]">Kategori panduan</span>
-                <span className="block truncate text-sm font-black text-[#1a1a1a]">{category}</span>
+                <span className="block text-xs font-semibold text-[#5a5a5a]">Kategori</span>
+                <span className="block truncate text-sm font-bold text-[#1a1a1a]">{category}</span>
               </span>
               <span className="rounded-full bg-[#4b607f] px-2 py-1 text-[11px] font-black text-white">
                 {categoryCounts[category] ?? faqs.length}
@@ -345,22 +345,14 @@ export default function HelpCenterPage() {
               })}
             </div>
 
-            {/* Active Filter Helper Tag */}
             {category !== "Semua" && (
-              <div className="mt-2.5 flex items-center justify-between rounded-lg border border-[#1a1a1a]/20 bg-[#fff8f0] px-2.5 py-1.5 text-xs">
-                <div className="flex items-center gap-1.5 text-[#1a1a1a]">
-                  <span className="font-medium text-[#5a5a5a]">Menampilkan topik:</span>
-                  <span className="font-black text-[#f3701e]">{category}</span>
-                  <span className="text-[#5a5a5a]">({filteredFAQs.length} panduan)</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCategory("Semua")}
-                  className="font-bold text-[#4b607f] hover:underline"
-                >
-                  Reset filter
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setCategory("Semua")}
+                className="mt-3 min-h-[44px] text-sm font-semibold text-[#405574] underline-offset-4 hover:underline"
+              >
+                Hapus filter {category}
+              </button>
             )}
           </div>
         )}
@@ -398,8 +390,8 @@ export default function HelpCenterPage() {
 
           {!loading && !error && filteredFAQs.length > 0 && (
             <div>
-              <p className="mb-3 text-xs sm:text-sm font-bold text-[#4b607f]" aria-live="polite">
-                {filteredFAQs.length} panduan ditemukan
+              <p className="mb-3 text-sm text-[#4b607f]" aria-live="polite">
+                {filteredFAQs.length} hasil
               </p>
               <div className="space-y-2.5 sm:space-y-3">
                 {filteredFAQs.map((faq) => {
@@ -449,11 +441,11 @@ export default function HelpCenterPage() {
         <div className="flex items-start gap-3">
           <TbRobot className="mt-0.5 h-6 w-6 sm:h-7 sm:w-7 shrink-0" style={{ color: "#ffffff" }} />
           <div>
-            <h2 className="font-heading text-base sm:text-xl font-black" style={{ color: "#ffffff" }}>
-              Butuh jawaban yang lebih spesifik?
+            <h2 className="font-heading text-base font-bold text-white sm:text-lg">
+              Pertanyaan belum terjawab?
             </h2>
-            <p className="mt-1 text-xs sm:text-sm font-semibold leading-relaxed" style={{ color: "#f3f6fb" }}>
-              AI Assistant dapat membantu berdasarkan panduan dan data LabKom sesuai hak aksesmu.
+            <p className="mt-1 text-sm leading-6 text-white">
+              Tanyakan konteks khususmu kepada AI Assistant.
             </p>
           </div>
         </div>
