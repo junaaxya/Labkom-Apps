@@ -74,6 +74,9 @@ class SSEManager {
     for (const client of userClients) {
       try {
         client.res.write(payload);
+        if (typeof (client.res as any).flush === "function") {
+          (client.res as any).flush();
+        }
         client.lastPingAt = Date.now();
       } catch {
         try { client.res.end(); } catch {}
@@ -86,6 +89,9 @@ class SSEManager {
     for (const client of this.clients) {
       try {
         client.res.write(payload);
+        if (typeof (client.res as any).flush === "function") {
+          (client.res as any).flush();
+        }
         client.lastPingAt = Date.now();
       } catch {
         try { client.res.end(); } catch {}

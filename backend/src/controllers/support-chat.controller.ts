@@ -2,7 +2,11 @@ import type { Request, Response } from "express";
 import { ZodError } from "zod";
 import { SupportChatError } from "../services/support-chat.error";
 import { SupportChatService } from "../services/support-chat.service";
-import { createSupportChatMessageSchema, createSupportChatSchema } from "../validators/support-chat.validator";
+import {
+  createSupportChatMessageSchema,
+  createSupportChatSchema,
+  recordSupportChatReceiptSchema,
+} from "../validators/support-chat.validator";
 
 function getParam(req: Request, name: string): string {
   const value = req.params[name];
@@ -71,6 +75,33 @@ export class SupportChatController {
       const input = createSupportChatMessageSchema.parse(req.body);
       const message = await SupportChatService.createMessage(getParam(req, "id"), req.user, input);
       res.status(201).json({ success: true, data: message });
+    } catch (error) {
+      respondError(res, error);
+    }
+  }
+
+  static async claim(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+    try {
+      const chat = await SupportChatService.claimChat(getParam(req, "id"), req.user);
+      res.json({ success: true, data: chat });
+    } catch (error) {
+      respondError(res, error);
+    }
+  }
+
+  static async recordReceipt(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+    try {
+      const input = recordSupportChatReceiptSchema.parse(req.body);
+      const message = await SupportChatService.recordReceipt(getParam(req, "id"), getParam(req, "messageId"), req.user, input);
+      res.json({ success: true, data: message });
     } catch (error) {
       respondError(res, error);
     }

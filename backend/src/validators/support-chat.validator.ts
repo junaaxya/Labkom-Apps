@@ -11,5 +11,10 @@ export const createSupportChatMessageSchema = z.object({
   body: messageBody,
 }).strict();
 
+export const recordSupportChatReceiptSchema = z.object({
+  status: z.enum(["DELIVERED", "READ"]),
+}).strict();
+
 export type CreateSupportChatInput = z.infer<typeof createSupportChatSchema>;
 export type CreateSupportChatMessageInput = z.infer<typeof createSupportChatMessageSchema>;
+export type RecordSupportChatReceiptInput = z.infer<typeof recordSupportChatReceiptSchema>;
