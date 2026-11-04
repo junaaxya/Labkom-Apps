@@ -96,7 +96,7 @@ function CategoryPickerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -436,7 +436,7 @@ export default function HelpCenterPage() {
 
       <section
         className="flex flex-col gap-3 rounded-xl border-2 sm:border-[3px] border-[#1a1a1a] p-4 shadow-[3px_3px_0px_#1a1a1a] sm:flex-row sm:items-center sm:justify-between sm:p-6"
-        style={{ backgroundColor: "#263b5a", color: "#ffffff" }}
+        style={{ backgroundColor: "#4b607f", color: "#ffffff" }}
       >
         <div className="flex items-start gap-3">
           <TbRobot className="mt-0.5 h-6 w-6 sm:h-7 sm:w-7 shrink-0" style={{ color: "#ffffff" }} />
@@ -451,8 +451,8 @@ export default function HelpCenterPage() {
         </div>
         <Link
           href="/ai-assistant"
-          className="neo-btn inline-flex min-h-[44px] sm:min-h-[48px] shrink-0 items-center justify-center gap-2 px-4 sm:px-5 text-xs sm:text-sm font-black active:translate-x-[1px] active:translate-y-[1px]"
-          style={{ backgroundColor: "#f3701e", color: "#ffffff" }}
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-white bg-white px-4 text-sm font-semibold text-[#263b5a] hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          style={{ color: "#263b5a" }}
         >
           Buka AI Assistant <TbExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
         </Link>
