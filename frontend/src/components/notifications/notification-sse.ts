@@ -56,3 +56,44 @@ export function parseNotificationEvent(
     return null;
   }
 }
+
+export type SupportChatSseEventName =
+  | "support-chat.created"
+  | "support-chat.claimed"
+  | "support-chat.message";
+
+export interface ParsedSupportChatEvent {
+  event: SupportChatSseEventName;
+  chatId: string;
+  assistantId?: string;
+  messageId?: string;
+  raw: Record<string, unknown>;
+}
+
+export function parseSupportChatEvent(event: SseEvent): ParsedSupportChatEvent | null {
+  if (
+    event.event !== "support-chat.created" &&
+    event.event !== "support-chat.claimed" &&
+    event.event !== "support-chat.message"
+  ) {
+    return null;
+  }
+
+  try {
+    const value: unknown = JSON.parse(event.data);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const chatId = typeof record.chatId === "string" ? record.chatId : null;
+    if (!chatId) return null;
+
+    return {
+      event: event.event,
+      chatId,
+      assistantId: typeof record.assistantId === "string" ? record.assistantId : undefined,
+      messageId: typeof record.messageId === "string" ? record.messageId : undefined,
+      raw: record,
+    };
+  } catch {
+    return null;
+  }
+}

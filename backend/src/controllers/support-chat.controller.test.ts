@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import type { Request, Response } from "express";
 import { SupportChatController } from "./support-chat.controller";
@@ -179,4 +181,15 @@ test("support chat controllers map validation and domain errors to their public 
   } finally {
     restores.reverse().forEach((restore) => restore());
   }
+});
+
+test("support chat controller exposes strict claim and receipt contracts", () => {
+  const controller = readFileSync(path.join(__dirname, "support-chat.controller.ts"), "utf8");
+  const validator = readFileSync(path.join(__dirname, "../validators/support-chat.validator.ts"), "utf8");
+  assert.match(controller, /static async claim\(req: Request, res: Response\)/);
+  assert.match(controller, /SupportChatService\.claimChat\(getParam\(req, "id"\), req\.user\)/);
+  assert.match(controller, /static async recordReceipt\(req: Request, res: Response\)/);
+  assert.match(controller, /recordSupportChatReceiptSchema\.parse\(req\.body\)/);
+  assert.match(controller, /SupportChatService\.recordReceipt\(getParam\(req, "id"\), getParam\(req, "messageId"\), req\.user, input\)/);
+  assert.match(validator, /recordSupportChatReceiptSchema = z\.object\(\{\s*status: z\.enum\(\["DELIVERED", "READ"\]\),\s*\}\)\.strict\(\)/s);
 });

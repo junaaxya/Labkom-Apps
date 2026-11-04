@@ -1522,13 +1522,13 @@ model SupportChatRecipient {
   id              String   @id @default(cuid())
   chatId          String
   assistantId     String
-  shiftScheduleId String
+  shiftScheduleId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   chat          SupportChat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   assistant     User               @relation("SupportChatRecipientAssistant", fields: [assistantId], references: [id], onDelete: Restrict)
-  shiftSchedule AsLabShiftSchedule @relation(fields: [shiftScheduleId], references: [id], onDelete: Restrict)
+  shiftSchedule AsLabShiftSchedule? @relation(fields: [shiftScheduleId], references: [id], onDelete: Restrict)
 
   @@unique([chatId, assistantId])
   @@index([assistantId, chatId])
@@ -1537,11 +1537,13 @@ model SupportChatRecipient {
 }
 
 model SupportChatMessage {
-  id        String   @id @default(cuid())
-  chatId    String
-  senderId  String
-  body      String   @db.Text
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  chatId      String
+  senderId    String
+  body        String    @db.Text
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
 
   chat   SupportChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender User        @relation("SupportChatMessageSender", fields: [senderId], references: [id], onDelete: Restrict)

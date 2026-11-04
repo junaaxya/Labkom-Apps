@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TbChevronRight, TbLoader2, TbMessageCircle, TbRefresh } from "react-icons/tb";
 import api from "@/services/api";
+import { useSupportChatStream } from "@/components/notifications/support-chat-stream";
 import type { ApiResponse, SupportChat, SupportChatStatus } from "@/types";
 
 const statusLabel: Record<SupportChatStatus, string> = { WAITING: "Tersedia untuk dibalas", HANDLED: "Sedang ditangani" };
@@ -35,6 +36,21 @@ export default function SupportChatsPage() {
     }
   }, []);
 
+  const handleStreamEvent = useCallback(
+    (event: { event: string }) => {
+      if (
+        event.event === "support-chat.created" ||
+        event.event === "support-chat.claimed" ||
+        event.event === "support-chat.message"
+      ) {
+        void loadChats(false);
+      }
+    },
+    [loadChats],
+  );
+
+  const { isStreamConnected } = useSupportChatStream(handleStreamEvent);
+
   useEffect(() => {
     queueMicrotask(() => void loadChats());
     const refreshWhenFocused = () => {
@@ -43,17 +59,24 @@ export default function SupportChatsPage() {
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void loadChats(false);
     };
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void loadChats(false);
-    }, 15_000);
+
+    let interval: number | undefined;
+    if (!isStreamConnected) {
+      interval = window.setInterval(() => {
+        if (document.visibilityState === "visible") void loadChats(false);
+      }, 15_000);
+    }
+
     window.addEventListener("focus", refreshWhenFocused);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
-      window.clearInterval(interval);
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
       window.removeEventListener("focus", refreshWhenFocused);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [loadChats]);
+  }, [loadChats, isStreamConnected]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
@@ -68,7 +91,22 @@ export default function SupportChatsPage() {
       {!loading && !error && chats.length > 0 && <div className="grid gap-3">{chats.map((chat) => {
         const participant = chat.assistant?.name || chat.student?.name || "Peserta chat";
         return <Link key={chat.id} href={`/support-chats/${chat.id}`} className="neo-card flex min-h-11 items-center gap-3 bg-white p-4 transition-transform hover:-translate-y-0.5 sm:p-5">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-heading text-lg font-bold">{chat.pc.name} <span className="text-sm font-medium text-[#4b607f]">({chat.pc.pcCode})</span></h2><span className={`neo-badge px-2 py-1 text-xs font-bold ${statusClass[chat.status]}`}>{statusLabel[chat.status]}</span></div><p className="mt-1 text-sm font-semibold text-[#4b607f]">{chat.lab.name} · {chat.status === "WAITING" ? "Menunggu asisten yang sedang bertugas" : `Ditangani oleh ${participant}`}</p><p className="mt-2 line-clamp-2 text-sm text-[#5a5a5a]">{chat.lastMessage?.body || "Belum ada pesan"}</p></div><TbChevronRight className="shrink-0 text-[#f3701e]" size={24} /></Link>;
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-heading text-lg font-bold">{chat.pc.name} <span className="text-sm font-medium text-[#4b607f]">({chat.pc.pcCode})</span></h2>
+              <span className={`neo-badge px-2 py-1 text-xs font-bold ${statusClass[chat.status]}`}>{statusLabel[chat.status]}</span>
+            </div>
+            <p className="mt-1 text-sm font-semibold text-[#4b607f]">{chat.lab.name} · {chat.status === "WAITING" ? "Menunggu asisten lab" : `Ditangani oleh ${participant}`}</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="line-clamp-2 text-sm text-[#5a5a5a]">{chat.lastMessage?.body || "Belum ada pesan"}</p>
+              {chat.lastMessage?.createdAt && (
+                <time className="shrink-0 text-xs font-semibold text-[#4b607f]">
+                  {new Date(chat.lastMessage.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                </time>
+              )}
+            </div>
+          </div>
+          <TbChevronRight className="shrink-0 text-[#f3701e]" size={24} /></Link>;
       })}</div>}
     </div>
   );
