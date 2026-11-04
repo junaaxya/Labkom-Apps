@@ -9,7 +9,6 @@ import {
   TbQrcode,
   TbRobot,
   TbChecklist,
-  TbBook2,
   TbTicket,
   TbMenu2,
   TbBuildingWarehouse,
@@ -41,7 +40,7 @@ const navByRole: Record<Role, NavItem[]> = {
   ASISTEN_LAB: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
     { label: "Absensi", href: "/attendance", icon: TbChecklist, match: (p) => p.startsWith("/attendance") },
-    { label: "Logbook", href: "/logbook", icon: TbBook2, match: (p) => p.startsWith("/logbook") },
+    { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
     { label: "Tiket", href: "/tickets", icon: TbTicket, match: (p) => p.startsWith("/tickets") },
   ],
   MAHASISWA: [
@@ -62,12 +61,6 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Akademik", href: "/academic", icon: TbSchool, match: (p) => p.startsWith("/academic") },
     { label: "Pengumuman", href: "/announcements", icon: TbCalendarEvent },
     { label: "Profil", href: "/profile", icon: TbKey },
-  ],
-  MAGANG: [
-    { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard },
-    { label: "Booking", href: "/lab-booking", icon: TbCalendarEvent, match: (p) => p.startsWith("/lab-booking") },
-    { label: "FAQ", href: "/faq", icon: TbRobot, match: (p) => p.startsWith("/faq") },
-    { label: "Guide", href: "/guide", icon: TbBook2, match: (p) => p.startsWith("/guide") },
   ],
 };
 

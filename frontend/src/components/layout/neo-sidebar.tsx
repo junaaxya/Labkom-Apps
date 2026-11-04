@@ -24,7 +24,6 @@ import {
   TbClipboardList,
   TbAlertTriangle,
   TbQrcode,
-  TbBookmarks,
   TbCertificate,
   TbMessageCircle,
   TbDeviceDesktop,
@@ -91,6 +90,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Absensi Saya", href: "/attendance", icon: TbChecklist, group: "My Work" },
     { label: "Jadwal Piket", href: "/attendance/shifts", icon: TbClock, group: "My Work" },
     { label: "Jadwal Lab", href: "/schedules", icon: TbCalendarEvent, group: "My Work" },
+    { label: "Persetujuan Akademik", href: "/academic", icon: TbSchool, group: "My Work" },
     { label: "Misi Saya", href: "/missions", icon: TbTargetArrow, group: "My Work" },
     { label: "Riwayat Tugas", href: "/task-history", icon: TbClipboardList, group: "My Work" },
     { label: "Scan QR", href: "/scan", icon: TbQrcode, group: "Operations" },
@@ -120,7 +120,6 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Peminjaman Lab", href: "/lab-booking", icon: TbCalendarClock, group: "Support" },
     { label: "AI Assistant", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
     { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
-    { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
   ],
   MAGANG: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
@@ -129,8 +128,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Absensi Saya", href: "/attendance", icon: TbChecklist, group: "My Work" },
     { label: "Status Kunci Lab", href: "/keys", icon: TbKey, group: "Support" },
     { label: "Asisten AI Lab", href: "/ai-assistant", icon: TbRobot, group: "Resources" },
-    { label: "FAQ Bot", href: "/faq", icon: TbMessageCircle, group: "Resources" },
-    { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
   ],
   DOSEN: [
     { label: "Dashboard", href: "/dashboard", icon: TbLayoutDashboard, group: "Main" },
@@ -138,8 +136,7 @@ const menuByRole: Record<Role, MenuItem[]> = {
     { label: "Penawaran Akademik", href: "/academic", icon: TbSchool, group: "Academic" },
     { label: "Profil", href: "/profile", icon: TbUsers, group: "System" },
     { label: "Notifikasi", href: "/notifications", icon: TbBell, group: "System" },
-    { label: "FAQ", href: "/faq", icon: TbMessageCircle, group: "Resources" },
-    { label: "Panduan Lab", href: "/guide", icon: TbBookmarks, group: "Resources" },
+    { label: "Pusat Bantuan", href: "/faq", icon: TbMessageCircle, group: "Resources" },
   ],
 };
 
