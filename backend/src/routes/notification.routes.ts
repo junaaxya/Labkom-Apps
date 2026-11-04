@@ -21,6 +21,9 @@ export function streamNotifications(req: Request, res: Response): void {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
   res.write(`event: connected\ndata: ${JSON.stringify({ status: "ok" })}\n\n`);
+  if (typeof (res as any).flush === "function") {
+    (res as any).flush();
+  }
   sseManager.addClient(req.user!.userId, res);
 }
 

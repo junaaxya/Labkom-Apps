@@ -21,7 +21,15 @@ import {
 } from "react-icons/tb";
 import type { IconType } from "react-icons";
 import api from "@/services/api";
-import { createSseParser, parseNotificationEvent } from "./notification-sse";
+import {
+  createSseParser,
+  parseNotificationEvent,
+  parseSupportChatEvent,
+} from "./notification-sse";
+import {
+  emitSupportChatEvent,
+  setSupportChatStreamConnected,
+} from "./support-chat-stream";
 
 interface Notification {
   id: string;
@@ -71,6 +79,12 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hours / 24);
   return `${days}h lalu`;
 }
+
+export const SUPPORT_CHAT_EVENT_TYPES = [
+  "support-chat.created",
+  "support-chat.claimed",
+  "support-chat.message",
+] as const;
 
 export function NotificationPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -127,12 +141,14 @@ export function NotificationPanel() {
 
     const stopStream = () => {
       stopped = true;
+      setSupportChatStreamConnected(false);
       clearRetryTimer();
       streamControllerRef.current?.abort();
       streamControllerRef.current = null;
     };
 
     const scheduleRetry = () => {
+      setSupportChatStreamConnected(false);
       if (stopped || streamRetryTimerRef.current) return;
       streamRetryTimerRef.current = setTimeout(() => {
         streamRetryTimerRef.current = null;
@@ -162,12 +178,20 @@ export function NotificationPanel() {
         if (!response.ok || !response.body) throw new Error(`SSE HTTP ${response.status}`);
 
         retryDelay = 1000;
+        setSupportChatStreamConnected(true);
         const decoder = new TextDecoder();
         const parser = createSseParser((event) => {
           const data = parseNotificationEvent(event);
-          if (!data) return;
-          setNotifications((prev) => [data as unknown as Notification, ...prev].slice(0, 15));
-          setUnreadCount((prev) => prev + 1);
+          if (data) {
+            setNotifications((prev) => [data as unknown as Notification, ...prev].slice(0, 15));
+            setUnreadCount((prev) => prev + 1);
+            return;
+          }
+
+          const supportChatEvent = parseSupportChatEvent(event);
+          if (supportChatEvent) {
+            emitSupportChatEvent(supportChatEvent);
+          }
         });
         const reader = response.body.getReader();
 

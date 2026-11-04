@@ -25,7 +25,16 @@ app.use(
 );
 
 // Compression
-app.use(compression());
+app.use(
+  compression({
+    filter: (req, res) => {
+      if (req.headers.accept?.includes("text/event-stream") || req.path.endsWith("/stream")) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // CORS
 app.use(

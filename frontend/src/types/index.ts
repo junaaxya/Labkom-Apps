@@ -83,6 +83,8 @@ export interface SupportChatMessage {
   senderId: string;
   chatStatus?: SupportChatStatus;
   sender?: Pick<User, "id" | "name" | "role">;
+  deliveredAt?: string | null;
+  readAt?: string | null;
   createdAt: string;
 }
 
@@ -91,6 +93,7 @@ export interface SupportChat {
   status: SupportChatStatus;
   studentId: string;
   assistantId?: string | null;
+  assignedAssistantId?: string | null;
   student?: Pick<User, "id" | "name" | "role">;
   assistant?: Pick<User, "id" | "name" | "role"> | null;
   pc: { id: string; pcCode: string; name: string };
