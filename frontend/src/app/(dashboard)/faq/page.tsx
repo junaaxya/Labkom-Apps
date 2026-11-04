@@ -299,7 +299,7 @@ export default function HelpCenterPage() {
             <button
               type="button"
               onClick={() => setShowCategorySheet(true)}
-              className="flex min-h-[52px] w-full items-center gap-3 rounded-xl border-2 border-[#1a1a1a] bg-[#fff8f0] px-3 text-left shadow-[3px_3px_0px_#1a1a1a] transition-transform active:translate-x-[1px] active:translate-y-[1px] sm:hidden"
+              className="flex min-h-[52px] w-full items-center gap-3 rounded-lg border-2 border-[#1a1a1a] bg-[#fff8f0] px-3 text-left hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:hidden"
               aria-label="Pilih kategori panduan"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3701e] text-white">
@@ -329,10 +329,10 @@ export default function HelpCenterPage() {
                     type="button"
                     onClick={() => setCategory(item)}
                     aria-pressed={isSelected}
-                    className={`inline-flex min-h-[42px] items-center gap-2 rounded-xl border-2 border-[#1a1a1a] px-3 text-sm font-bold transition-all active:translate-x-[1px] active:translate-y-[1px] ${
+                    className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       isSelected
-                        ? "bg-[#4b607f] text-white shadow-[2px_2px_0px_#1a1a1a]"
-                        : "bg-white text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:bg-[#f5ede6]"
+                        ? "bg-[#4b607f] text-white"
+                        : "bg-white text-[#1a1a1a] hover:bg-[#f5ede6]"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -419,7 +419,7 @@ export default function HelpCenterPage() {
                         <div className="border-t border-[#1a1a1a]/20 bg-[#fffdf9] px-1 pb-5 pt-4 sm:px-[7.25rem]">
                           <p className="whitespace-pre-line text-sm leading-6 text-[#323b49] sm:text-base sm:leading-7">{faq.answer}</p>
                           {feature && (
-                            <Link href={feature.href} className="mt-3 sm:mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-3.5 py-1.5 text-xs sm:text-sm font-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#f5ede6] active:translate-x-[1px] active:translate-y-[1px]">
+                            <Link href={feature.href} className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg border-2 border-[#1a1a1a] bg-white px-4 text-sm font-semibold hover:bg-[#f5ede6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
                               {feature.label} <TbExternalLink className="h-4 w-4" />
                             </Link>
                           )}
