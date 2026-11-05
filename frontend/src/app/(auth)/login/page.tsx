@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { TbMail, TbLock, TbEye, TbEyeOff, TbLoader2, TbAlertCircle, TbFlask, TbUsers, TbCalendarTime } from "react-icons/tb";
@@ -62,9 +63,9 @@ export default function LoginPage() {
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring", stiffness: 100, damping: 15 }}
-            className="inline-flex items-center justify-center w-20 h-20 rounded-xl bg-[var(--color-orange)] neo-border neo-shadow-lg mb-8"
+            className="inline-flex items-center justify-center w-24 h-24 overflow-hidden rounded-xl bg-[#f5ede6] neo-border neo-shadow-lg mb-8"
           >
-            <TbFlask className="text-white text-4xl" />
+            <Image src="/icons/labkom-logo-1024.png" alt="Logo LabKom Unmuh Babel" width={96} height={96} priority className="h-full w-full object-cover" />
           </motion.div>
           <motion.h1 
             initial={{ x: -50, opacity: 0 }}
@@ -118,9 +119,9 @@ export default function LoginPage() {
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-[var(--color-orange)] neo-border neo-shadow-lg mb-4"
+              className="inline-flex items-center justify-center w-20 h-20 overflow-hidden rounded-xl bg-[#f5ede6] neo-border neo-shadow-lg mb-4"
             >
-              <TbFlask className="text-white text-3xl" />
+              <Image src="/icons/labkom-logo-1024.png" alt="Logo LabKom Unmuh Babel" width={80} height={80} priority className="h-full w-full object-cover" />
             </motion.div>
             <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[#1a1a1a] drop-shadow-[2px_2px_0_var(--color-orange)]">Labkom</h1>
             <p className="text-[#1a1a1a] font-medium mt-2 bg-white inline-block px-3 py-1 neo-border-sm rounded-md shadow-[2px_2px_0_#1a1a1a]">Sistem Manajemen Laboratorium</p>
