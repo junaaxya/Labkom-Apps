@@ -9,6 +9,7 @@ import { evaluateShiftWindow, jakartaDate } from "./attendance-security";
 import { getJakartaClock as getJakartaBusinessClock } from "./jakarta-time";
 import { resolveActualOccurrences } from "./actual-occurrence.service";
 import { SupportChatService } from "./support-chat.service";
+import { AcademicCalendarSyncService } from "./academic-calendar-sync.service";
 
 const CRON_OPTIONS = { timezone: "Asia/Jakarta" };
 
@@ -290,6 +291,11 @@ export function startCronJobs() {
 
   cron.schedule("15 1 * * *", () => {
     maintainRecurringPicketHorizon().catch(console.error);
+  }, CRON_OPTIONS);
+
+  // Daily at 03:10 WIB: sync active academic term from the official university calendar.
+  cron.schedule("10 3 * * *", () => {
+    AcademicCalendarSyncService.sync().catch((error) => console.error("[Academic Calendar Sync]", error));
   }, CRON_OPTIONS);
 
   console.log("[CRON] Scheduled jobs started (Asia/Jakarta)");

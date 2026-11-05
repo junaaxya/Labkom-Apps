@@ -14,7 +14,7 @@ export type ScheduleType = "PRAKTIKUM" | "PEMINJAMAN" | "KEGIATAN";
 
 export type BookingStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
-export type AccessRequestType = "PEMINJAMAN_LAB" | "MAGANG" | "AKSES_SEMENTARA";
+export type AccessRequestType = "PEMINJAMAN_LAB" | "MAGANG" | "AKSES_SEMENTARA" | "MAHASISWA_EKSTERNAL";
 export type AccessRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "REVISION";
 
 export type ScheduleChangeType = "RESCHEDULE" | "CANCEL_SESSION" | "EXTRA_SLOT";
@@ -330,11 +330,16 @@ export interface User {
   nip?: string;
   role: Role;
   semester?: string;
+  studyProgram?: string;
   className?: string;
   isKetuaKelas: boolean;
   avatar?: string;
   isActive: boolean;
   mustChangePassword?: boolean;
+  registrationSource?: string;
+  academicProfileCompletedAt?: string;
+  academicProfileTermId?: string;
+  academicProfileRequired?: boolean;
   createdAt: string;
   updatedAt: string;
 }

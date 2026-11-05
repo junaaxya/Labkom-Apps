@@ -277,7 +277,8 @@ export default function RegisterPage() {
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="w-full max-w-2xl my-auto space-y-6">
           <div className="neo-card p-6 sm:p-8 bg-white relative">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a] mb-2">Ajukan Akses / Peminjaman</h2>
-            <p className="text-[#5a5a5a] mb-6 font-medium">Pilih jenis pengajuan, kirim detail, lalu tunggu review dari Aslab atau Koordinator Lab.</p>
+            <p className="text-[#5a5a5a] mb-4 font-medium">Pilih jenis pengajuan, kirim detail, lalu tunggu review dari Aslab atau Koordinator Lab.</p>
+            <Link href="/register/external-student" className="neo-btn mb-6 flex min-h-11 w-full items-center justify-center gap-2 bg-[#4b607f] px-4 text-center font-bold text-white"><TbMail /> Daftar Mahasiswa Prodi Lain</Link>
 
             <AnimatePresence mode="wait">
               {error && <motion.div initial={{ opacity: 0, y: -10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }} className="mb-6 p-4 bg-[#ffcdd2] neo-border rounded-lg flex items-start gap-3 origin-top"><TbAlertCircle className="text-red-600 text-xl mt-0.5 shrink-0" /><p className="text-sm text-red-800 font-bold">{error}</p></motion.div>}

@@ -75,6 +75,7 @@ enum AccessRequestType {
   PEMINJAMAN_LAB
   MAGANG
   AKSES_SEMENTARA
+  MAHASISWA_EKSTERNAL
 }
 
 enum AccessRequestStatus {
@@ -336,11 +337,15 @@ model User {
   phone               String? // Nomor WhatsApp (format: 628xxx)
   role                Role     @default(MAHASISWA)
   semester            String? // Semester aktif (untuk mahasiswa)
+  studyProgram        String? // Program studi mahasiswa
   className           String? // Nama kelas (untuk mahasiswa)
   isKetuaKelas        Boolean  @default(false) // Flag ketua kelas
   avatar              String?
   isActive            Boolean  @default(true)
   mustChangePassword  Boolean  @default(false) // Wajib ganti password setelah import/reset
+  registrationSource String?
+  academicProfileCompletedAt DateTime?
+  academicProfileTermId String?
   waNotify            Boolean  @default(true) // Opt-in WhatsApp notifications
   googleCalendarToken String? // Google Calendar OAuth refresh token
   createdAt           DateTime @default(now())
@@ -395,6 +400,7 @@ model User {
   accessRequests             AccessRequest[]                      @relation("AccessRequestApplicant")
   accessRequestsReviewed     AccessRequest[]                      @relation("AccessRequestReviewer")
   magangEmailVerification    MagangEmailVerification?             @relation("MagangVerificationUser")
+  externalStudentVerification ExternalStudentVerification?        @relation("ExternalStudentVerificationUser")
   academicMemberships        AcademicClassMembership[]
   academicOfferingsAsDosen   AcademicOffering[]                   @relation("AcademicOfferingDosen")
   academicReportsCreated     AcademicReport[]                     @relation("AcademicReportCreator")
@@ -1183,6 +1189,7 @@ model AccessRequest {
   status          AccessRequestStatus @default(PENDING)
   applicantName   String
   applicantEmail  String
+  applicantNim    String?
   applicantPhone  String?
   institution     String?
   title           String
@@ -1208,6 +1215,7 @@ model AccessRequest {
   applicant               User?                        @relation("AccessRequestApplicant", fields: [userId], references: [id])
   reviewer                User?                        @relation("AccessRequestReviewer", fields: [reviewedById], references: [id])
   magangEmailVerification MagangEmailVerification?     @relation("MagangVerificationRequest")
+  externalStudentVerification ExternalStudentVerification? @relation("ExternalStudentVerificationRequest")
   approvalEmailDelivery   MagangApprovalEmailDelivery?
 
   @@index([status, createdAt])
@@ -1230,6 +1238,22 @@ model MagangEmailVerification {
 
   @@index([expiresAt])
   @@map("magang_email_verifications")
+}
+
+model ExternalStudentVerification {
+  id              String    @id @default(cuid())
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  userId          String    @unique
+  accessRequestId String    @unique
+  createdAt       DateTime  @default(now())
+
+  user          User          @relation("ExternalStudentVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  accessRequest AccessRequest @relation("ExternalStudentVerificationRequest", fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("external_student_verifications")
 }
 
 model MagangApprovalEmailDelivery {

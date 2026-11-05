@@ -31,8 +31,14 @@ export default function DashboardRootLayout({
 
       try {
         const parsedUser = JSON.parse(userData) as User;
-        void api.post("/files/session", {}).catch(() => undefined).finally(() => {
-          setUser(parsedUser);
+        void api.post("/files/session", {}).catch(() => undefined).finally(async () => {
+          let currentUser = parsedUser;
+          if (parsedUser.registrationSource === "EXTERNAL_SELF_REGISTRATION") {
+            const status = await api.get<{ data: { required: boolean } }>("/access-requests/academic-profile").catch(() => null);
+            if (status) currentUser = { ...parsedUser, academicProfileRequired: status.data.required };
+          }
+          localStorage.setItem("user", JSON.stringify(currentUser));
+          setUser(currentUser);
           void initializeNativeNotifications();
         });
       } catch {
@@ -51,6 +57,10 @@ export default function DashboardRootLayout({
         </div>
       </div>
     );
+  }
+
+  if (user.academicProfileRequired) {
+    return <main className="min-h-screen bg-[#e8d8c9] p-4 sm:p-8"><RoleGuard>{children}</RoleGuard></main>;
   }
 
   return (

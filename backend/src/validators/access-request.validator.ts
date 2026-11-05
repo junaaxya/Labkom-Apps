@@ -63,6 +63,31 @@ export const createAccessRequestSchema = z.discriminatedUnion("type", [
   publicMagangRequestSchema,
 ]);
 
+export const registerExternalStudentSchema = z.object({
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(120),
+  nim: z.string().trim().min(4, "NIM minimal 4 karakter").max(40).regex(/^[A-Za-z0-9._/-]+$/, "Format NIM tidak valid"),
+  email: z.string().trim().email("Email tidak valid").max(254),
+}).strict();
+
+const externalStudentPasswordSchema = z.string().min(12).max(128)
+  .regex(/[a-z]/).regex(/[A-Z]/).regex(/\d/).regex(/[^A-Za-z0-9]/);
+
+export const completeAcademicProfileSchema = z.object({
+  semester: z.coerce.number().int().min(1).max(14).transform(String),
+  studyProgram: z.string().trim().min(2).max(120),
+  className: z.string().trim().min(1).max(80),
+}).strict();
+
+export const resendExternalStudentSchema = z.object({ email: z.string().trim().email().max(254) }).strict();
+
+export const verifyExternalStudentSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "Token verifikasi tidak valid"),
+  password: externalStudentPasswordSchema,
+  confirmPassword: z.string(),
+}).strict().refine((data) => data.password === data.confirmPassword, {
+  path: ["confirmPassword"], message: "Konfirmasi password tidak sama",
+});
+
 export const verifyMagangEmailSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "Token verifikasi tidak valid"),
 });
@@ -73,7 +98,7 @@ export const resendMagangVerificationSchema = z.object({
 
 export const getAccessRequestsQuerySchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "REJECTED", "REVISION"]).optional(),
-  type: z.enum(["PEMINJAMAN_LAB", "MAGANG", "AKSES_SEMENTARA"]).optional(),
+  type: z.enum(["PEMINJAMAN_LAB", "MAGANG", "AKSES_SEMENTARA", "MAHASISWA_EKSTERNAL"]).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
 });
