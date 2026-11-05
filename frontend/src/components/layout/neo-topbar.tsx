@@ -20,6 +20,7 @@ import { useSidebar } from "@/providers/sidebar-context";
 import type { User } from "@/types";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 import api from "@/services/api";
+import { unregisterNativeNotifications } from "@/services/native-notifications";
 
 interface NeoTopbarProps {
   user: User;
@@ -173,6 +174,7 @@ export function NeoTopbar({ user }: NeoTopbarProps) {
                         <button
                           onClick={async () => {
                             try {
+                              await unregisterNativeNotifications();
                               await api.delete("/files/session");
                             } finally {
                               localStorage.removeItem("token");

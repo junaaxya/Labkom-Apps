@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TbFileSpreadsheet, TbFileTypePdf, TbLoader2, TbChartBar, TbChartPie, TbTrendingUp } from "react-icons/tb";
 import api from "@/services/api";
+import { downloadFile } from "@/services/download-file";
 import { useToast } from "@/providers/toast-provider";
 import dynamic from "next/dynamic";
 
@@ -94,19 +95,11 @@ export default function ReportsPage() {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
-      const response = await fetch(`${baseUrl}${endpoint}?month=${selectedMonth}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await downloadFile({
+        url: `${baseUrl}${endpoint}?month=${selectedMonth}`,
+        filename: `laporan-${selectedMonth}.${format === "pdf" ? "pdf" : "xlsx"}`,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-
-      if (!response.ok) throw new Error("Export failed");
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `laporan-${selectedMonth}.${format === "pdf" ? "pdf" : "xlsx"}`;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch {
       toast.error("Gagal export. Pastikan Anda memiliki akses.");
     } finally {

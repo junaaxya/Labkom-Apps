@@ -5,6 +5,7 @@ import { TbUserPlus, TbSearch, TbEdit, TbLock, TbToggleLeft, TbToggleRight, TbX,
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
 import { MobileCard } from "@/components/ui/mobile-card";
+import { saveBase64File } from "@/services/download-file";
 
 interface ApiRes<T> {
   success: boolean;
@@ -453,20 +454,17 @@ function ImportUsersModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
     const csv = [
       "nim,nama,email,role,kelas,semester,phone,isKetuaKelas",
       "23010001,Budi Santoso,,MAHASISWA,TI-2A,4,6281234567890,false",
       "23010002,Siti Aminah,,MAHASISWA,TI-2A,4,,true",
       "ASL001,Raka Aslab,,ASISTEN_LAB,,,6289876543210,false",
     ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "template-import-user-labkom.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    const bytes = new TextEncoder().encode(csv);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    await saveBase64File({ base64: btoa(binary), filename: "template-import-user-labkom.csv" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -373,6 +373,7 @@ model User {
   certificatesIssued         Certificate[]                        @relation("CertificateIssuer")
   notifications              Notification[]
   pushSubscriptions          PushSubscription[]
+  nativePushTokens           NativePushToken[]
   shifts                     Shift[]                              @relation("ShiftAsleb")
   bookingsRequested          LabBooking[]                         @relation("BookingRequester")
   bookingsApproved           LabBooking[]                         @relation("BookingApprover")
@@ -2015,6 +2016,23 @@ model PushSubscription {
   @@index([userId])
   @@index([updatedAt])
   @@map("push_subscriptions")
+}
+
+model NativePushToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  platform   String
+  deviceName String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
+  @@map("native_push_tokens")
 }
 
 // ============================================
