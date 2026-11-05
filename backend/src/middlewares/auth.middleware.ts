@@ -36,7 +36,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, role: true, isActive: true, mustChangePassword: true },
+      select: { id: true, role: true, isActive: true, mustChangePassword: true, registrationSource: true, semester: true, studyProgram: true, className: true, academicProfileCompletedAt: true, academicProfileTermId: true },
     });
     if (!user || !user.isActive) {
       res.status(401).json({ success: false, message: "Sesi tidak valid. Silakan login kembali." });
@@ -50,6 +50,19 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     if (user.mustChangePassword && !passwordChangeRoute) {
       res.status(403).json({ success: false, message: "Anda wajib mengganti password sebelum mengakses fitur lain." });
       return;
+    }
+
+    if (user.registrationSource === "EXTERNAL_SELF_REGISTRATION") {
+      const activeTerm = await prisma.academicTerm.findFirst({ where: { isActive: true }, orderBy: [{ startDate: "desc" }, { createdAt: "desc" }], select: { id: true } });
+      const academicProfileRequired = !user.academicProfileCompletedAt || !user.semester || !user.studyProgram || !user.className || Boolean(activeTerm && user.academicProfileTermId !== activeTerm.id);
+      const onboardingRoute =
+        path === "/api/v1/auth/profile" ||
+        path === "/api/v1/files/session" ||
+        path === "/api/v1/access-requests/academic-profile";
+      if (academicProfileRequired && !onboardingRoute) {
+        res.status(403).json({ success: false, message: "Lengkapi atau konfirmasi profil akademik sebelum mengakses fitur lain.", data: { code: "ACADEMIC_PROFILE_REQUIRED" } });
+        return;
+      }
     }
 
     req.user = { userId: user.id, role: user.role };

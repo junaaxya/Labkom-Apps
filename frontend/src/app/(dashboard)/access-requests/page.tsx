@@ -22,12 +22,14 @@ const typeLabels: Record<AccessRequestType, string> = {
   PEMINJAMAN_LAB: "Peminjaman Lab",
   MAGANG: "Magang",
   AKSES_SEMENTARA: "Akses Tamu Sementara",
+  MAHASISWA_EKSTERNAL: "Mahasiswa Prodi Lain",
 };
 
 const approvalHelpText: Record<AccessRequestType, string> = {
   PEMINJAMAN_LAB: "Approve akan membuat booking dan jadwal peminjaman lab.",
   MAGANG: "Approve akan mengaktifkan akun MAGANG dan mengirim email konfirmasi. Jika email gagal terkirim, akun tetap aktif.",
   AKSES_SEMENTARA: "Approve akan membuat akun akses sementara. Detail akses disampaikan secara aman oleh koordinator melalui kanal terverifikasi; kode pengajuan bukan password.",
+  MAHASISWA_EKSTERNAL: "Akun mahasiswa prodi lain aktif otomatis setelah email terverifikasi; semester dan kelas dapat dilengkapi melalui Manajemen User.",
 };
 
 export default function AccessRequestsPage() {
@@ -151,6 +153,7 @@ export default function AccessRequestsPage() {
           <option value="PEMINJAMAN_LAB">Peminjaman Lab</option>
           <option value="MAGANG">Magang</option>
           <option value="AKSES_SEMENTARA">Akses Sementara</option>
+          <option value="MAHASISWA_EKSTERNAL">Mahasiswa Prodi Lain</option>
         </select>
       </div>
 

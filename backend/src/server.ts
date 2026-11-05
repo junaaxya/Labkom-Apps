@@ -6,6 +6,7 @@ import redis from "./config/redis";
 import { startCronJobs } from "./services/cron.service";
 import { ShiftScheduleService } from "./services/attendance.service";
 import { MagangApprovalEmailWorker } from "./services/magang-approval-email-worker.service";
+import { AcademicCalendarSyncService } from "./services/academic-calendar-sync.service";
 
 const startServer = async () => {
   try {
@@ -20,6 +21,9 @@ const startServer = async () => {
     MagangApprovalEmailWorker.start();
     ShiftScheduleService.maintainRecurringPicketHorizon().catch((error) => {
       console.error("[Recurring Picket] Horizon maintenance failed:", error);
+    });
+    AcademicCalendarSyncService.sync().catch((error) => {
+      console.error("[Academic Calendar Sync] Startup sync failed; keeping last known term:", error);
     });
 
     if (process.env.ENABLE_WHATSAPP === "true") {

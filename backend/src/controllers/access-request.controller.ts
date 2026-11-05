@@ -8,7 +8,13 @@ import {
   updateAccessRequestStatusSchema,
   resendMagangVerificationSchema,
   verifyMagangEmailSchema,
+  registerExternalStudentSchema,
+  verifyExternalStudentSchema,
+  resendExternalStudentSchema,
+  completeAcademicProfileSchema,
 } from "../validators/access-request.validator";
+import { ExternalStudentRegistrationService } from "../services/external-student-registration.service";
+import { AcademicProfileService } from "../services/academic-profile.service";
 import { VerificationDeliveryError } from "../services/magang-verification-email.service";
 
 const DUPLICATE_EMAIL_MESSAGE = "Email sudah terdaftar";
@@ -55,6 +61,72 @@ export class AccessRequestController {
         return;
       }
       res.status(500).json({ success: false, message: CREATE_REQUEST_FAILURE_MESSAGE });
+    }
+  }
+
+  static async registerExternalStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const input = registerExternalStudentSchema.parse(req.body);
+      await ExternalStudentRegistrationService.register(input);
+      res.status(201).json({ success: true, message: "Periksa email untuk verifikasi akun" });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Validasi gagal", errors: formatZodIssues(error) });
+        return;
+      }
+      if (error instanceof VerificationDeliveryError) {
+        res.status(503).json({ success: false, message: VERIFICATION_DELIVERY_MESSAGE });
+        return;
+      }
+      if (error instanceof Error && error.message === "EMAIL_OR_NIM_EXISTS") {
+        res.status(400).json({ success: false, message: "Email atau NIM sudah terdaftar" });
+        return;
+      }
+      res.status(500).json({ success: false, message: CREATE_REQUEST_FAILURE_MESSAGE });
+    }
+  }
+
+  static async resendExternalStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const input = resendExternalStudentSchema.parse(req.body);
+      await ExternalStudentRegistrationService.resend(input.email);
+    } catch {}
+    res.json({ success: true, message: "Jika pendaftaran ditemukan, tautan verifikasi baru akan dikirim." });
+  }
+
+  static async verifyExternalStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const input = verifyExternalStudentSchema.parse(req.body);
+      await ExternalStudentRegistrationService.verify({ token: input.token, password: input.password });
+      res.json({ success: true, message: "Akun berhasil diaktifkan. Silakan login." });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Validasi gagal", errors: formatZodIssues(error) });
+        return;
+      }
+      res.status(400).json({ success: false, message: INVALID_VERIFICATION_TOKEN_MESSAGE });
+    }
+  }
+
+  static async getAcademicProfileStatus(req: Request, res: Response): Promise<void> {
+    try {
+      res.json({ success: true, data: await AcademicProfileService.status(req.user!.userId) });
+    } catch (error) {
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : "Gagal mengambil profil akademik" });
+    }
+  }
+
+  static async completeAcademicProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const input = completeAcademicProfileSchema.parse(req.body);
+      const user = await AcademicProfileService.complete(req.user!.userId, input);
+      res.json({ success: true, message: "Profil akademik berhasil disimpan", data: user });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Validasi gagal", errors: formatZodIssues(error) });
+        return;
+      }
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : "Gagal menyimpan profil akademik" });
     }
   }
 

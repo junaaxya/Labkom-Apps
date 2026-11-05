@@ -99,7 +99,7 @@ const accessRequestInclude = {
 type AccessRequestStatusSource = {
   id: string;
   requestCode: string;
-  type: CreateAccessRequestInput["type"];
+  type: "PEMINJAMAN_LAB" | "MAGANG" | "AKSES_SEMENTARA" | "MAHASISWA_EKSTERNAL";
   status: "PENDING" | "APPROVED" | "REJECTED" | "REVISION";
   title: string;
   date: Date | null;

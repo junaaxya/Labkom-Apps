@@ -44,11 +44,15 @@ export class AuthService {
         nip: true,
         role: true,
         semester: true,
+        studyProgram: true,
         className: true,
         isKetuaKelas: true,
         avatar: true,
         isActive: true,
         mustChangePassword: true,
+        registrationSource: true,
+        academicProfileCompletedAt: true,
+        academicProfileTermId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -84,8 +88,14 @@ export class AuthService {
     const token = this.generateToken(user.id, user.role);
 
     const { password: _, ...userWithoutPassword } = user;
+    const activeTerm = user.registrationSource === "EXTERNAL_SELF_REGISTRATION"
+      ? await prisma.academicTerm.findFirst({ where: { isActive: true }, orderBy: [{ startDate: "desc" }, { createdAt: "desc" }], select: { id: true } })
+      : null;
+    const academicProfileRequired = user.registrationSource === "EXTERNAL_SELF_REGISTRATION" && (
+      !user.academicProfileCompletedAt || !user.semester || !user.studyProgram || !user.className || Boolean(activeTerm && user.academicProfileTermId !== activeTerm.id)
+    );
 
-    return { user: userWithoutPassword, token };
+    return { user: { ...userWithoutPassword, academicProfileRequired }, token };
   }
 
   static async getProfile(userId: string) {
@@ -99,11 +109,15 @@ export class AuthService {
         nip: true,
         role: true,
         semester: true,
+        studyProgram: true,
         className: true,
         isKetuaKelas: true,
         avatar: true,
         isActive: true,
         mustChangePassword: true,
+        registrationSource: true,
+        academicProfileCompletedAt: true,
+        academicProfileTermId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -129,12 +143,16 @@ export class AuthService {
         nip: true,
         role: true,
         semester: true,
+        studyProgram: true,
         className: true,
         isKetuaKelas: true,
         avatar: true,
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        registrationSource: true,
+        academicProfileCompletedAt: true,
+        academicProfileTermId: true,
         createdAt: true,
         updatedAt: true,
       },
