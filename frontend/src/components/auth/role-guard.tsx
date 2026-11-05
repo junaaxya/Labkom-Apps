@@ -12,6 +12,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/announcements": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/faq": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG", "DOSEN"],
   "/academic": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA"],
+  "/academic-profile": ["MAHASISWA"],
 
   "/labs": ["KOORDINATOR_LAB", "ASISTEN_LAB"],
   "/schedules": ["KOORDINATOR_LAB", "ASISTEN_LAB", "MAHASISWA", "MAGANG"],
@@ -91,6 +92,10 @@ export function RoleGuard({ children }: RoleGuardProps) {
           user && typeof user === "object" && "mustChangePassword" in user
             ? Boolean((user as { mustChangePassword?: boolean }).mustChangePassword)
             : false;
+        const academicProfileRequired =
+          user && typeof user === "object" && "academicProfileRequired" in user
+            ? Boolean((user as { academicProfileRequired?: boolean }).academicProfileRequired)
+            : false;
 
         if (!role) {
           router.push("/login");
@@ -99,6 +104,10 @@ export function RoleGuard({ children }: RoleGuardProps) {
 
         if (mustChangePassword && pathname !== "/profile") {
           router.push("/profile");
+          return;
+        }
+        if (academicProfileRequired && pathname !== "/academic-profile" && pathname !== "/profile") {
+          router.push("/academic-profile");
           return;
         }
 
