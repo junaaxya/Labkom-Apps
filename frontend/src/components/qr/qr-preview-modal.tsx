@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { TbDownload, TbPrinter, TbX } from "react-icons/tb";
+import { saveBase64File } from "@/services/download-file";
 
 interface QRPreviewModalProps {
   open: boolean;
@@ -18,15 +19,12 @@ export function isPngDataUrl(value: string): boolean {
 }
 
 export function QRPreviewModal({ open, onClose, qrImage, code, label }: QRPreviewModalProps) {
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!isPngDataUrl(qrImage)) return;
-
-    const link = document.createElement("a");
-    link.href = qrImage;
-    link.download = `${code || "qr-code"}.png`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    await saveBase64File({
+      base64: qrImage.slice(qrImage.indexOf(",") + 1),
+      filename: `${code || "qr-code"}.png`,
+    });
   };
 
   const handlePrint = () => {

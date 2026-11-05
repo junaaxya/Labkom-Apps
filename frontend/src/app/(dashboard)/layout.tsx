@@ -6,6 +6,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RoleGuard } from "@/components/auth/role-guard";
 import type { User } from "@/types";
 import api from "@/services/api";
+import { initializeNativeNotifications } from "@/services/native-notifications";
 
 export default function DashboardRootLayout({
   children,
@@ -16,6 +17,9 @@ export default function DashboardRootLayout({
   const router = useRouter();
 
   useEffect(() => {
+    const syncUser = (event: Event) => setUser((event as CustomEvent<User>).detail);
+    window.addEventListener("labkom:user-updated", syncUser);
+
     queueMicrotask(() => {
       const token = localStorage.getItem("token");
       const userData = localStorage.getItem("user");
@@ -27,11 +31,16 @@ export default function DashboardRootLayout({
 
       try {
         const parsedUser = JSON.parse(userData) as User;
-        void api.post("/files/session", {}).catch(() => undefined).finally(() => setUser(parsedUser));
+        void api.post("/files/session", {}).catch(() => undefined).finally(() => {
+          setUser(parsedUser);
+          void initializeNativeNotifications();
+        });
       } catch {
         router.push("/login");
       }
     });
+
+    return () => window.removeEventListener("labkom:user-updated", syncUser);
   }, [router]);
 
   if (!user) {

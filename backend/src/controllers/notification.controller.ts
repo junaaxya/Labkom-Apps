@@ -3,6 +3,14 @@ import { notificationService } from "../services/notification.service";
 import { PushSubscriptionService } from "../services/push-subscription.service";
 import { webPushService } from "../services/web-push.service";
 import { subscribePushSchema, unsubscribePushSchema } from "../validators/push-subscription.validator";
+import { nativePushService } from "../services/native-push.service";
+import { z } from "zod";
+
+const nativeTokenSchema = z.object({
+  token: z.string().trim().min(20).max(4096),
+  platform: z.enum(["android", "ios"]),
+  deviceName: z.string().trim().max(160).optional(),
+}).strict();
 
 function getParam(params: Record<string, unknown>, key: string): string {
   const val = params[key];
@@ -94,6 +102,34 @@ export const subscribePush = async (req: Request, res: Response, next: NextFunct
     );
 
     res.status(201).json({ success: true, message: "Push notification aktif di perangkat ini" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const registerNativePush = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = nativeTokenSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ success: false, message: "Token notifikasi aplikasi tidak valid" });
+      return;
+    }
+    await nativePushService.register(req.user!.userId, validation.data);
+    res.status(201).json({ success: true, message: "Notifikasi aplikasi aktif di perangkat ini" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unregisterNativePush = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = nativeTokenSchema.pick({ token: true }).safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ success: false, message: "Token notifikasi aplikasi tidak valid" });
+      return;
+    }
+    await nativePushService.unregister(req.user!.userId, validation.data.token);
+    res.json({ success: true, message: "Notifikasi aplikasi nonaktif di perangkat ini" });
   } catch (error) {
     next(error);
   }

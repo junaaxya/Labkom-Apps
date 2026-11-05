@@ -62,6 +62,18 @@ npm run cap:open:android
 
 ### Siapkan project Android untuk build release
 
+Project ini **tidak** menyimpan keystore atau `google-services.json` di repo. Simpan keduanya di mesin release / CI secret store.
+
+Untuk notifikasi native Android:
+
+1. daftarkan package `id.ac.labkom.management` pada Firebase;
+2. letakkan `google-services.json` di `frontend/android/app/` sebelum build;
+3. set `FIREBASE_SERVICE_ACCOUNT_JSON` atau `GOOGLE_APPLICATION_CREDENTIALS` pada backend;
+4. jalankan migration `20261106000000_add_native_push_tokens`;
+5. jalankan `npm run cap:sync:android` setelah memasang dependency/plugin native.
+
+Tanpa konfigurasi Firebase, APK tetap berjalan dan download native tetap aktif, tetapi push notification background tidak dikirim.
+
 Project ini **tidak** menyimpan keystore di repo. Simpan di mesin release / CI secret store.
 
 Flow aman:

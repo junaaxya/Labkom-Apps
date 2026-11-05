@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { TbCertificate, TbDownload, TbPlus, TbTrophy, TbCalendarCheck, TbTarget, TbLoader2, TbPhoto, TbTrash, TbUpload, TbX } from "react-icons/tb";
 import api from "@/services/api";
+import { downloadFile } from "@/services/download-file";
 import { useToast } from "@/providers/toast-provider";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
 
@@ -138,17 +139,11 @@ export default function CertificatesPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-      const response = await fetch(`${baseUrl}/certificates/${certId}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await downloadFile({
+        url: `${baseUrl}/certificates/${certId}/download`,
+        filename: `${title.replace(/\s+/g, "-").toLowerCase()}.pdf`,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!response.ok) throw new Error("Download failed");
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${title.replace(/\s+/g, "-").toLowerCase()}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch {
       toast.error("Gagal download sertifikat");
     }

@@ -3,6 +3,7 @@ import { NotificationType, Prisma } from "@prisma/client";
 import { sseManager } from "./sse.service";
 import { whatsappService } from "./whatsapp.service";
 import { webPushService } from "./web-push.service";
+import { nativePushService } from "./native-push.service";
 
 interface CreateNotificationInput {
   userId: string;
@@ -41,6 +42,7 @@ class NotificationService {
 
     whatsappService.sendNotification(input.userId, input.title, input.message).catch(() => {});
     webPushService.sendToUser(input.userId, notification).catch(() => {});
+    nativePushService.sendToUser(input.userId, notification).catch(() => {});
 
     return notification;
   }
@@ -69,6 +71,14 @@ class NotificationService {
 
     whatsappService.sendBulkNotification(input.userIds, input.title, input.message).catch(() => {});
     webPushService
+      .sendToUsers(input.userIds, {
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        metadata: input.metadata ?? null,
+      })
+      .catch(() => {});
+    nativePushService
       .sendToUsers(input.userIds, {
         type: input.type,
         title: input.title,
