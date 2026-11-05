@@ -28,6 +28,12 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from "@/services/push-notifications";
+import {
+  hasNativePushToken,
+  initializeNativeNotifications,
+  isNativePushSupported,
+  unregisterNativeNotifications,
+} from "@/services/native-notifications";
 
 interface Notification {
   id: string;
@@ -116,8 +122,9 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [page, setPage] = useState(1);
+  const nativePush = isNativePushSupported();
   const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">(() =>
-    isPushSupported() ? Notification.permission : "unsupported"
+    nativePush ? "default" : isPushSupported() ? Notification.permission : "unsupported"
   );
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -145,6 +152,11 @@ export default function NotificationsPage() {
   }, [fetchNotifications]);
 
   const refreshPushStatus = useCallback(async () => {
+    if (nativePush) {
+      setPushPermission("default");
+      setPushSubscribed(hasNativePushToken());
+      return;
+    }
     const permission = await getPushPermission();
     setPushPermission(permission);
     if (permission === "unsupported") {
@@ -153,14 +165,14 @@ export default function NotificationsPage() {
     }
     const subscription = await getCurrentPushSubscription();
     setPushSubscribed(Boolean(subscription));
-  }, []);
+  }, [nativePush]);
 
   useEffect(() => {
-    if (!isPushSupported()) return;
+    if (!nativePush && !isPushSupported()) return;
     queueMicrotask(() => {
       void refreshPushStatus();
     });
-  }, [refreshPushStatus]);
+  }, [nativePush, refreshPushStatus]);
 
   const markAsRead = async (id: string) => {
     await api.patch<unknown>(`/notifications/${id}/read`, {});
@@ -184,10 +196,12 @@ export default function NotificationsPage() {
     setPushMessage(null);
     try {
       if (pushSubscribed) {
-        await unsubscribeFromPush();
+        if (nativePush) await unregisterNativeNotifications();
+        else await unsubscribeFromPush();
         setPushMessage("Push perangkat dimatikan.");
       } else {
-        await subscribeToPush();
+        if (nativePush) await initializeNativeNotifications();
+        else await subscribeToPush();
         setPushMessage("Push perangkat aktif. Notifikasi bisa muncul di bar HP.");
       }
       await refreshPushStatus();
@@ -264,7 +278,7 @@ export default function NotificationsPage() {
                   Di iPhone/iPad, pasang LabKom ke Home Screen dulu.
                 </p>
                 <p className="text-xs text-[#5a5a5a] font-bold mt-2">
-                  Status: {pushPermission === "unsupported" ? "Tidak didukung browser" : pushPermission === "denied" ? "Izin diblokir" : pushSubscribed ? "Aktif di perangkat ini" : "Belum aktif"}
+                  Status: {pushPermission === "unsupported" ? "Tidak didukung browser" : pushPermission === "denied" ? "Izin diblokir" : pushSubscribed ? "Aktif di perangkat ini" : nativePush ? "Belum aktif di aplikasi" : "Belum aktif"}
                 </p>
                 {pushMessage && <p className="text-xs font-bold text-[#4b607f] mt-2">{pushMessage}</p>}
               </div>

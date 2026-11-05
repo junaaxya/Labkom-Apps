@@ -9,6 +9,8 @@ import {
   getPushPublicKey,
   subscribePush,
   unsubscribePush,
+  registerNativePush,
+  unregisterNativePush,
 } from "../controllers/notification.controller";
 import { sseManager } from "../services/sse.service";
 
@@ -34,6 +36,8 @@ router.get("/unread-count", getUnreadCount);
 router.get("/push/public-key", getPushPublicKey);
 router.post("/push/subscribe", subscribePush);
 router.post("/push/unsubscribe", unsubscribePush);
+router.post("/push/native/register", registerNativePush);
+router.post("/push/native/unregister", unregisterNativePush);
 router.patch("/read-all", markAllAsRead);
 router.patch("/:id/read", markAsRead);
 router.delete("/:id", deleteNotification);

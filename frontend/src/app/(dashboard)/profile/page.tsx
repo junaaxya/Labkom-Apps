@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
@@ -17,11 +17,15 @@ import {
   TbEyeOff,
   TbEdit,
   TbId,
+  TbCamera,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { useToast } from "@/providers/toast-provider";
-import { SinglePhotoUpload } from "@/components/ui/photo-upload";
 import { toUploadDisplayUrl } from "@/utils/upload-url";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || (() => {
+  throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
+})();
 
 function errMsg(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
@@ -52,12 +56,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [semester, setSemester] = useState("");
-  const [className, setClassName] = useState("");
   const [avatar, setAvatar] = useState("");
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
@@ -75,8 +79,6 @@ export default function ProfilePage() {
       localStorage.setItem("user", JSON.stringify(res.data));
       setName(res.data.name || "");
       setPhone(res.data.phone || "");
-      setSemester(res.data.semester || "");
-      setClassName(res.data.className || "");
       setAvatar(res.data.avatar || "");
       setAvatarLoadFailed(false);
     } catch {
@@ -97,6 +99,48 @@ export default function ProfilePage() {
       setAvatarLoadFailed(false);
     });
   }, [avatar, profile?.avatar]);
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Pilih foto JPG, PNG, atau WebP");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran foto maksimal 5 MB");
+      event.target.value = "";
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const token = localStorage.getItem("token");
+      const uploadResponse = await fetch(`${API_BASE}/upload/avatar?category=avatars`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const uploadData = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadData.data?.url) throw new Error(uploadData.message || "Upload foto gagal");
+
+      const response = await api.patch<{ data: ProfileData }>("/auth/profile", { avatar: uploadData.data.url });
+      setProfile(response.data);
+      setAvatar(response.data.avatar || "");
+      setAvatarLoadFailed(false);
+      localStorage.setItem("user", JSON.stringify(response.data));
+      window.dispatchEvent(new CustomEvent("labkom:user-updated", { detail: response.data }));
+      toast.success("Foto profil berhasil diperbarui");
+    } catch (error) {
+      toast.error(errMsg(error, "Gagal memperbarui foto profil"));
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = "";
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +237,8 @@ export default function ProfilePage() {
             style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1.5' fill='white'/%3E%3C/svg%3E\")" }}
           />
           <div className="absolute -bottom-12 left-6 sm:left-8">
-            <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-2xl bg-[#f3701e] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#1a1a1a] flex items-center justify-center">
               {shouldRenderAvatar ? (
                 <Image
                   key={avatarUrl}
@@ -210,6 +255,11 @@ export default function ProfilePage() {
               ) : (
                 <span className="font-heading text-4xl font-bold text-white">{initial}</span>
               )}
+              </div>
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={handleAvatarChange} className="hidden" />
+              <button type="button" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar} aria-label="Ubah foto profil" className="absolute -bottom-2 -right-3 flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-70">
+                {uploadingAvatar ? <TbLoader2 size={20} className="animate-spin" /> : <TbCamera size={20} strokeWidth={2.4} />}
+              </button>
             </div>
           </div>
         </div>
@@ -243,17 +293,19 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t-2 border-dashed border-[#d5c4b5]">
+          <dl className="mt-5 grid grid-cols-2 gap-2 border-t-2 border-dashed border-[#d5c4b5] pt-5 sm:grid-cols-4 sm:gap-3 sm:pt-6">
             {infoPills.map((item) => (
-              <div key={item.label} className="p-3 rounded-xl bg-[#f5ede6] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-0.5 transition-transform duration-200">
-                <div className={`w-7 h-7 rounded-lg ${item.color} border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] flex items-center justify-center mb-1.5`}>
-                  <item.icon size={13} strokeWidth={2.2} className="text-white" />
+              <div key={item.label} className="flex min-w-0 items-center gap-2.5 rounded-xl border-2 border-[#1a1a1a] bg-[#f5ede6] p-2.5 shadow-[2px_2px_0px_#1a1a1a] sm:block sm:p-3 sm:hover:-translate-y-0.5 sm:transition-transform sm:duration-200">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] ${item.color} sm:mb-1.5 sm:h-7 sm:w-7`}>
+                  <item.icon size={15} strokeWidth={2.2} className="text-white sm:h-[13px] sm:w-[13px]" />
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a5a5a]">{item.label}</p>
-                <p className="font-heading text-lg font-bold text-[#1a1a1a] truncate">{item.value}</p>
+                <div className="min-w-0">
+                  <dt className="text-[9px] font-bold uppercase leading-tight tracking-wider text-[#5a5a5a] sm:text-[10px]">{item.label}</dt>
+                  <dd className="truncate font-heading text-base font-bold leading-tight text-[#1a1a1a] sm:text-lg">{item.value}</dd>
+                </div>
               </div>
             ))}
-          </div>
+          </dl>
         </div>
       </motion.div>
 
@@ -271,16 +323,6 @@ export default function ProfilePage() {
             
           <form onSubmit={handleUpdateProfile} className="p-6 flex-1 flex flex-col">
             <div className="space-y-4 flex-1">
-              <SinglePhotoUpload
-                value={avatar}
-                onChange={(url) => {
-                  setAvatarLoadFailed(false);
-                  setAvatar(url);
-                  setProfile((current) => (current ? { ...current, avatar: url } : current));
-                }}
-                category="avatars"
-                label="Foto Profil"
-              />
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-[#1a1a1a]">Nama Lengkap</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="neo-input w-full min-h-[44px] bg-white px-4 py-3" placeholder="Masukkan nama lengkap" />
