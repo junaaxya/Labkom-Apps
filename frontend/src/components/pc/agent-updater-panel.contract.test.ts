@@ -20,3 +20,18 @@ test("dashboard shows required updater progress states", () => {
     assert.match(source, new RegExp(status));
   }
 });
+
+test("agent updater panel constrains intrinsic widths and clears mobile bottom navigation", () => {
+  assert.match(source, /data-testid="agent-updater-panel"[^>]+min-w-0[^>]+max-w-full[^>]+overflow-hidden/);
+  assert.match(source, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
+  assert.match(source, /aria-label="Artifact ZIP" type="file"/);
+  assert.match(source, /className="neo-input mt-1 block min-h-\[44px\] w-full min-w-0 max-w-full overflow-hidden/);
+  assert.match(source, /className="neo-input mt-1 min-h-\[44px\] w-full min-w-0 max-w-full px-3 text-base"/);
+  assert.doesNotMatch(source, /min-h-\[40px\]/);
+});
+
+test("agent updater form controls have visible labels and accessible names", () => {
+  for (const label of ["Versi release", "Minimum updater", "Artifact ZIP", "Release rollout", "Target rollout", "Lab target"]) {
+    assert.match(source, new RegExp(`aria-label="${label}"`));
+  }
+});

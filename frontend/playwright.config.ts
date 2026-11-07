@@ -21,6 +21,7 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
+      ...process.env,
       NEXT_PUBLIC_API_URL: "http://127.0.0.1:3999/api/v1",
       NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100",
       NEXT_PUBLIC_APP_NAME: "LabKom Management System",

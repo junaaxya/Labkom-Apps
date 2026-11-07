@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   TbDeviceDesktop,
@@ -25,11 +26,11 @@ import {
   TbDeviceDesktopAnalytics,
   TbFilter,
   TbNetwork,
+  TbRocket,
 } from "react-icons/tb";
 import api from "@/services/api";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { MobileCard } from "@/components/ui/mobile-card";
-import { AgentUpdaterPanel } from "@/components/pc/agent-updater-panel";
 import type {
   PC,
   PCDetail,
@@ -551,7 +552,16 @@ export default function PCMonitoringPage() {
         </div>
       </section>
 
-      <AgentUpdaterPanel labs={labs} selectedPcIds={selectedPCs} />
+      <section className="neo-card flex min-w-0 flex-col gap-3 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Quick action</p>
+          <h2 className="font-heading text-lg font-black text-[#1a1a1a]">Agent Updater</h2>
+          <p className="mt-1 text-xs font-semibold text-[#5a5a5a]">Upload release, pantau rollout, pause, atau rollback dari halaman khusus.</p>
+        </div>
+        <Link href={selectedPCs.length ? `/pc-monitoring/updater?pcs=${selectedPCs.join(",")}` : "/pc-monitoring/updater"} className="neo-btn flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 bg-[#f3701e] px-4 text-sm font-black text-[#1a1a1a] sm:w-auto">
+          <TbRocket className="h-5 w-5" /> Buka Agent Updater{selectedPCs.length ? ` (${selectedPCs.length} PC)` : ""}
+        </Link>
+      </section>
 
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 sm:gap-4">
