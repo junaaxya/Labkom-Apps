@@ -31,7 +31,16 @@ test("agent updater panel constrains intrinsic widths and clears mobile bottom n
 });
 
 test("agent updater form controls have visible labels and accessible names", () => {
-  for (const label of ["Versi release", "Minimum updater", "Artifact ZIP", "Release rollout", "Target rollout", "Lab target"]) {
+  for (const label of ["Versi release", "Minimum updater", "Artifact ZIP", "Release rollout", "Target rollout", "Cari PC target", "Lab target"]) {
     assert.match(source, new RegExp(`aria-label="${label}"`));
+  }
+});
+
+test("agent updater provides inline mobile-friendly PC selector when Target is PC terpilih", () => {
+  assert.match(source, /api\.get<\{ data: TargetPC\[\] \}>\("\/pcs"\)/);
+  assert.match(source, /scope === "PCS" && <div data-testid="pc-selector"/);
+  assert.match(source, /max-h-56[^>]+overflow-y-auto/);
+  for (const action of ["Pilih semua", "Pilih yang online", "Reset"]) {
+    assert.match(source, new RegExp(action));
   }
 });

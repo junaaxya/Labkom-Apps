@@ -8,6 +8,29 @@ const coordinator = {
   mustChangePassword: false,
 };
 
+const samplePcs = [
+  {
+    id: "pc-1",
+    pcCode: "LAB1-PC01",
+    name: "Workstation 01",
+    labId: "lab-1",
+    agentStatus: "ONLINE",
+    lastSeen: new Date().toISOString(),
+    agentVersion: "1.0.4",
+    lab: { id: "lab-1", name: "Lab Pemrograman 1" },
+  },
+  {
+    id: "pc-2",
+    pcCode: "LAB1-PC02",
+    name: "Workstation 02",
+    labId: "lab-1",
+    agentStatus: "OFFLINE",
+    lastSeen: null,
+    agentVersion: "1.0.2",
+    lab: { id: "lab-1", name: "Lab Pemrograman 1" },
+  },
+];
+
 async function installUpdaterState(page: Page): Promise<void> {
   await page.addInitScript((user) => {
     localStorage.setItem("user", JSON.stringify(user));
@@ -20,7 +43,9 @@ async function installUpdaterState(page: Page): Promise<void> {
       ? [{ id: "release-1", version: "1.1.0", platform: "windows", architecture: "x86_64", sha256: "a".repeat(64), sizeBytes: 12_582_912, minimumUpdaterVersion: "1.0.0", mandatory: false, isPublished: true, createdAt: new Date().toISOString() }]
       : path.endsWith("/pcs/agent-updates/rollouts")
         ? [{ id: "rollout-1", status: "ACTIVE", scope: "ALL", rolloutPercent: 25, checkAfterSeconds: 600, createdAt: new Date().toISOString(), release: { id: "release-1", version: "1.1.0", platform: "windows", architecture: "x86_64", sha256: "a".repeat(64), sizeBytes: 12_582_912, minimumUpdaterVersion: "1.0.0", mandatory: false, isPublished: true, createdAt: new Date().toISOString() }, assignments: [] }]
-        : [];
+        : path.endsWith("/pcs")
+          ? samplePcs
+          : [];
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data }) });
   });
 }
@@ -28,7 +53,7 @@ async function installUpdaterState(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 
 for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }, { width: 1440, height: 1000 }]) {
-  test(`agent updater fits ${viewport.width}px viewport`, async ({ page }) => {
+  test(`agent updater fits ${viewport.width}px viewport and supports inline PC selector`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await installUpdaterState(page);
     await page.goto("/pc-monitoring");
@@ -39,11 +64,25 @@ for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }
     if (viewport.width === 390) {
       await page.screenshot({ path: "/tmp/pc-monitoring-agent-updater-quick-action-390x844.png", fullPage: false });
     }
-    await page.goto("/pc-monitoring/agent-updater");
-    await expect(page).toHaveURL(/\/pc-monitoring\/agent-updater$/);
+    await page.goto("/pc-monitoring/agent-updater?pcs=pc-2");
+    await expect(page).toHaveURL(/\/pc-monitoring\/agent-updater\?pcs=pc-2$/);
 
     const panel = page.getByTestId("agent-updater-panel");
+    const selector = page.getByTestId("pc-selector");
     await expect(panel).toBeVisible();
+    await expect(selector).toBeVisible();
+    await expect(selector.getByText("Pilih PC target (1 dipilih)")).toBeVisible();
+    await expect(selector.getByText("LAB1-PC01 · Workstation 01")).toBeVisible();
+    await expect(selector.getByText("Lab Pemrograman 1 · v1.0.4")).toBeVisible();
+
+    await selector.getByRole("button", { name: "Pilih yang online" }).click();
+    await expect(selector.getByText("Pilih PC target (1 dipilih)")).toBeVisible();
+    await selector.getByRole("button", { name: "Pilih semua" }).click();
+    await expect(selector.getByText("Pilih PC target (2 dipilih)")).toBeVisible();
+    await selector.getByLabel("Cari PC target").fill("PC01");
+    await expect(selector.getByText("LAB1-PC01 · Workstation 01")).toBeVisible();
+    await selector.getByLabel("Cari PC target").fill("");
+
     const layout = await panel.evaluate((element) => ({
       viewportWidth: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
