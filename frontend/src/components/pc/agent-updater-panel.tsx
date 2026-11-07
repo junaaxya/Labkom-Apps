@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { TbAlertTriangle, TbCheck, TbCloudUpload, TbPlayerPause, TbPlayerPlay, TbRefresh, TbRestore } from "react-icons/tb";
 import api from "@/services/api";
-import type { PC } from "@/types";
 
 type Release = {
   id: string; version: string; platform: string; architecture: string; sha256: string; sizeBytes: number;
@@ -19,7 +18,7 @@ type Rollout = {
   id: string; status: string; scope: string; rolloutPercent: number; checkAfterSeconds: number; createdAt: string;
   release: Release; assignments: Assignment[];
 };
-type Props = { pcs: PC[]; labs: Array<{ id: string; name: string }>; selectedPcIds: string[] };
+type Props = { labs: Array<{ id: string; name: string }>; selectedPcIds: string[] };
 
 const UPDATE_LABEL: Record<string, string> = {
   PENDING: "Pending", DOWNLOADING: "Downloading", VERIFYING: "Verifying", INSTALLING: "Installing",
@@ -31,9 +30,10 @@ function currentRole(): string {
   try { return JSON.parse(localStorage.getItem("user") || "{}").role || ""; } catch { return ""; }
 }
 function responseMessage(error: unknown): string { return error instanceof Error ? error.message : "Operasi updater gagal"; }
+const subscribeRole = () => () => {};
 
-export function AgentUpdaterPanel({ pcs, labs, selectedPcIds }: Props) {
-  const [role, setRole] = useState("");
+export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
+  const role = useSyncExternalStore(subscribeRole, currentRole, () => "");
   const [releases, setReleases] = useState<Release[]>([]);
   const [rollouts, setRollouts] = useState<Rollout[]>([]);
   const [busy, setBusy] = useState(false);
@@ -60,7 +60,7 @@ export function AgentUpdaterPanel({ pcs, labs, selectedPcIds }: Props) {
     } catch (error) { setFeedback(responseMessage(error)); }
   }, []);
 
-  useEffect(() => { setRole(currentRole()); void load(); }, [load]);
+  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
 
   const totals = useMemo(() => rollouts.flatMap((item) => item.assignments).reduce<Record<string, number>>((acc, item) => {
     acc[item.status] = (acc[item.status] || 0) + 1; return acc;

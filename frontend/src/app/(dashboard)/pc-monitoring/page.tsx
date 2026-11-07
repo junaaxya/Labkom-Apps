@@ -551,7 +551,7 @@ export default function PCMonitoringPage() {
         </div>
       </section>
 
-      <AgentUpdaterPanel pcs={pcs} labs={labs} selectedPcIds={selectedPCs} />
+      <AgentUpdaterPanel labs={labs} selectedPcIds={selectedPCs} />
 
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 sm:gap-4">
