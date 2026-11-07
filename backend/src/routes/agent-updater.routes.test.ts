@@ -28,3 +28,17 @@ test("success remains heartbeat-owned and artifacts are signed immutable metadat
   assert.match(service, /createHash\("sha256"\)/);
   assert.match(service, /AGENT_RELEASE_MAX_BYTES = 50 \* 1024 \* 1024/);
 });
+
+test("CI release route uses constant-time token auth before JWT, sync-github is coordinator-only", () => {
+  const controller = readFileSync(path.join(__dirname, "../controllers/agent-updater.controller.ts"), "utf8");
+  const ciIndex = adminRoutes.indexOf('router.post("/releases/ci"');
+  assert.ok(ciIndex >= 0 && ciIndex < adminRoutes.indexOf("router.use(authenticate"));
+  assert.match(adminRoutes, /router\.post\("\/releases\/ci", ciLimiter, uploadArtifact, AgentUpdaterController\.ciUpload\)/);
+  assert.match(adminRoutes, /router\.post\("\/releases\/sync-github", authorize\("KOORDINATOR_LAB"\), AgentUpdaterController\.syncGithub\)/);
+  assert.match(controller, /AGENT_CI_RELEASE_TOKEN/);
+  assert.match(controller, /status\(503\)/);
+  assert.match(controller, /verifyCiToken\(header\(req, "x-agent-ci-token"\)/);
+  assert.match(service, /crypto\.timingSafeEqual/);
+  assert.match(service, /AGENT_GITHUB_REPO \|\| "junaaxya\/labkom-agents"/);
+  assert.match(service, /releases\/latest/);
+});

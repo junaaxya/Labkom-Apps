@@ -7,6 +7,26 @@ export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
+    if (process.env.NODE_ENV === "development") {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+        .catch(() => {});
+      if ("caches" in window) {
+        caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys
+                .filter((key) => key.startsWith("labkom-pwa-"))
+                .map((key) => caches.delete(key))
+            )
+          )
+          .catch(() => {});
+      }
+      return;
+    }
+
     let refreshing = false;
     const onControllerChange = () => {
       if (refreshing) return;

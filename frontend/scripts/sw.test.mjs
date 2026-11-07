@@ -9,6 +9,7 @@ const publicDir = path.join(root, "public");
 const offlinePage = path.join(root, "src", "app", "offline", "page.tsx");
 const sw = fs.readFileSync(path.join(publicDir, "sw.js"), "utf8");
 const stamp = fs.readFileSync(path.join(root, "scripts", "stamp-sw.mjs"), "utf8");
+const swReg = fs.readFileSync(path.join(root, "src", "components", "pwa", "sw-registration.tsx"), "utf8");
 const layout = fs.readFileSync(path.join(root, "src", "app", "layout.tsx"), "utf8");
 const manifestPath = "/manifest-labkom-20260708.webmanifest";
 const cacheNamePattern = /^labkom-pwa-(?:__CACHE_VERSION__|[a-f0-9]{12})$/;
@@ -96,3 +97,11 @@ test("navigation falls back to cached offline page", () => {
   assert.match(sw, /fetch\(req\)\.catch\(\(\) =>/);
   assert.match(sw, /cache\.match\(OFFLINE_URL\)/);
 });
+
+test("service worker registration unregisters and clears PWA caches in development", () => {
+  assert.match(swReg, /process\.env\.NODE_ENV === "development"/);
+  assert.match(swReg, /getRegistrations\(\)/);
+  assert.match(swReg, /reg\.unregister\(\)/);
+  assert.match(swReg, /key\.startsWith\("labkom-pwa-"\)/);
+});
+
