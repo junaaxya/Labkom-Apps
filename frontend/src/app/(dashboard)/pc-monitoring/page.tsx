@@ -29,6 +29,7 @@ import {
   TbRocket,
 } from "react-icons/tb";
 import api from "@/services/api";
+import { LiveInspector } from "@/components/pc/live-inspector";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { MobileCard } from "@/components/ui/mobile-card";
 import type {
@@ -54,7 +55,12 @@ type StatusLogLite = {
 type CommandPayload = {
   message?: string;
   broadcastAddress?: string;
+  url?: string;
 };
+
+function validHttpsUrl(raw: string): boolean {
+  try { return new URL(raw).protocol === "https:"; } catch { return false; }
+}
 
 function errMsg(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -119,6 +125,8 @@ const COMMAND_OPTIONS = [
   { value: "SLEEP", label: "Sleep", icon: TbPower, color: "text-purple-600" },
   { value: "LOCK", label: "Lock", icon: TbLock, color: "text-blue-600" },
   { value: "MESSAGE", label: "Kirim Pesan", icon: TbMessage, color: "text-teal-600" },
+  { value: "OPEN_URL", label: "Buka URL", icon: TbNetwork, color: "text-blue-600" },
+  { value: "CLEAN_TEMP", label: "Bersihkan Temp", icon: TbRefresh, color: "text-orange-600" },
 ];
 
 function getDisplayAgentStatus(pc: { agentStatus: AgentStatus; lastSeen?: string | null }): AgentStatus {
@@ -221,6 +229,7 @@ export default function PCMonitoringPage() {
   const [generatingToken, setGeneratingToken] = useState(false);
   const [copied, setCopied] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
+  const [bulkUrl, setBulkUrl] = useState("");
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -338,13 +347,17 @@ export default function PCMonitoringPage() {
       if (commandType === "WAKE_ON_LAN" && commandBroadcastAddress.trim()) {
         payload.broadcastAddress = commandBroadcastAddress.trim();
       }
+      if (commandType === "OPEN_URL") {
+        if (!validHttpsUrl(commandPayload.trim())) throw new Error("Masukkan URL https:// yang valid.");
+        payload.url = commandPayload.trim();
+      }
       await api.post(`/pcs/${commandTarget}/command`, { command: commandType, payload });
       setShowCommandModal(false);
       if (detailPC && detailPC.id === commandTarget) {
         openDetail(commandTarget);
       }
-    } catch {
-
+    } catch (error) {
+      setBulkFeedback(errMsg(error, "Gagal mengirim command."));
     }
   }
 
@@ -411,6 +424,14 @@ export default function PCMonitoringPage() {
   async function bulkAction(action: string) {
     if (selectedVisiblePCs.length === 0) return;
     setBulkFeedback(null);
+    if (action === "OPEN_URL" && !validHttpsUrl(bulkUrl.trim())) {
+      setBulkFeedback("Masukkan URL https:// yang valid.");
+      return;
+    }
+    if ((action === "OPEN_URL" || action === "CLEAN_TEMP") && selectedVisiblePCs.some((pc) => getDisplayAgentStatus(pc) !== "ONLINE")) {
+      setBulkFeedback("Pilih PC online saja untuk command ini.");
+      return;
+    }
     if (action === "status") {
       setShowBulkModal(true);
     } else if (action === "WAKE_ON_LAN") {
@@ -430,7 +451,13 @@ export default function PCMonitoringPage() {
       await fetchPCs();
       await fetchAnalytics();
     } else {
-      await api.post("/pcs/bulk-command", { pcIds: selectedVisiblePCs.map((pc) => pc.id), command: action });
+      try {
+        await api.post("/pcs/bulk-command", { pcIds: selectedVisiblePCs.map((pc) => pc.id), command: action, ...(action === "OPEN_URL" ? { payload: { url: bulkUrl.trim() } } : {}) });
+        setBulkFeedback(`${action === "OPEN_URL" ? "Buka URL" : action === "CLEAN_TEMP" ? "Bersihkan Temp" : action} dikirim ke ${selectedVisiblePCs.length} PC.`);
+      } catch (error) {
+        setBulkFeedback(errMsg(error, "Gagal mengirim command bulk."));
+        return;
+      }
       setSelectedPCs([]);
       await fetchPCs();
       await fetchAnalytics();
@@ -816,6 +843,9 @@ export default function PCMonitoringPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <input aria-label="URL untuk PC terpilih" type="url" inputMode="url" value={bulkUrl} onChange={(event) => setBulkUrl(event.target.value)} placeholder="https://..." className="neo-input col-span-2 min-h-[44px] min-w-0 px-3 sm:w-56" />
+            <button type="button" onClick={() => void bulkAction("OPEN_URL")} className="neo-btn min-h-[44px] bg-[#4b607f] px-3 text-xs text-white">Buka URL</button>
+            <button type="button" onClick={() => void bulkAction("CLEAN_TEMP")} className="neo-btn min-h-[44px] bg-orange-100 px-3 text-xs">Bersihkan Temp</button>
             <button onClick={() => bulkAction("SHUTDOWN")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-red-100 text-red-700">Shutdown Selected</button>
             <button onClick={() => bulkAction("WAKE_ON_LAN")} disabled={wakeEligibleSelectedPCs.length === 0} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-green-600 text-white disabled:opacity-50">Wake Selected</button>
             <button onClick={() => bulkAction("RESTART")} className="neo-btn min-h-[44px] px-3 py-2 text-xs bg-orange-100 text-orange-700">Restart Selected</button>
@@ -1284,6 +1314,8 @@ export default function PCMonitoringPage() {
                 </section>
               )}
 
+              <LiveInspector key={detailPC.id} pcId={detailPC.id} pcCode={detailPC.pcCode} online={getDisplayAgentStatus(detailPC) === "ONLINE"} />
+
               <section className="sticky bottom-0 -mx-3 bg-[#f5ede6]/95 px-3 pb-4 pt-1 backdrop-blur-sm sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
                 <button
                   onClick={() => openCommandModal(detailPC.id)}
@@ -1335,14 +1367,14 @@ export default function PCMonitoringPage() {
                   })}
                 </div>
               </div>
-              {commandType === "MESSAGE" && (
+              {(commandType === "MESSAGE" || commandType === "OPEN_URL") && (
                 <div>
-                  <label className="text-sm font-medium text-[#1a1a1a]">Pesan</label>
+                  <label className="text-sm font-medium text-[#1a1a1a]">{commandType === "OPEN_URL" ? "URL (https://...)" : "Pesan"}</label>
                   <input
-                    type="text"
+                    type={commandType === "OPEN_URL" ? "url" : "text"}
                     value={commandPayload}
                     onChange={(e) => setCommandPayload(e.target.value)}
-                    placeholder="Tulis pesan untuk PC..."
+                    placeholder={commandType === "OPEN_URL" ? "https://..." : "Tulis pesan untuk PC..."}
                     className="neo-input w-full mt-1"
                   />
                 </div>

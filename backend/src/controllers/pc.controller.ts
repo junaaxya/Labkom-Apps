@@ -34,6 +34,18 @@ export class PCController {
     }
   }
 
+  static async getMediaSnapshot(req: Request, res: Response) {
+    const kind = req.query.kind;
+    if (kind !== "webcam" && kind !== "screen") return res.status(400).json({ success: false, message: "kind harus webcam atau screen" });
+    try { res.json({ success: true, data: await PCService.getMediaSnapshot(getParam(req, "id"), kind) }); }
+    catch { res.status(404).json({ success: false, message: "PC tidak ditemukan" }); }
+  }
+
+  static async getProcesses(req: Request, res: Response) {
+    try { res.json({ success: true, data: await PCService.getProcesses(getParam(req, "id")) }); }
+    catch { res.status(404).json({ success: false, message: "PC tidak ditemukan" }); }
+  }
+
   static async bulkUpdateStatus(req: Request, res: Response) {
     try {
       const { pcIds, status, reason } = req.body;
