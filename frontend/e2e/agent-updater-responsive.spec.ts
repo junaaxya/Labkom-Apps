@@ -32,15 +32,15 @@ for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await installUpdaterState(page);
     await page.goto("/pc-monitoring");
-    const quickAction = page.getByRole("link", { name: /Buka Agent Updater/i });
+    const quickAction = page.getByRole("link", { name: /Kelola pembaruan agent/i });
     await expect(quickAction).toBeVisible();
     await expect(page.getByTestId("agent-updater-panel")).toHaveCount(0);
-    await expect(quickAction).toHaveAttribute("href", "/pc-monitoring/updater");
+    await expect(quickAction).toHaveAttribute("href", "/pc-monitoring/agent-updater");
     if (viewport.width === 390) {
-      await page.screenshot({ path: "/tmp/pc-monitoring-updater-quick-action-390x844.png", fullPage: false });
+      await page.screenshot({ path: "/tmp/pc-monitoring-agent-updater-quick-action-390x844.png", fullPage: false });
     }
-    await page.goto("/pc-monitoring/updater");
-    await expect(page).toHaveURL(/\/pc-monitoring\/updater$/);
+    await page.goto("/pc-monitoring/agent-updater");
+    await expect(page).toHaveURL(/\/pc-monitoring\/agent-updater$/);
 
     const panel = page.getByTestId("agent-updater-panel");
     await expect(panel).toBeVisible();

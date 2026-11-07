@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const monitoring = readFileSync(new URL("../../app/(dashboard)/pc-monitoring/page.tsx", import.meta.url), "utf8");
-const updater = readFileSync(new URL("../../app/(dashboard)/pc-monitoring/updater/page.tsx", import.meta.url), "utf8");
+const updater = readFileSync(new URL("../../app/(dashboard)/pc-monitoring/agent-updater/page.tsx", import.meta.url), "utf8");
 
 test("PC Monitoring exposes updater as a compact quick action", () => {
-  assert.match(monitoring, /href=\{selectedPCs\.length \? `\/pc-monitoring\/updater\?pcs=/);
-  assert.match(monitoring, /Buka Agent Updater/);
+  assert.match(monitoring, /href=\{selectedPCs\.length \? `\/pc-monitoring\/agent-updater\?pcs=/);
+  assert.match(monitoring, /Kelola pembaruan agent/);
   assert.doesNotMatch(monitoring, /<AgentUpdaterPanel/);
 });
 

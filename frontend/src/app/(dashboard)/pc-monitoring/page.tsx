@@ -554,12 +554,15 @@ export default function PCMonitoringPage() {
 
       <section className="neo-card flex min-w-0 flex-col gap-3 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Quick action</p>
-          <h2 className="font-heading text-lg font-black text-[#1a1a1a]">Agent Updater</h2>
-          <p className="mt-1 text-xs font-semibold text-[#5a5a5a]">Upload release, pantau rollout, pause, atau rollback dari halaman khusus.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#5a5a5a]">Quick action</p>
+            <span className="rounded-full bg-[#e8d8c9] px-2 py-1 text-[10px] font-black text-[#1a1a1a]">{selectedPCs.length} PC dipilih</span>
+          </div>
+          <h2 className="font-heading text-lg font-black text-[#1a1a1a]">Pembaruan Agent</h2>
+          <p className="mt-1 text-xs font-semibold text-[#5a5a5a]">Upload release, pantau progres, dan kendalikan rollout dari halaman khusus.</p>
         </div>
-        <Link href={selectedPCs.length ? `/pc-monitoring/updater?pcs=${selectedPCs.join(",")}` : "/pc-monitoring/updater"} className="neo-btn flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 bg-[#f3701e] px-4 text-sm font-black text-[#1a1a1a] sm:w-auto">
-          <TbRocket className="h-5 w-5" /> Buka Agent Updater{selectedPCs.length ? ` (${selectedPCs.length} PC)` : ""}
+        <Link href={selectedPCs.length ? `/pc-monitoring/agent-updater?pcs=${selectedPCs.join(",")}` : "/pc-monitoring/agent-updater"} className="neo-btn flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 bg-[#f3701e] px-4 text-sm font-black text-[#1a1a1a] sm:w-auto">
+          <TbRocket className="h-5 w-5" /> Kelola pembaruan agent{selectedPCs.length ? ` (${selectedPCs.length})` : ""}
         </Link>
       </section>
 
