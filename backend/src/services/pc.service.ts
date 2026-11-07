@@ -6,6 +6,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { config } from "../config";
 import { AgentUpdaterService } from "./agent-updater.service";
+import { parseInspectorResult, readInspectorResult, saveInspectorResult } from "./pc-inspector-cache";
 
 const AGENT_OFFLINE_AFTER_MS = 90 * 1000;
 
@@ -513,9 +514,14 @@ export class PCService {
       });
     }
 
-    if (["SHUTDOWN", "RESTART", "SLEEP", "LOCK"].includes(command) && !pc.isOnline) {
+    if (["SHUTDOWN", "RESTART", "SLEEP", "LOCK", "LIST_PROCESSES", "KILL_PROCESS", "CAPTURE_WEBCAM", "CAPTURE_SCREEN", "OPEN_URL", "CLEAN_TEMP"].includes(command) && (!pc.isOnline || pc.agentStatus !== "ONLINE")) {
       throw new Error("PC sedang offline. Command tidak bisa dikirim.");
     }
+    if (command === "OPEN_URL") {
+      if (typeof payload?.url !== "string" || payload.url.length > 2048 || !/^https:\/\/[^\s]+$/i.test(payload.url)) throw new Error("URL https:// wajib diisi.");
+      try { new URL(payload.url); } catch { throw new Error("URL tidak valid."); }
+    }
+    if (command === "KILL_PROCESS" && (!Number.isSafeInteger(payload?.pid) || payload.pid <= 0)) throw new Error("PID proses tidak valid.");
 
     return prisma.pCCommand.create({
       data: {
@@ -534,11 +540,15 @@ export class PCService {
     issuedBy: string,
     payload?: any
   ) {
+    if (command === "OPEN_URL") {
+      if (typeof payload?.url !== "string" || payload.url.length > 2048 || !/^https:\/\/[^\s]+$/i.test(payload.url)) throw new Error("URL https:// wajib diisi.");
+      try { new URL(payload.url); } catch { throw new Error("URL tidak valid."); }
+    }
     await this.markStaleAgentsOffline();
 
     const pcs = await prisma.pC.findMany({
       where: { id: { in: pcIds } },
-      select: { id: true, isOnline: true, macAddress: true, ipAddress: true },
+      select: { id: true, isOnline: true, agentStatus: true, macAddress: true, ipAddress: true },
     });
 
     if (pcs.length === 0) throw new Error("Tidak ada PC yang ditemukan");
@@ -547,7 +557,7 @@ export class PCService {
     if (command === "WAKE_ON_LAN") {
       validPCs = pcs.filter((pc) => pc.macAddress);
     } else {
-      validPCs = pcs.filter((pc) => pc.isOnline);
+      validPCs = pcs.filter((pc) => pc.isOnline && pc.agentStatus === "ONLINE");
     }
 
     if (validPCs.length === 0) {
@@ -644,15 +654,33 @@ export class PCService {
     });
 
     if (!command) throw new Error("Command tidak ditemukan untuk PC ini");
+    if (command.status !== "SENT") throw new Error("Hanya command SENT yang dapat menerima hasil");
 
-    return prisma.pCCommand.update({
+    const inspector = success && typeof result === "string" ? parseInspectorResult(command.command, result) : null;
+    const containsSensitivePayload = typeof result === "string" && /"(?:imageBase64|processes)"\s*:/.test(result);
+    const summary = inspector?.summary ?? (containsSensitivePayload ? "Hasil inspector tidak valid atau terlalu besar" : result?.slice(0, 2048));
+    const updated = await prisma.pCCommand.update({
       where: { id: commandId },
       data: {
         status: success ? "EXECUTED" : "FAILED",
-        result,
+        result: summary,
         executedAt: new Date(),
       },
     });
+    if (inspector) saveInspectorResult(pcId, inspector.cacheKey, inspector.value);
+    return updated;
+  }
+
+  static async getMediaSnapshot(pcId: string, kind: "webcam" | "screen") {
+    const pc = await prisma.pC.findUnique({ where: { id: pcId }, select: { id: true } });
+    if (!pc) throw new Error("PC tidak ditemukan");
+    return readInspectorResult(pcId, kind);
+  }
+
+  static async getProcesses(pcId: string) {
+    const pc = await prisma.pC.findUnique({ where: { id: pcId }, select: { id: true } });
+    if (!pc) throw new Error("PC tidak ditemukan");
+    return readInspectorResult(pcId, "processes");
   }
 
   // Agent endpoint: heartbeat (PC reports it's alive with full metrics)
