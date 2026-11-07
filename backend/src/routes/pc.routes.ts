@@ -37,6 +37,8 @@ router.post("/:id/generate-token", authenticate, authorize("KOORDINATOR_LAB"), P
 
 router.patch("/commands/:commandId/cancel", authenticate, authorize("KOORDINATOR_LAB"), PCController.cancelCommand);
 
+router.get("/:id/media-snapshot", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getMediaSnapshot);
+router.get("/:id/processes", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getProcesses);
 router.get("/:id", authenticate, PCController.getPCDetail);
 router.get("/:id/history", authenticate, PCController.getStatusHistory);
 
