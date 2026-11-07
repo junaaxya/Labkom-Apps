@@ -46,3 +46,11 @@ test("agent updater provides inline mobile-friendly PC selector when Target is P
     assert.match(source, new RegExp(action));
   }
 });
+
+test("coordinator can pull and publish the latest agent release from GitHub in one click", () => {
+  assert.match(source, /api\.post<[^>]+>\("\/pcs\/agent-updates\/releases\/sync-github", \{\}\)/);
+  assert.match(source, /Tarik otomatis dari GitHub/);
+  assert.match(source, /berhasil ditarik & dipublish dari GitHub/);
+  assert.match(source, /aria-busy=\{syncing\}/);
+  assert.match(source, /aria-label="Artifact ZIP" type="file"/);
+});

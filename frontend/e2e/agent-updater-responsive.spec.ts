@@ -39,6 +39,10 @@ async function installUpdaterState(page: Page): Promise<void> {
 
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/pcs/agent-updates/releases/sync-github")) {
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ success: true, created: true, repo: "junaaxya/labkom-agents", data: { id: "release-1", version: "1.1.0" } }) });
+      return;
+    }
     const data = path.endsWith("/pcs/agent-updates/releases")
       ? [{ id: "release-1", version: "1.1.0", platform: "windows", architecture: "x86_64", sha256: "a".repeat(64), sizeBytes: 12_582_912, minimumUpdaterVersion: "1.0.0", mandatory: false, isPublished: true, createdAt: new Date().toISOString() }]
       : path.endsWith("/pcs/agent-updates/rollouts")
@@ -97,6 +101,10 @@ for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }
     expect(layout.panelRight).toBeLessThanOrEqual(layout.viewportWidth);
     expect(layout.panelScrollWidth).toBeLessThanOrEqual(Math.ceil(layout.panelWidth));
     await expect(page.getByLabel("Artifact ZIP")).toBeVisible();
+    const syncButton = page.getByRole("button", { name: /Tarik otomatis dari GitHub/i });
+    await expect(syncButton).toHaveCSS("min-height", "44px");
+    await syncButton.click();
+    await expect(page.getByRole("status").filter({ hasText: "Release v1.1.0 berhasil ditarik & dipublish dari GitHub" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Aktifkan rollout/i })).toHaveCSS("min-height", "44px");
     if (viewport.width !== 320) {
       await panel.screenshot({ path: `/tmp/agent-updater-${viewport.width}x${viewport.height}.png` });

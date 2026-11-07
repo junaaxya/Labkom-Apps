@@ -1,7 +1,7 @@
 import fs from "fs";
 import type { NextFunction, Request, Response } from "express";
 import type { AgentUpdateStatus } from "@prisma/client";
-import { AgentUpdaterService } from "../services/agent-updater.service";
+import { AgentUpdaterService, verifyCiToken } from "../services/agent-updater.service";
 
 function param(req: Request, key: string): string { const value = req.params[key]; return Array.isArray(value) ? value[0] : value; }
 function header(req: Request, name: string): string { const value = req.headers[name]; return Array.isArray(value) ? value[0] : value || ""; }
@@ -58,6 +58,28 @@ export class AgentUpdaterController {
   static async publish(req: Request, res: Response) {
     try { res.json({ success: true, data: await AgentUpdaterService.publishRelease(param(req, "id")) }); }
     catch (error) { fail(res, error); }
+  }
+
+  static async ciUpload(req: Request, res: Response) {
+    const expected = process.env.AGENT_CI_RELEASE_TOKEN;
+    if (!expected) return void res.status(503).json({ success: false, message: "AGENT_CI_RELEASE_TOKEN belum dikonfigurasi" });
+    if (!verifyCiToken(header(req, "x-agent-ci-token"), expected)) return void res.status(401).json({ success: false, message: "Token CI tidak valid" });
+    try {
+      if (!req.file) throw new Error("Artifact ZIP wajib");
+      const { release, created } = await AgentUpdaterService.importRelease({
+        version: req.body.version, platform: req.body.platform, architecture: req.body.architecture,
+        minimumUpdaterVersion: req.body.minimumUpdaterVersion, mandatory: req.body.mandatory === "true",
+        autoPublish: req.body.autoPublish !== "false", buffer: req.file.buffer,
+      });
+      res.status(created ? 201 : 200).json({ success: true, data: release, created });
+    } catch (error) { fail(res, error); }
+  }
+
+  static async syncGithub(req: Request, res: Response) {
+    try {
+      const { release, created, source, repo } = await AgentUpdaterService.syncFromGithub(req.user!.userId);
+      res.status(created ? 201 : 200).json({ success: true, data: release, created, source, repo });
+    } catch (error) { fail(res, error, 502); }
   }
 
   static async rollouts(_req: Request, res: Response) {

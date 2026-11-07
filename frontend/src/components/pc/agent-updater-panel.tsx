@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { TbAlertTriangle, TbCheck, TbCloudUpload, TbPlayerPause, TbPlayerPlay, TbRefresh, TbRestore } from "react-icons/tb";
+import { TbAlertTriangle, TbBrandGithub, TbCheck, TbCloudUpload, TbLoader2, TbPlayerPause, TbPlayerPlay, TbRefresh, TbRestore } from "react-icons/tb";
 import api from "@/services/api";
 
 type Release = {
@@ -51,6 +51,7 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
   const [pickedPcIds, setPickedPcIds] = useState<string[] | null>(null);
   const [pcSearch, setPcSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [version, setVersion] = useState("");
@@ -109,6 +110,18 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
     } catch (error) { setFeedback(responseMessage(error)); } finally { setBusy(false); }
   }
 
+  async function syncGithub() {
+    setSyncing(true); setFeedback("");
+    try {
+      const res = await api.post<{ data: Release; created: boolean; repo: string }>("/pcs/agent-updates/releases/sync-github", {});
+      setFeedback(res.created
+        ? `Release v${res.data.version} berhasil ditarik & dipublish dari GitHub (${res.repo}).`
+        : `Release v${res.data.version} sudah terbaru dan published.`);
+      setReleaseId(res.data.id);
+      await load();
+    } catch (error) { setFeedback(responseMessage(error)); } finally { setSyncing(false); }
+  }
+
   async function publish(id: string) {
     setBusy(true); try { await api.patch(`/pcs/agent-updates/releases/${id}/publish`, {}); setFeedback("Release published."); await load(); }
     catch (error) { setFeedback(responseMessage(error)); } finally { setBusy(false); }
@@ -148,7 +161,10 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
       </div>
 
       {canManage && <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <div className="min-w-0 rounded-xl border-2 border-[#1a1a1a] p-3 sm:p-4"><h3 className="font-black">Upload signed release</h3><div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
+        <div className="min-w-0 rounded-xl border-2 border-[#1a1a1a] p-3 sm:p-4"><h3 className="font-black">Upload signed release</h3>
+          <button type="button" disabled={busy || syncing} aria-busy={syncing} onClick={() => void syncGithub()} className="neo-btn mt-3 min-h-[44px] w-full min-w-0 bg-[#1a1a1a] px-4 font-black text-white disabled:opacity-60">{syncing ? <TbLoader2 className="inline h-4 w-4 animate-spin" /> : <TbBrandGithub className="inline h-4 w-4" />} {syncing ? "Menarik release dari GitHub..." : "Tarik otomatis dari GitHub"}</button>
+          <p className="mt-2 text-xs font-semibold text-[#5a5a5a]">Ambil release terbaru dari repo agent, tandatangani, dan publish otomatis. Atau upload ZIP manual di bawah.</p>
+          <div className="mt-4 grid min-w-0 gap-3 border-t-2 border-dashed border-[#1a1a1a]/30 pt-4 sm:grid-cols-2">
           <label className="min-w-0 text-xs font-black">Versi release<input aria-label="Versi release" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Contoh 1.1.0" className="neo-input mt-1 min-h-[44px] w-full min-w-0 px-3 text-base" /></label>
           <label className="min-w-0 text-xs font-black">Minimum updater<input aria-label="Minimum updater" value={minimumUpdaterVersion} onChange={(e) => setMinimumUpdaterVersion(e.target.value)} className="neo-input mt-1 min-h-[44px] w-full min-w-0 px-3 text-base" /></label>
           <label className="min-w-0 text-xs font-black sm:col-span-2">Artifact ZIP<input aria-label="Artifact ZIP" type="file" accept=".zip,application/zip" onChange={(e) => setFile(e.target.files?.[0] || null)} className="neo-input mt-1 block min-h-[44px] w-full min-w-0 max-w-full overflow-hidden p-2 text-sm file:mr-2 file:max-w-[9rem] file:truncate" /></label>
