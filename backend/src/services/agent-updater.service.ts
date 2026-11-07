@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import zlib from "zlib";
 import type { AgentUpdateStatus, Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { config } from "../config";
@@ -77,6 +78,68 @@ export function canTransitionUpdate(from: AgentUpdateStatus, to: AgentUpdateStat
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+/** Constant-time CI token check; hashes first so differing lengths never leak via timingSafeEqual. */
+export function verifyCiToken(provided: unknown, expected: string): boolean {
+  if (typeof provided !== "string" || !provided || !expected) return false;
+  const a = crypto.createHash("sha256").update(provided).digest();
+  const b = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Exactly the files updater.py accepts (ALLOWED_FILES); any extra entry makes the agent reject the ZIP.
+export const AGENT_BUNDLE_FILES = ["agent.py", "requirements.txt", "updater.py", "VERSION"] as const;
+
+// ponytail: STORE-only ZIP (no compression) via stdlib zlib.crc32; agent bundle is a few KB. Switch to deflateRawSync if bundles grow large.
+export function buildZip(files: Array<{ name: string; data: Buffer }>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const file of files) {
+    const name = Buffer.from(file.name, "utf8");
+    const crc = zlib.crc32(file.data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(crc, 14); local.writeUInt32LE(file.data.length, 18); local.writeUInt32LE(file.data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6); central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(crc, 16); central.writeUInt32LE(file.data.length, 20); central.writeUInt32LE(file.data.length, 24);
+    central.writeUInt16LE(name.length, 28); central.writeUInt32LE(offset, 42);
+    locals.push(local, name, file.data);
+    centrals.push(central, name);
+    offset += local.length + name.length + file.data.length;
+  }
+  const centralDir = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralDir.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralDir, end]);
+}
+
+export function githubVersion(tag: unknown): string {
+  return requireSemver(typeof tag === "string" ? tag.trim().replace(/^v/i, "") : tag, "Versi GitHub");
+}
+
+function githubRepo(): string {
+  const repo = process.env.AGENT_GITHUB_REPO || "junaaxya/labkom-agents";
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error("AGENT_GITHUB_REPO harus berformat owner/repo");
+  return repo;
+}
+
+async function githubFetch(url: string, accept: string): Promise<Response> {
+  const headers: Record<string, string> = { Accept: accept, "User-Agent": "labkom-agent-updater", "X-GitHub-Api-Version": "2022-11-28" };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  return fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(30_000) });
+}
+
+async function githubBuffer(url: string, accept: string): Promise<Buffer> {
+  const res = await githubFetch(url, accept);
+  if (!res.ok) throw new Error(`GitHub ${res.status} saat mengambil ${new URL(url).pathname}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length > AGENT_RELEASE_MAX_BYTES) throw new Error("Artifact GitHub melebihi 50 MB");
+  return buffer;
+}
+
 function safeMessage(value: unknown): string | null {
   if (value == null || value === "") return null;
   if (typeof value !== "string") throw new Error("message harus string");
@@ -86,7 +149,7 @@ function safeMessage(value: unknown): string | null {
 export class AgentUpdaterService {
   static async createRelease(input: {
     version: string; platform: string; architecture: string; minimumUpdaterVersion: string;
-    mandatory: boolean; file: Express.Multer.File; createdById: string;
+    mandatory: boolean; file: Pick<Express.Multer.File, "buffer" | "size">; createdById: string;
   }) {
     const version = requireSemver(input.version, "version");
     const minimumUpdaterVersion = requireSemver(input.minimumUpdaterVersion, "minimumUpdaterVersion");
@@ -108,6 +171,47 @@ export class AgentUpdaterService {
       await fs.unlink(finalPath).catch(() => undefined);
       throw error;
     }
+  }
+
+  /** Idempotent: published version is returned as-is; otherwise create (if new) and publish when autoPublish (default true). */
+  static async importRelease(input: {
+    version: string; buffer: Buffer; createdById?: string; minimumUpdaterVersion?: string; mandatory?: boolean;
+    platform?: string; architecture?: string; autoPublish?: boolean;
+  }) {
+    const version = requireSemver(input.version, "version");
+    const autoPublish = input.autoPublish ?? true;
+    const existing = await prisma.agentRelease.findUnique({ where: { version } });
+    if (existing?.isPublished || (existing && !autoPublish)) return { release: existing, created: false };
+    if (existing) return { release: await AgentUpdaterService.publishRelease(existing.id), created: false };
+    const createdById = input.createdById ?? (await prisma.user.findFirst({ where: { role: "KOORDINATOR_LAB", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
+    if (!createdById) throw new Error("Tidak ada koordinator aktif untuk pemilik release CI");
+    const draft = await AgentUpdaterService.createRelease({
+      version, platform: input.platform || "windows", architecture: input.architecture || "x86_64",
+      minimumUpdaterVersion: input.minimumUpdaterVersion || "1.0.0", mandatory: input.mandatory ?? false,
+      file: { buffer: input.buffer, size: input.buffer.length }, createdById,
+    });
+    return { release: autoPublish ? await AgentUpdaterService.publishRelease(draft.id) : draft, created: true };
+  }
+
+  /** Latest GitHub Release ZIP asset, else bundle AGENT_BUNDLE_FILES from the branch. Works tokenless for public repos. */
+  static async syncFromGithub(createdById: string) {
+    const repo = githubRepo();
+    const api = `https://api.github.com/repos/${repo}`;
+    const latest = await githubFetch(`${api}/releases/latest`, "application/vnd.github+json");
+    if (latest.ok) {
+      const body = await latest.json() as { tag_name?: string; assets?: Array<{ name: string; url: string }> };
+      const asset = body.assets?.find((item) => item.name.toLowerCase().endsWith(".zip"));
+      if (asset) {
+        const buffer = await githubBuffer(asset.url, "application/octet-stream");
+        return { ...await AgentUpdaterService.importRelease({ version: githubVersion(body.tag_name), buffer, createdById }), source: "release" as const, repo };
+      }
+    } else if (latest.status !== 404) {
+      throw new Error(`GitHub ${latest.status} saat membaca release terbaru ${repo}`);
+    }
+    const ref = encodeURIComponent(process.env.AGENT_GITHUB_REF || "main");
+    const files = await Promise.all(AGENT_BUNDLE_FILES.map(async (name) => ({ name, data: await githubBuffer(`${api}/contents/${name}?ref=${ref}`, "application/vnd.github.raw") })));
+    const version = githubVersion(files.find((file) => file.name === "VERSION")!.data.toString("ascii"));
+    return { ...await AgentUpdaterService.importRelease({ version, buffer: buildZip(files), createdById }), source: "branch" as const, repo };
   }
 
   static listReleases() { return prisma.agentRelease.findMany({ orderBy: { createdAt: "desc" }, include: { _count: { select: { rollouts: true } } } }); }

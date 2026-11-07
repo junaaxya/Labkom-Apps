@@ -20,3 +20,37 @@ test("dashboard shows required updater progress states", () => {
     assert.match(source, new RegExp(status));
   }
 });
+
+test("agent updater panel constrains intrinsic widths and clears mobile bottom navigation", () => {
+  assert.match(source, /data-testid="agent-updater-panel"[^>]+min-w-0[^>]+max-w-full[^>]+overflow-hidden/);
+  assert.match(source, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
+  assert.match(source, /aria-label="Artifact ZIP" type="file"/);
+  assert.match(source, /className="neo-input mt-1 block min-h-\[44px\] w-full min-w-0 max-w-full overflow-hidden/);
+  assert.match(source, /className="neo-input mt-1 min-h-\[44px\] w-full min-w-0 max-w-full px-3 text-base"/);
+  assert.doesNotMatch(source, /min-h-\[40px\]/);
+});
+
+test("agent updater form controls have visible labels and accessible names", () => {
+  for (const label of ["Versi release", "Minimum updater", "Artifact ZIP", "Release rollout", "Target rollout", "Cari PC target", "Lab target"]) {
+    assert.match(source, new RegExp(`aria-label="${label}"`));
+  }
+});
+
+test("agent updater provides inline mobile-friendly PC selector when Target is PC terpilih", () => {
+  assert.match(source, /api\.get<\{ data: TargetPC\[\] \}>\("\/pcs"\)/);
+  assert.match(source, /scope === "PCS" && <div data-testid="pc-selector"/);
+  assert.match(source, /max-h-56[^>]+overflow-y-auto/);
+  assert.match(source, /Memuat daftar PC\.\.\./);
+  assert.match(source, /Belum ada PC terdaftar di sistem\./);
+  for (const action of ["Pilih semua", "Pilih yang online", "Reset"]) {
+    assert.match(source, new RegExp(action));
+  }
+});
+
+test("coordinator can pull and publish the latest agent release from GitHub in one click", () => {
+  assert.match(source, /api\.post<[^>]+>\("\/pcs\/agent-updates\/releases\/sync-github", \{\}\)/);
+  assert.match(source, /Tarik otomatis dari GitHub/);
+  assert.match(source, /berhasil ditarik & dipublish dari GitHub/);
+  assert.match(source, /aria-busy=\{syncing\}/);
+  assert.match(source, /aria-label="Artifact ZIP" type="file"/);
+});
