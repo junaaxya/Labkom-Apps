@@ -179,6 +179,41 @@ jobs:
             sleep 5
           done
 
+      - name: Sync agent release credentials
+        env:
+          AGENT_RELEASE_SIGNING_PRIVATE_KEY_BASE64: ${{ secrets.AGENT_RELEASE_SIGNING_PRIVATE_KEY_BASE64 }}
+          AGENT_CI_RELEASE_TOKEN: ${{ secrets.AGENT_CI_RELEASE_TOKEN }}
+          DEPLOY_BACKEND_ENV_FILE: /srv/apps/labkom-apps/deploy/.env.backend
+        run: |
+          set -euo pipefail
+          if [[ -z "$AGENT_RELEASE_SIGNING_PRIVATE_KEY_BASE64" || -z "$AGENT_CI_RELEASE_TOKEN" ]]; then
+            echo "Agent release secrets unavailable; leaving backend env unchanged."
+            exit 0
+          fi
+          umask 077
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["DEPLOY_BACKEND_ENV_FILE"])
+          original = path.read_text()
+          values = {
+              "AGENT_RELEASE_SIGNING_PRIVATE_KEY_BASE64": os.environ["AGENT_RELEASE_SIGNING_PRIVATE_KEY_BASE64"],
+              "AGENT_CI_RELEASE_TOKEN": os.environ["AGENT_CI_RELEASE_TOKEN"],
+              "AGENT_GITHUB_REPO": "junaaxya/labkom-agents",
+          }
+          lines = [line for line in original.splitlines() if line.split("=", 1)[0].strip() not in values]
+          updated = "\n".join([*lines, *(f"{key}={value}" for key, value in values.items())]) + "\n"
+          if updated != original:
+              backup = path.with_name(path.name + ".agent-release.bak")
+              backup.write_text(original)
+              backup.chmod(0o600)
+              temporary = path.with_name(path.name + ".agent-release.tmp")
+              temporary.write_text(updated)
+              temporary.chmod(0o600)
+              temporary.replace(path)
+          PY
+
       - name: Run structured deploy script
         env:
           IMAGE_NAMESPACE: ${{ needs.docker.outputs.image_namespace }}
