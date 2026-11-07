@@ -40,6 +40,8 @@ test("agent updater provides inline mobile-friendly PC selector when Target is P
   assert.match(source, /api\.get<\{ data: TargetPC\[\] \}>\("\/pcs"\)/);
   assert.match(source, /scope === "PCS" && <div data-testid="pc-selector"/);
   assert.match(source, /max-h-56[^>]+overflow-y-auto/);
+  assert.match(source, /Memuat daftar PC\.\.\./);
+  assert.match(source, /Belum ada PC terdaftar di sistem\./);
   for (const action of ["Pilih semua", "Pilih yang online", "Reset"]) {
     assert.match(source, new RegExp(action));
   }

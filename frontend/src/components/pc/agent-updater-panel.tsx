@@ -47,6 +47,7 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
   const [releases, setReleases] = useState<Release[]>([]);
   const [rollouts, setRollouts] = useState<Rollout[]>([]);
   const [pcs, setPcs] = useState<TargetPC[]>([]);
+  const [pcsLoading, setPcsLoading] = useState(true);
   const [pickedPcIds, setPickedPcIds] = useState<string[] | null>(null);
   const [pcSearch, setPcSearch] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,17 +64,20 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
   const activePcIds = useMemo(() => pickedPcIds ?? Array.from(new Set(selectedPcIds)), [pickedPcIds, selectedPcIds]);
 
   const load = useCallback(async () => {
+    setPcsLoading(true);
+    const pcTask = api.get<{ data: TargetPC[] }>("/pcs").then((res) => setPcs(res.data || [])).catch(() => setPcs([]));
     try {
-      const [releaseRes, rolloutRes, pcRes] = await Promise.all([
+      const [releaseRes, rolloutRes] = await Promise.all([
         api.get<{ data: Release[] }>("/pcs/agent-updates/releases"),
         api.get<{ data: Rollout[] }>("/pcs/agent-updates/rollouts"),
-        api.get<{ data: TargetPC[] }>("/pcs").catch(() => ({ data: [] as TargetPC[] })),
       ]);
       setReleases(releaseRes.data);
       setRollouts(rolloutRes.data);
-      setPcs(pcRes.data || []);
       setReleaseId((current) => current || releaseRes.data.find((item) => item.isPublished)?.id || "");
-    } catch (error) { setFeedback(responseMessage(error)); }
+    } catch (error) { setFeedback(responseMessage(error)); } finally {
+      await pcTask;
+      setPcsLoading(false);
+    }
   }, []);
 
   useEffect(() => { queueMicrotask(() => void load()); }, [load]);
@@ -172,7 +176,7 @@ export function AgentUpdaterPanel({ labs, selectedPcIds }: Props) {
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${online ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{online ? "ONLINE" : "OFFLINE"}</span>
                 </label>;
               })}
-              {!filteredPcs.length && <p className="py-2 text-xs font-semibold text-[#5a5a5a]">Tidak ada PC yang cocok.</p>}
+              {!filteredPcs.length && <p className="py-2 text-xs font-semibold text-[#5a5a5a]">{pcsLoading ? "Memuat daftar PC..." : pcs.length ? "Tidak ada PC yang cocok." : "Belum ada PC terdaftar di sistem."}</p>}
             </div>
           </div>}
           {scope === "LAB" && <label className="min-w-0 text-xs font-black">Lab<select aria-label="Lab target" value={labId} onChange={(e) => setLabId(e.target.value)} className="neo-input mt-1 min-h-[44px] w-full min-w-0 max-w-full px-3 text-base"><option value="">Pilih lab</option>{labs.map((lab) => <option key={lab.id} value={lab.id}>{lab.name}</option>)}</select></label>}
