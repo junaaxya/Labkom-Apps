@@ -4,6 +4,7 @@ import prisma from "../config/database";
 const AUDITED_RESOURCES = new Set([
   "announcements",
   "bookings",
+  "pcs",
   "keys",
   "labs",
   "schedule-changes",

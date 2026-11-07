@@ -394,6 +394,8 @@ model User {
   correctionRequests         AttendanceCorrectionRequest[]        @relation("CorrectionRequester")
   correctionReviews          AttendanceCorrectionRequest[]        @relation("CorrectionReviewer")
   auditLogs                  AuditLog[]
+  agentReleasesCreated       AgentRelease[]                         @relation("AgentReleaseCreator")
+  agentRolloutsCreated       AgentRollout[]                         @relation("AgentRolloutCreator")
   announcements              Announcement[]                       @relation("AnnouncementCreator")
   announcementReads          AnnouncementRead[]
   assetAuditLogs             AssetAuditLog[]
@@ -588,8 +590,10 @@ model PC {
   statusLogs   PCStatusLog[]
   commands     PCCommand[]
   agentLogs    PcAgentLog[]
-  warnings     PcWarning[]
-  asset        Asset?
+  warnings          PcWarning[]
+  updateAssignments AgentUpdateAssignment[]
+  updateAttempts    AgentUpdateAttempt[]
+  asset             Asset?
 
   @@map("pcs")
 }
@@ -679,6 +683,122 @@ model PcWarning {
 
   @@index([pcId, isResolved])
   @@map("pc_warnings")
+}
+
+enum AgentRolloutStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  ROLLED_BACK
+}
+
+enum AgentUpdateStatus {
+  PENDING
+  DOWNLOADING
+  VERIFYING
+  INSTALLING
+  AWAITING_HEARTBEAT
+  SUCCEEDED
+  FAILED
+  ROLLING_BACK
+  ROLLED_BACK
+  CANCELLED
+}
+
+model AgentRelease {
+  id                    String   @id @default(cuid())
+  version               String   @unique
+  platform              String
+  architecture          String
+  artifactFilename      String   @unique
+  artifactUrl           String   @unique
+  sha256                String
+  sizeBytes             Int
+  signature             String
+  minimumUpdaterVersion String
+  mandatory             Boolean  @default(false)
+  isPublished           Boolean  @default(false)
+  publishedAt           DateTime?
+  createdById           String
+  createdAt             DateTime @default(now())
+
+  createdBy User                 @relation("AgentReleaseCreator", fields: [createdById], references: [id])
+  rollouts  AgentRollout[]
+  attempts  AgentUpdateAttempt[]
+
+  @@index([isPublished, createdAt])
+  @@map("agent_releases")
+}
+
+model AgentRollout {
+  id                String             @id @default(cuid())
+  releaseId         String
+  status            AgentRolloutStatus @default(DRAFT)
+  scope             String
+  labId             String?
+  pilotPcIds        Json?
+  rolloutPercent    Int                @default(100)
+  checkAfterSeconds Int                @default(600)
+  rollbackReleaseId String?
+  createdById       String
+  activatedAt       DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  release     AgentRelease             @relation(fields: [releaseId], references: [id])
+  createdBy   User                     @relation("AgentRolloutCreator", fields: [createdById], references: [id])
+  assignments AgentUpdateAssignment[]
+
+  @@index([status, createdAt])
+  @@index([releaseId, status])
+  @@map("agent_rollouts")
+}
+
+model AgentUpdateAssignment {
+  id              String            @id @default(cuid())
+  rolloutId       String
+  pcId            String
+  status          AgentUpdateStatus @default(PENDING)
+  currentVersion  String?
+  targetVersion   String
+  rollbackVersion String?
+  lastError       String?
+  assignedAt      DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  rollout  AgentRollout         @relation(fields: [rolloutId], references: [id])
+  pc       PC                   @relation(fields: [pcId], references: [id])
+  attempts AgentUpdateAttempt[]
+
+  @@unique([rolloutId, pcId])
+  @@index([pcId, status])
+  @@map("agent_update_assignments")
+}
+
+model AgentUpdateAttempt {
+  id              String            @id @default(cuid())
+  assignmentId    String
+  pcId            String
+  releaseId       String
+  status          AgentUpdateStatus @default(PENDING)
+  currentVersion  String?
+  targetVersion   String
+  rollbackVersion String?
+  message         String?
+  startedAt       DateTime          @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime          @updatedAt
+
+  assignment AgentUpdateAssignment @relation(fields: [assignmentId], references: [id])
+  pc         PC                    @relation(fields: [pcId], references: [id])
+  release    AgentRelease          @relation(fields: [releaseId], references: [id])
+
+  @@unique([assignmentId, targetVersion])
+  @@index([pcId, updatedAt])
+  @@map("agent_update_attempts")
 }
 
 // ============================================

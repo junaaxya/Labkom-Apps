@@ -5,6 +5,7 @@ import dgram from "dgram";
 import os from "os";
 import { execFile } from "child_process";
 import { config } from "../config";
+import { AgentUpdaterService } from "./agent-updater.service";
 
 const AGENT_OFFLINE_AFTER_MS = 90 * 1000;
 
@@ -710,10 +711,7 @@ export class PCService {
       );
     }
 
-    return prisma.pC.update({
-      where: { id: pcId },
-      data: updateData,
-    });
+    return AgentUpdaterService.recordHeartbeat(pcId, data?.agentVersion, updateData);
   }
 
   static async registerAgent(pcId: string, data: {

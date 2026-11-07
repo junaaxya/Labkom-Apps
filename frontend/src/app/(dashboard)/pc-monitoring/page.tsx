@@ -29,6 +29,7 @@ import {
 import api from "@/services/api";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { MobileCard } from "@/components/ui/mobile-card";
+import { AgentUpdaterPanel } from "@/components/pc/agent-updater-panel";
 import type {
   PC,
   PCDetail,
@@ -549,6 +550,8 @@ export default function PCMonitoringPage() {
           </div>
         </div>
       </section>
+
+      <AgentUpdaterPanel labs={labs} selectedPcIds={selectedPCs} />
 
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 sm:gap-4">

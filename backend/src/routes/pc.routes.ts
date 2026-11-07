@@ -6,6 +6,7 @@ import {
   agentHeartbeatLimiter,
   agentCommandLimiter,
 } from "../middlewares/agentAuth.middleware";
+import { AgentUpdaterController } from "../controllers/agent-updater.controller";
 
 const router = Router();
 
@@ -16,6 +17,9 @@ router.get("/inventory", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB
 router.get("/commands", authenticate, authorize("KOORDINATOR_LAB", "ASISTEN_LAB"), PCController.getCommandQueue);
 
 router.post("/agent/register", agentHeartbeatLimiter, authenticateAgent, PCController.agentRegister);
+router.get("/agent/update", agentCommandLimiter, authenticateAgent, AgentUpdaterController.check);
+router.post("/agent/update-status", agentCommandLimiter, authenticateAgent, AgentUpdaterController.status);
+router.get("/agent/releases/:version/download", agentCommandLimiter, authenticateAgent, AgentUpdaterController.download);
 router.post("/agent/heartbeat", agentHeartbeatLimiter, authenticateAgent, PCController.agentHeartbeat);
 router.get("/agent/commands", agentCommandLimiter, authenticateAgent, PCController.agentPickupCommands);
 router.post("/agent/commands/:commandId/result", agentCommandLimiter, authenticateAgent, PCController.agentReportResult);
