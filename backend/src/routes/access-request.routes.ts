@@ -2,9 +2,16 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { AccessRequestController } from "../controllers/access-request.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
+import { bodyIdentityRateLimitKey } from "../middlewares/rate-limit-key";
 
 const router = Router();
-const registrationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => bodyIdentityRateLimitKey(req, "external-student", ["email", "token"]),
+});
 
 router.get("/labs", AccessRequestController.getPublicLabs);
 router.post("/external-student", registrationLimiter, AccessRequestController.registerExternalStudent);
