@@ -17,6 +17,21 @@ test("smart academic uses Schedule as source and scopes PJ by schedule", () => {
   assert.doesNotMatch(service, /academicTerm\.create|academicCourse\.create|academicClass\.create|academicOffering\.create/);
 });
 
+test("only latest active PJ is returned and authorized; replacement deactivates older PJ", () => {
+  assert.match(service, /smartAcademicPjs: \{ where: \{ isActive: true \}, orderBy: \[\{ updatedAt: "desc" \}, \{ assignedAt: "desc" \}\], take: 1/);
+  assert.match(service, /const pj = await tx\.smartAcademicPj\.findFirst\(\{ where: \{ scheduleId: schedule\.id, isActive: true \}, orderBy: \[\{ updatedAt: "desc" \}, \{ assignedAt: "desc" \}\] \}\)/);
+  const assign = service.slice(service.indexOf("static async assignPj("), service.indexOf("static async removePj("));
+  assert.match(assign, /smartAcademicPj\.updateMany\(\{\s*where: \{ scheduleId, studentId: \{ not: studentId \}, isActive: true \},\s*data: \{ isActive: false, assignedById: manager\.id \}/);
+  assert.ok(assign.indexOf("smartAcademicPj.updateMany") < assign.indexOf("smartAcademicPj.upsert"));
+});
+
+test("removing current PJ deactivates every active assignment and records audit", () => {
+  const remove = service.slice(service.indexOf("static async removePj("), service.indexOf("static async report("));
+  assert.match(remove, /smartAcademicPj\.updateMany\(\{ where: \{ scheduleId, isActive: true \}, data: \{ isActive: false, assignedById: manager\.id \} \}\)/);
+  assert.match(remove, /SMART_ACADEMIC_PJ_REMOVED/);
+  assert.match(remove, /return \{ removed: true, scheduleId, studentId \}/);
+});
+
 test("PJ candidates use canonical cohort matching", () => {
   assert.match(service, /matchesAcademicCohort/);
   assert.match(service, /Mahasiswa harus berada pada kelas atau semester yang sesuai dengan jadwal/);
