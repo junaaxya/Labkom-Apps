@@ -10,7 +10,7 @@ type ReviewInput = { approved: boolean; rejectionReason?: string | null };
 
 const scheduleInclude = {
   lab: { select: { id: true, name: true, capacity: true } },
-  smartAcademicPjs: { where: { isActive: true }, include: { student: { select: { id: true, name: true, email: true } } } },
+  smartAcademicPjs: { where: { isActive: true }, orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }], take: 1, include: { student: { select: { id: true, name: true, email: true } } } },
 } satisfies Prisma.ScheduleInclude;
 
 function normalized(value?: string | null) {
@@ -44,8 +44,8 @@ async function assertScheduleManager(tx: Prisma.TransactionClient, actor: Actor,
   if (user.role !== "MAHASISWA") throw new AcademicAuthorizationError("Ketua kelas atau PJ diperlukan");
   assertClassMatch(user, schedule);
   if (user.isKetuaKelas) return user;
-  const pj = await tx.smartAcademicPj.findFirst({ where: { scheduleId: schedule.id, studentId: user.id, isActive: true } });
-  if (!pj) throw new AcademicAuthorizationError("Ketua kelas atau PJ mata kuliah diperlukan");
+  const pj = await tx.smartAcademicPj.findFirst({ where: { scheduleId: schedule.id, isActive: true }, orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }] });
+  if (pj?.studentId !== user.id) throw new AcademicAuthorizationError("Ketua kelas atau PJ mata kuliah diperlukan");
   return user;
 }
 
@@ -120,6 +120,10 @@ export class SmartAcademicService {
       const student = await tx.user.findUnique({ where: { id: studentId }, select: { id: true, role: true, isActive: true, className: true, semester: true } });
       if (!student?.isActive || student.role !== "MAHASISWA") throw new AcademicValidationError("PJ harus mahasiswa aktif");
       assertClassMatch(student, schedule);
+      await tx.smartAcademicPj.updateMany({
+        where: { scheduleId, studentId: { not: studentId }, isActive: true },
+        data: { isActive: false, assignedById: manager.id },
+      });
       const assignment = await tx.smartAcademicPj.upsert({
         where: { scheduleId_studentId: { scheduleId, studentId } },
         create: { scheduleId, studentId, assignedById: manager.id },
@@ -140,7 +144,11 @@ export class SmartAcademicService {
         if (manager.role !== "MAHASISWA" || !manager.isKetuaKelas) throw new AcademicAuthorizationError("Hanya Ketua Kelas atau Koordinator yang dapat mengubah PJ");
         assertClassMatch(manager, schedule);
       }
-      return tx.smartAcademicPj.update({ where: { scheduleId_studentId: { scheduleId, studentId } }, data: { isActive: false } });
+      const current = await tx.smartAcademicPj.findFirst({ where: { scheduleId, isActive: true }, orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }] });
+      if (!current || current.studentId !== studentId) throw new AcademicConflictError("PJ aktif tidak ditemukan");
+      await tx.smartAcademicPj.updateMany({ where: { scheduleId, isActive: true }, data: { isActive: false, assignedById: manager.id } });
+      await tx.auditLog.create({ data: { userId: manager.id, action: "SMART_ACADEMIC_PJ_REMOVED", targetType: "Schedule", targetId: scheduleId, description: studentId, ipAddress: actor.ipAddress } });
+      return { removed: true, scheduleId, studentId };
     });
   }
 
