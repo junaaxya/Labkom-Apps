@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { HostingController } from "../controllers/hosting.controller";
+import { bodyIdentityRateLimitKey } from "../middlewares/rate-limit-key";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ const checkoutLimiter = rateLimit({
   message: { success: false, message: "Terlalu banyak percobaan checkout. Coba lagi nanti." },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => bodyIdentityRateLimitKey(req, "hosting-checkout", ["customer.email"]),
 });
 
 router.get("/plans", HostingController.getPlans);

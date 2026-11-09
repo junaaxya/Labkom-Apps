@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import fs from "fs";
 import { authenticate } from "../middlewares/auth.middleware";
+import { authenticatedUserRateLimitKey, headerRateLimitKey } from "../middlewares/rate-limit-key";
 import { getUploadPath, isProtectedUploadCategory, isUploadCategory, type UploadCategory } from "../config/upload";
 import { authorizeProtectedFileAccess } from "../services/protected-file-access.service";
 import {
@@ -12,14 +13,27 @@ import {
 } from "../services/protected-file-session.service";
 
 const router = Router();
-const fileSessionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+const fileSessionCreateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => authenticatedUserRateLimitKey(req, "file-session-create"),
+});
+const fileSessionDeleteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => headerRateLimitKey(req, "file-session-delete", "cookie"),
+});
 
 function getParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
   return value || "";
 }
 
-router.post("/session", authenticate, fileSessionLimiter, async (req: Request, res: Response, next: NextFunction) => {
+router.post("/session", authenticate, fileSessionCreateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = await createProtectedFileSession(req.user!.userId);
     setProtectedFileSessionCookie(res, token);
@@ -29,7 +43,7 @@ router.post("/session", authenticate, fileSessionLimiter, async (req: Request, r
   }
 });
 
-router.delete("/session", fileSessionLimiter, async (req: Request, res: Response, next: NextFunction) => {
+router.delete("/session", fileSessionDeleteLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     await revokeProtectedFileSession(req, res);
     res.json({ success: true });
