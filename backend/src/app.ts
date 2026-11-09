@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import compression from "compression";
 import { config } from "./config";
+import { TRUSTED_PROXY_RANGES } from "./config/trusted-proxy";
 import { ensureUploadDirectories, getUploadCategoryDir } from "./config/upload";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import routes from "./routes";
@@ -11,9 +12,10 @@ import { auditSuccessfulMutation } from "./middlewares/audit.middleware";
 
 const app = express();
 
-// The API is only reachable through the internal reverse proxy. Trust exactly
-// that hop so rate limiting sees the real client IP from X-Forwarded-For.
-app.set("trust proxy", 1);
+// Trust only local/private infrastructure hops. This resolves the public client
+// through Cloudflare Tunnel + Nginx while ignoring spoofed addresses placed
+// before an untrusted public hop.
+app.set("trust proxy", [...TRUSTED_PROXY_RANGES]);
 
 ensureUploadDirectories();
 

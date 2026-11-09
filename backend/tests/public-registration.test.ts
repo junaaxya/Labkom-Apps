@@ -7,6 +7,6 @@ test("endpoint register tidak terbuka untuk pendaftaran mandiri", () => {
 
   assert.match(
     routes,
-    /router\.post\("\/register", registerLimiter, authenticate, authorize\("KOORDINATOR_LAB"\), AuthController\.register\);/
+    /router\.post\("\/register", authenticate, authorize\("KOORDINATOR_LAB"\), registerLimiter, AuthController\.register\);/
   );
 });

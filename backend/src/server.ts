@@ -7,12 +7,19 @@ import { startCronJobs } from "./services/cron.service";
 import { ShiftScheduleService } from "./services/attendance.service";
 import { MagangApprovalEmailWorker } from "./services/magang-approval-email-worker.service";
 import { AcademicCalendarSyncService } from "./services/academic-calendar-sync.service";
+import { connectDatabaseWithRetry } from "./config/database-startup";
 
 const startServer = async () => {
   try {
     validateConfig();
     validateMagangEmailDelivery();
-    await prisma.$connect();
+    await connectDatabaseWithRetry(() => prisma.$connect(), {
+      onRetry: ({ attempt, maxAttempts, delayMs }) => {
+        console.warn(
+          `[Database] PostgreSQL belum siap (percobaan ${attempt}/${maxAttempts}); mencoba lagi dalam ${delayMs} ms`,
+        );
+      },
+    });
     console.log("[Database] PostgreSQL connected successfully");
 
     console.log("[Redis] Auto-connecting on first use");
