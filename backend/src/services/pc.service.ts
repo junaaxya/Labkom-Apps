@@ -7,8 +7,7 @@ import { execFile } from "child_process";
 import { config } from "../config";
 import { AgentUpdaterService } from "./agent-updater.service";
 import { parseInspectorResult, readInspectorResult, saveInspectorResult } from "./pc-inspector-cache";
-
-const AGENT_OFFLINE_AFTER_MS = 90 * 1000;
+import { AGENT_OFFLINE_AFTER_MS } from "../config/agent-policy";
 
 /**
  * Send Wake-on-LAN magic packet to a MAC address.

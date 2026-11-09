@@ -3,6 +3,10 @@ import crypto from "crypto";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import prisma from "../config/database";
 import { PC } from "@prisma/client";
+import {
+  AGENT_COMMAND_RATE_LIMIT_MAX,
+  AGENT_COMMAND_RATE_LIMIT_WINDOW_MS,
+} from "../config/agent-policy";
 
 declare global {
   namespace Express {
@@ -123,8 +127,8 @@ export const agentHeartbeatLimiter = rateLimit({
 });
 
 export const agentCommandLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 60,
+  windowMs: AGENT_COMMAND_RATE_LIMIT_WINDOW_MS,
+  max: AGENT_COMMAND_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: agentRateLimitKey,
