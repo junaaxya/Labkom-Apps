@@ -24,12 +24,13 @@ const schedule = {
   day: "SELASA", type: "PRAKTIKUM", status: "SCHEDULED", isActive: true, title: "Praktikum", academicOffering: null, occurrenceReleases: [],
 };
 
-test("student take creates occurrence cycle and linked TAKEN log atomically", async () => {
+test("ketua kelas can take after assistant checked in the matching logbook", async () => {
   const writes: unknown[] = [];
   const tx = {
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async (args: any) => ({ id: "cycle-1", ...args.data }) },
     keyLog: { create: async (args: any) => { writes.push(args.data); return { id: "log-1" }; } },
@@ -73,7 +74,9 @@ test("allocated occurrence lets target PJ borrow using allocated schedule and da
     academicOccurrenceSwap: { findMany: async () => [] },
     academicClassMembership: { findFirst: async () => ({ id: "membership-target" }) },
     academicClassLeader: { findFirst: async () => null },
-    academicOfferingPJ: { findFirst: async () => ({ id: "pj-assignment" }) },
+    academicOfferingPJ: { findFirst: async () => ({ membership: { userId: "pj-target" } }) },
+    smartAcademicPj: { findFirst: async () => null },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [{ id: "booking-1" }] },
     keyBorrowCycle: {
       findUnique: async () => null,
@@ -93,6 +96,69 @@ test("allocated occurrence lets target PJ borrow using allocated schedule and da
   }
 });
 
+test("active schedule PJ who is not ketua kelas can take after assistant check-in", async () => {
+  const pj = { ...chair, id: "pj-1", isKetuaKelas: false, className: "TI-3A" };
+  const writes: unknown[] = [];
+  const tx = {
+    key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
+    user: { findUnique: async () => pj },
+    schedule: { findMany: async () => [schedule] },
+    smartAcademicPj: { findFirst: async () => ({ studentId: "pj-1" }) },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
+    labBooking: { findMany: async () => [] },
+    keyBorrowCycle: { findUnique: async () => null, create: async (args: any) => ({ id: "cycle-pj", ...args.data }) },
+    keyLog: { create: async (args: any) => { writes.push(args.data); return { id: "log-pj" }; } },
+  };
+  const restore = replace(prisma, "$transaction", async (operation: any) => operation(tx));
+  try {
+    await KeyService.takeKey("key-1", "pj-1", "MAHASISWA", undefined, now);
+    assert.equal(writes.length, 1);
+  } finally {
+    restore();
+  }
+});
+
+test("ordinary student and inactive or other-schedule PJ are rejected", async () => {
+  for (const latestPj of [null, { studentId: "pj-other" }]) {
+    const student = { ...chair, id: "student-1", isKetuaKelas: false };
+    const tx = {
+      key: { findUnique: async () => key },
+      user: { findUnique: async () => student },
+      schedule: { findMany: async () => [schedule] },
+      smartAcademicPj: { findFirst: async () => latestPj },
+    };
+    const restore = replace(prisma, "$transaction", async (operation: any) => operation(tx));
+    try {
+      await assert.rejects(
+        KeyService.takeKey("key-1", "student-1", "MAHASISWA", undefined, now),
+        /Hanya PJ aktif untuk jadwal ini atau Ketua Kelas/
+      );
+    } finally {
+      restore();
+    }
+  }
+});
+
+test("pickup remains blocked until assistant checks in the matching logbook", async () => {
+  let writes = 0;
+  const tx = {
+    key: { findUnique: async () => key, updateMany: async () => { writes += 1; return { count: 1 }; } },
+    user: { findUnique: async () => chair },
+    schedule: { findMany: async () => [schedule] },
+    logbook: { findFirst: async () => null },
+  };
+  const restore = replace(prisma, "$transaction", async (operation: any) => operation(tx));
+  try {
+    await assert.rejects(
+      KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now),
+      /Asisten Lab harus check-in logbook jadwal ini/
+    );
+    assert.equal(writes, 0);
+  } finally {
+    restore();
+  }
+});
+
 test("take re-resolves occurrence inside Serializable transaction before writing", async () => {
   let writes = 0;
   let isolation: unknown;
@@ -100,6 +166,7 @@ test("take re-resolves occurrence inside Serializable transaction before writing
     key: { findUnique: async () => key, updateMany: async () => { writes += 1; return { count: 1 }; } },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [] },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async () => { writes += 1; return { id: "cycle-1" }; } },
     keyLog: { create: async () => { writes += 1; return { id: "log-1" }; } },
@@ -130,6 +197,7 @@ test("take retries serialization failures and re-resolves occurrence before retr
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => { scheduleReads += 1; return attempts === 1 ? [schedule] : []; } },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async () => ({ id: "cycle-1" }) },
     keyLog: { create: async () => ({ id: "log-1" }) },
@@ -175,6 +243,7 @@ test("eligibility blocks every borrower after occurrence cycle exists", async ()
     replace(prisma.schedule, "findMany", async () => [schedule]),
     replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
     replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
+    replace(prisma.logbook, "findFirst", async () => ({ id: "logbook-1" })),
     replace(prisma.labBooking, "findMany", async () => []),
     replace(prisma.keyBorrowCycle, "findUnique", async () => ({ id: "cycle-closed" })),
   ];
@@ -239,13 +308,15 @@ test("student self-service profile update cannot escalate className or isKetuaKe
       key: { findUnique: async () => key },
       user: { findUnique: async () => user },
       schedule: { findMany: async () => [schedule] },
+      smartAcademicPj: { findFirst: async () => null },
+      logbook: { findFirst: async () => ({ id: "logbook-1" }) },
       labBooking: { findMany: async () => [] },
     })),
   ];
   try {
     await assert.rejects(
       KeyService.takeKey("key-1", "student-1", "MAHASISWA", undefined, now),
-      /Hanya Koordinator Lab, Asisten Lab, atau ketua kelas yang diizinkan/
+      /Hanya PJ aktif untuk jadwal ini atau Ketua Kelas/
     );
   } finally {
     restoreAll(restores);
@@ -264,6 +335,7 @@ test("concurrent student take requests allow exactly one claim to succeed", asyn
     },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => null, create: async (args: any) => ({ id: "cycle-1", ...args.data }) },
     keyLog: { create: async () => ({ id: "log-1" }) },
@@ -294,6 +366,7 @@ test("same student cannot retake same occurrence after return", async () => {
     key: { findUnique: async () => key },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => ({ id: "cycle-completed", status: "RETURNED" }) },
   };
@@ -320,6 +393,7 @@ test("distinct class leader cannot take key for completed occurrence of differen
     key: { findUnique: async () => key },
     user: { findUnique: async () => distinctChair },
     schedule: { findMany: async () => [schedule] },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
     labBooking: { findMany: async () => [] },
     keyBorrowCycle: { findUnique: async () => ({ id: "cycle-completed", status: "RETURNED" }) },
   };

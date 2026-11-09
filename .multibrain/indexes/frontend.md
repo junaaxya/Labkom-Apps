@@ -9,6 +9,7 @@ Rules:
 - When the file grows too long, summarize older entries into a context or memory note
 
 ## Entries
+- 2026-11-09 12:00 WIB — Claude Code: key scan pickup action now relies only on backend eligibility, explicitly explains active-PJ/Ketua + Asisten check-in policy, and renders backend denial reason instead of falling back to key availability -> `frontend/src/app/(dashboard)/scan/key/[code]/page.tsx`
 - 2026-11-08 WIB — Claude: Academic PJ modal preselects latest active student, adds Hapus PJ action, disables no-op save, and schedule card shows single latest PJ; lint and typecheck passed -> frontend/src/app/(dashboard)/academic/page.tsx
 - 2026-11-07 WIB — Claude: PC Monitoring adds individual and bulk HTTPS URL/temp actions plus Live Inspector tabs for process refresh/force-close and webcam/screen captures, 1.5s bounded result polling, screen auto-refresh, and local evidence download; frontend lint, typecheck, and contract tests passed -> frontend/src/app/(dashboard)/pc-monitoring/page.tsx, frontend/src/components/pc/live-inspector*
 
