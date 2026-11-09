@@ -28,7 +28,6 @@ type UserContext = {
   name?: string;
   email?: string;
   role?: string;
-  isKetuaKelas?: boolean;
 };
 
 type KeyLogItem = {
@@ -185,7 +184,7 @@ export default function ScanKeyActionPage({
     currentUserId && currentHolderId && currentUserId === currentHolderId
   );
 
-  const canTake = Boolean(eligibility ? eligibility.canTake : keyData?.status === "AVAILABLE");
+  const canTake = Boolean(eligibility?.canTake);
   const canReturn = Boolean(eligibility ? eligibility.canReturn : keyData?.status === "BORROWED" && isCurrentHolder);
 
   const recentLogs = useMemo(
@@ -461,19 +460,30 @@ export default function ScanKeyActionPage({
 
         <div className="pt-1">
           {canTake && (
-            <button
-              type="button"
-              onClick={handleTake}
-              disabled={acting}
-              className="neo-btn w-full sm:w-auto px-5 py-3 min-h-[48px] bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 text-sm font-bold rounded-xl"
-            >
-              {acting ? (
-                <TbLoader2 className="animate-spin" size={18} />
-              ) : (
-                <TbKey size={18} />
-              )}
-              {acting ? "Memproses..." : "Ambil Kunci"}
-            </button>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-[#4b607f]">
+                PJ aktif untuk jadwal ini atau Ketua Kelas dapat mengambil kunci setelah Asisten Lab check-in.
+              </p>
+              <button
+                type="button"
+                onClick={handleTake}
+                disabled={acting}
+                className="neo-btn w-full sm:w-auto px-5 py-3 min-h-[48px] bg-[#4b607f] text-white inline-flex items-center justify-center gap-2 text-sm font-bold rounded-xl"
+              >
+                {acting ? (
+                  <TbLoader2 className="animate-spin" size={18} />
+                ) : (
+                  <TbKey size={18} />
+                )}
+                {acting ? "Memproses..." : "Ambil Kunci"}
+              </button>
+            </div>
+          )}
+
+          {!canTake && keyData.status === "AVAILABLE" && eligibility?.takeReason && (
+            <p className="text-sm font-medium text-[#5a5a5a] bg-[#f5ede6] p-3 rounded-xl border border-[#e8d8c9]">
+              {eligibility.takeReason}
+            </p>
           )}
 
           {canReturn && !showConditionForm && (

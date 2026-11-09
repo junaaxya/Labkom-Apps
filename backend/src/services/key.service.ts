@@ -32,23 +32,61 @@ function dateOnly(value: Date): Date {
 }
 
 export class KeyService {
-  private static async assertStructuredBorrower(
+  private static async assertStudentBorrower(
     client: Prisma.TransactionClient,
-    userId: string,
+    user: { id: string; isKetuaKelas: boolean; semester: string | null; className: string | null },
     occurrence: ActualOccurrence
   ): Promise<void> {
     const offering = occurrence.academicOffering;
-    if (!offering) return;
-    const membership = await client.academicClassMembership.findFirst({
-      where: { userId, termId: offering.termId, classId: offering.classId, isActive: true, user: { role: "MAHASISWA", isActive: true } },
-      select: { id: true },
-    });
-    if (!membership) throw new Error("Otoritas mahasiswa tidak cocok dengan kelas pada occurrence aktual.");
-    const [leader, pj] = await Promise.all([
-      client.academicClassLeader.findFirst({ where: { termId: offering.termId, classId: offering.classId, membership: { userId, isActive: true }, isActive: true }, select: { id: true } }),
-      client.academicOfferingPJ.findFirst({ where: { offeringId: offering.id, membership: { userId, isActive: true }, isActive: true }, select: { id: true } }),
-    ]);
-    if (!leader && !pj) throw new Error("Ketua kelas atau PJ aktif untuk occurrence aktual diperlukan.");
+    if (offering) {
+      const membership = await client.academicClassMembership.findFirst({
+        where: { userId: user.id, termId: offering.termId, classId: offering.classId, isActive: true, user: { role: "MAHASISWA", isActive: true } },
+        select: { id: true },
+      });
+      if (!membership) throw new Error("Otoritas mahasiswa tidak cocok dengan kelas pada jadwal aktif.");
+      const [leader, latestOfferingPj, latestSchedulePj] = await Promise.all([
+        client.academicClassLeader.findFirst({ where: { termId: offering.termId, classId: offering.classId, membership: { userId: user.id, isActive: true }, isActive: true }, select: { id: true } }),
+        client.academicOfferingPJ.findFirst({
+          where: { offeringId: offering.id, isActive: true, membership: { isActive: true, user: { role: "MAHASISWA", isActive: true } } },
+          orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }],
+          select: { membership: { select: { userId: true } } },
+        }),
+        client.smartAcademicPj.findFirst({
+          where: { scheduleId: occurrence.schedule.id, isActive: true, student: { role: "MAHASISWA", isActive: true } },
+          orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }],
+          select: { studentId: true },
+        }),
+      ]);
+      if (!leader && latestOfferingPj?.membership.userId !== user.id && latestSchedulePj?.studentId !== user.id) {
+        throw new Error("Hanya PJ aktif untuk jadwal ini atau Ketua Kelas yang dapat mengambil kunci.");
+      }
+      return;
+    }
+
+    const schedule = occurrence.schedule;
+    if (!user.isKetuaKelas) {
+      const latestPj = await client.smartAcademicPj.findFirst({
+        where: { scheduleId: schedule.id, isActive: true, student: { role: "MAHASISWA", isActive: true } },
+        orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }],
+        select: { studentId: true },
+      });
+      if (latestPj?.studentId !== user.id) {
+        throw new Error("Hanya PJ aktif untuk jadwal ini atau Ketua Kelas yang dapat mengambil kunci.");
+      }
+      return;
+    }
+    if (user.isKetuaKelas) {
+      const scheduleClass = normalize(schedule.className);
+      const userClass = normalize(user.className);
+      if (!scheduleClass || !userClass || scheduleClass !== userClass) {
+        throw new Error("Otoritas ketua kelas tidak cocok dengan kelas pada jadwal aktif.");
+      }
+      const scheduleSemester = normalize(schedule.semester).replace(/^semester\s*/, "");
+      const userSemester = normalize(user.semester).replace(/^semester\s*/, "");
+      if (!scheduleSemester || !userSemester || scheduleSemester !== userSemester) {
+        throw new Error("Otoritas ketua kelas tidak cocok dengan semester pada jadwal aktif.");
+      }
+    }
   }
 
   private static async resolveOccurrence(client: Prisma.TransactionClient, keyId: string, userId: string, role: string, now: Date): Promise<Occurrence> {
@@ -72,23 +110,21 @@ export class KeyService {
     const actual = active[0];
     const schedule = actual.schedule;
     if (!STAFF_ROLES.has(role)) {
-      if (actual.academicOffering) {
-        await KeyService.assertStructuredBorrower(client, userId, actual);
-      } else {
-        if (!user.isKetuaKelas) {
-          throw new Error("Hanya Koordinator Lab, Asisten Lab, atau ketua kelas yang diizinkan mengambil kunci.");
-        }
-        const scheduleClass = normalize(schedule.className);
-        const userClass = normalize(user.className);
-        if (!scheduleClass || !userClass || scheduleClass !== userClass) {
-          throw new Error("Otoritas ketua kelas tidak cocok dengan kelas pada jadwal aktif.");
-        }
-        const scheduleSemester = normalize(schedule.semester).replace(/^semester\s*/, "");
-        const userSemester = normalize(user.semester).replace(/^semester\s*/, "");
-        if (!scheduleSemester || !userSemester || scheduleSemester !== userSemester) {
-          throw new Error("Otoritas ketua kelas tidak cocok dengan semester pada jadwal aktif.");
-        }
-      }
+      await KeyService.assertStudentBorrower(client, user, actual);
+    }
+
+    const checkedInLogbook = await client.logbook.findFirst({
+      where: {
+        scheduleId: schedule.id,
+        occurrenceDate: actual.occurrenceDate,
+        labId: actual.labId,
+        status: "CHECKED_IN",
+        officialCheckinBy: { role: "ASISTEN_LAB", isActive: true },
+      },
+      select: { id: true },
+    });
+    if (!checkedInLogbook) {
+      throw new Error("Asisten Lab harus check-in logbook jadwal ini sebelum kunci dapat diambil.");
     }
 
     const booking = await client.labBooking.findMany({
