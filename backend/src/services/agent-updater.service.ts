@@ -36,19 +36,17 @@ export function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-function canonicalManifest(data: {
-  version: string; platform: string; architecture: string; sha256: string; sizeBytes: number;
-  minimumUpdaterVersion: string; mandatory: boolean;
+export function canonicalManifest(data: {
+  version: string; sha256: string; sizeBytes: number; minimumUpdaterVersion: string;
 }): string {
-  return JSON.stringify({
-    version: data.version,
-    platform: data.platform,
-    architecture: data.architecture,
+  // Must match updater.py canonical_manifest: sorted keys, compact JSON, trailing newline.
+  return `${JSON.stringify({
+    artifact: "labkom-agent.zip",
+    minimumUpdaterVersion: data.minimumUpdaterVersion,
     sha256: data.sha256,
     sizeBytes: data.sizeBytes,
-    minimumUpdaterVersion: data.minimumUpdaterVersion,
-    mandatory: data.mandatory,
-  });
+    version: data.version,
+  })}\n`;
 }
 
 function ownHttpsBase(): URL {
@@ -326,7 +324,7 @@ export class AgentUpdaterService {
     const updateAvailable = !TERMINAL.has(attempt.status) && compareSemver(agentVersion, assignment.targetVersion) !== 0;
     return {
       updateAvailable, currentVersion: agentVersion, attemptId: attempt.id, attemptStatus: attempt.status,
-      release: updateAvailable ? { id: release.id, version: assignment.targetVersion, downloadUrl, sha256: release.sha256, sizeBytes: release.sizeBytes, signature: release.signature, signatureAlgorithm: "Ed25519", signingPublicKey: signingPublicKey(), minimumUpdaterVersion: release.minimumUpdaterVersion, mandatory: release.mandatory } : null,
+      release: updateAvailable ? { id: release.id, version: assignment.targetVersion, downloadUrl, sha256: release.sha256, sizeBytes: release.sizeBytes, signature: signManifest(release), signatureAlgorithm: "Ed25519", signingPublicKey: signingPublicKey(), minimumUpdaterVersion: release.minimumUpdaterVersion, mandatory: release.mandatory } : null,
       checkAfterSeconds: assignment.rollout.checkAfterSeconds,
     };
   }
