@@ -97,7 +97,7 @@ sudo systemctl start labkom-agent
 Semua request agent dijaga oleh middleware `authenticateAgent` di backend dengan:
 
 - **Constant-time token compare**: hash SHA-256 dibandingkan via `crypto.timingSafeEqual` agar tidak rentan timing attack.
-- **Rate limit per PC**: heartbeat/register/log dibatasi 120 request per 5 menit per `pcCode`. Endpoint command (`GET /agent/commands`, `POST /agent/commands/:id/result`) dibatasi 60 per 5 menit.
+- **Rate limit per PC**: heartbeat/register/log dibatasi 120 request per 5 menit per `pcCode`. Endpoint command dan updater dibatasi 90 per 5 menit, memberi headroom di atas 60 polling per 5 menit untuk laporan hasil command dan updater tanpa menghilangkan batas abuse.
 - **Replay protection**: setiap request agent kirim header `X-Agent-Timestamp` (epoch ms) dan `X-Agent-Nonce`. Server menolak jika timestamp di luar ±5 menit, atau nonce sudah dipakai dalam 5 menit terakhir untuk PC yang sama. Agent.py versi terbaru sudah otomatis mengirim header ini.
 - **Strict mode**: set environment variable `AGENT_REQUIRE_TIMESTAMP=true` di backend untuk menolak request agent yang tidak menyertakan kedua header tersebut. Aktifkan setelah semua agent di-deploy ulang.
 
