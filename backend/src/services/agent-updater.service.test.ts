@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import zlib from "node:zlib";
-import { AGENT_BUNDLE_FILES, buildZip, canTransitionUpdate, compareSemver, githubVersion, requireSemver, verifyCiToken } from "./agent-updater.service";
+import { AGENT_BUNDLE_FILES, buildZip, canTransitionUpdate, canonicalManifest, compareSemver, githubVersion, requireSemver, verifyCiToken } from "./agent-updater.service";
 
 test("updater compares numeric SemVer and rejects invalid versions", () => {
   assert.equal(compareSemver("1.10.0", "1.9.9") > 0, true);
   assert.equal(compareSemver("2.0.0", "2.0.0"), 0);
   assert.throws(() => requireSemver("1.2", "version"), /SemVer/);
   assert.throws(() => requireSemver("01.2.3", "version"), /SemVer/);
+});
+
+test("signed manifest exactly matches updater.py canonical bytes", () => {
+  assert.equal(canonicalManifest({
+    version: "1.2.1",
+    sha256: "abc123",
+    sizeBytes: 42,
+    minimumUpdaterVersion: "1.0.0",
+  }), '{"artifact":"labkom-agent.zip","minimumUpdaterVersion":"1.0.0","sha256":"abc123","sizeBytes":42,"version":"1.2.1"}\n');
 });
 
 test("runtime may roll back after swap/start failure while agent cannot report success", () => {
