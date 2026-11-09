@@ -24,7 +24,7 @@ type TargetPC = {
 };
 type Props = { labs: Array<{ id: string; name: string }>; selectedPcIds: string[] };
 
-const AGENT_STALE_AFTER_MS = 90 * 1000;
+const AGENT_STALE_AFTER_MS = 180 * 1000;
 const UPDATE_LABEL: Record<string, string> = {
   PENDING: "Pending", DOWNLOADING: "Downloading", VERIFYING: "Verifying", INSTALLING: "Installing",
   AWAITING_HEARTBEAT: "Menunggu heartbeat", SUCCEEDED: "Installed", FAILED: "Failed",

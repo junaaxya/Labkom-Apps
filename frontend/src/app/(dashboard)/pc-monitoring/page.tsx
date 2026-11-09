@@ -42,7 +42,14 @@ import type {
   PcAgentLog,
 } from "@/types/index";
 
-type CommandLite = { id: string; command: string; status: string; createdAt: string };
+type CommandLite = {
+  id: string;
+  command: string;
+  status: string;
+  result?: string | null;
+  executedAt?: string | null;
+  createdAt: string;
+};
 
 type StatusLogLite = {
   id: string;
@@ -73,7 +80,7 @@ function errMsg(err: unknown, fallback: string) {
 }
 
 const DEFAULT_WOL_BROADCAST = "192.168.100.255";
-const AGENT_STALE_AFTER_MS = 90 * 1000;
+const AGENT_STALE_AFTER_MS = 180 * 1000;
 
 function isCommandLite(value: unknown): value is CommandLite {
   if (!value || typeof value !== "object") return false;
@@ -325,6 +332,15 @@ export default function PCMonitoringPage() {
 
     }
   }
+
+  useEffect(() => {
+    if (!showDetail || !detailPC?.id) return;
+    const pcId = detailPC.id;
+    const timer = window.setInterval(() => {
+      void api.get<{ data: PCDetail }>(`/pcs/${pcId}`).then((res) => setDetailPC(res.data)).catch(() => {});
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [showDetail, detailPC?.id]);
 
   function openCommandModal(pcId: string) {
     const targetPc = pcs.find((pc) => pc.id === pcId);
@@ -1257,10 +1273,13 @@ export default function PCMonitoringPage() {
                           <TbPower className="h-4 w-4 text-[#4b607f]" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-black text-[#1a1a1a]">{COMMAND_OPTIONS.find((c) => c.value === cmd.command)?.label || cmd.command}</p>
-                          <p className="mt-0.5 text-[11px] text-[#5a5a5a]">{formatRelativeTime(cmd.createdAt)}</p>
+                          <p className="break-words font-black text-[#1a1a1a]">{COMMAND_OPTIONS.find((c) => c.value === cmd.command)?.label || cmd.command}</p>
+                          {cmd.result && <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[#5a5a5a]">{cmd.result}</p>}
+                          <p className="mt-1 text-[11px] text-[#5a5a5a]">
+                            {cmd.executedAt ? `Selesai ${new Date(cmd.executedAt).toLocaleString("id-ID")}` : `Dibuat ${new Date(cmd.createdAt).toLocaleString("id-ID")}`}
+                          </p>
                         </div>
-                        <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
+                        <span className={`shrink-0 self-start rounded-full px-2 py-1 text-[10px] font-black ${
                           cmd.status === "EXECUTED" ? "bg-green-100 text-green-700" :
                           cmd.status === "FAILED" ? "bg-red-100 text-red-700" :
                           cmd.status === "PENDING" ? "bg-yellow-100 text-yellow-700" :
@@ -1284,8 +1303,8 @@ export default function PCMonitoringPage() {
                           "bg-green-500"
                         }`} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-black text-[#1a1a1a]">{log.eventType}</p>
-                          {log.message && <p className="mt-0.5 truncate text-[11px] text-[#5a5a5a]">{log.message}</p>}
+                          <p className="break-words font-black text-[#1a1a1a]">{log.eventType}</p>
+                          {log.message && <p className="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[#5a5a5a]">{log.message}</p>}
                         </div>
                         <span className="shrink-0 text-[11px] font-bold text-[#5a5a5a]">{formatRelativeTime(log.createdAt)}</span>
                       </div>
