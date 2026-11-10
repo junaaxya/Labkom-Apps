@@ -11,15 +11,17 @@ const date = new Date("2026-10-13T00:00:00.000Z");
 const input = { labId: "lab-1", scheduleId: "schedule-1", occurrenceDate: "2026-10-13" };
 const schedule = {
   id: "schedule-1", labId: "lab-1", type: "PRAKTIKUM", status: "SCHEDULED", isActive: true,
+  title: "Pemrograman Sistem Cerdas", className: "TI-3A" as string | null, semester: "3" as string | null,
   specificDate: null as Date | null, day: "SELASA", academicOffering: { id: "offering-1", isActive: true } as { id: string; isActive: boolean } | null,
 };
 
-function fakeTransaction(options: { schedule?: typeof schedule | null; existing?: boolean; retry?: boolean } = {}) {
+function fakeTransaction(options: { schedule?: typeof schedule | null; existing?: boolean; retry?: boolean; activeTerm?: boolean } = {}) {
   const descriptor = Object.getOwnPropertyDescriptor(prisma, "$transaction");
   const writes: Record<string, unknown>[] = [];
   const lookups: unknown[] = [];
   const transactions: unknown[] = [];
   const tx = {
+    academicTerm: { findFirst: async () => options.activeTerm === false ? null : { id: "term-1" } },
     logbook: {
       findFirst: async (query: unknown) => { lookups.push(query); return options.existing ? { id: "old-logbook" } : null; },
       create: async ({ data }: { data: Record<string, unknown> }) => { writes.push(data); return { id: "logbook-1", ...data }; },
@@ -77,6 +79,33 @@ test("check-in records bound identity in a serializable Jakarta-day transaction"
   } finally { fake.restore(); }
 });
 
+test("canonical scheduled practicum checks in without legacy offering", async () => {
+  const fake = fakeTransaction({ schedule: { ...schedule, academicOffering: null } });
+  try {
+    const result = await checkinLogbook("assistant-1", input, now);
+    assert.equal(result.scheduleId, schedule.id);
+    assert.equal(result.academicOfferingId, null);
+    assert.equal(result.status, "CHECKED_IN");
+  } finally { fake.restore(); }
+});
+
+test("canonical practicum ignores inactive legacy offering", async () => {
+  const fake = fakeTransaction({ schedule: { ...schedule, academicOffering: { id: "legacy", isActive: false } } });
+  try {
+    const result = await checkinLogbook("assistant-1", input, now);
+    assert.equal(result.scheduleId, schedule.id);
+    assert.equal(result.academicOfferingId, "legacy");
+  } finally { fake.restore(); }
+});
+
+test("canonical practicum rejects inactive academic term before write", async () => {
+  const fake = fakeTransaction({ schedule: { ...schedule, academicOffering: null }, activeTerm: false });
+  try {
+    await assert.rejects(checkinLogbook("assistant-1", input, now), /Semester akademik aktif/);
+    assert.equal(fake.writes.length, 0);
+  } finally { fake.restore(); }
+});
+
 test("check-in accepts exact-date schedule even when its stored weekday differs", async () => {
   const fake = fakeTransaction({ schedule: { ...schedule, specificDate: date, day: "SENIN" } });
   try {
@@ -95,7 +124,7 @@ test("check-in accepts an approved allocated occurrence with the same schedule i
   } finally { fake.restore(); }
 });
 
-test("check-in rejects wrong lab, date, schedule status, type, or missing binding before write", async () => {
+test("check-in rejects wrong lab, date, schedule status, type, or missing identity before write", async () => {
   const invalidSchedules = [
     null,
     { ...schedule, labId: "lab-2" },
@@ -104,8 +133,9 @@ test("check-in rejects wrong lab, date, schedule status, type, or missing bindin
     { ...schedule, isActive: false },
     { ...schedule, status: "CANCELLED" },
     { ...schedule, type: "PEMINJAMAN" },
-    { ...schedule, academicOffering: null },
-    { ...schedule, academicOffering: { id: "offering-1", isActive: false } },
+    { ...schedule, title: " " },
+    { ...schedule, className: null },
+    { ...schedule, semester: null },
   ];
   for (const invalidSchedule of invalidSchedules) {
     const fake = fakeTransaction({ schedule: invalidSchedule });
@@ -177,4 +207,12 @@ test("occurrence migration adds nullable identity without historical backfill or
   assert.match(sql, /"occurrenceDate" = "date"/);
   assert.doesNotMatch(sql, /\bUPDATE\s+"logbooks"/i);
   assert.doesNotMatch(sql, /\bUNIQUE\b|DROP\s+(?:INDEX|CONSTRAINT)/i);
+});
+
+test("new constraint permits schedule identity without offering while retaining legacy null identity", () => {
+  const sql = readFileSync(path.join(__dirname, "../../prisma/migrations/20261110000000_allow_schedule_logbook_without_offering/migration.sql"), "utf8");
+  assert.match(sql, /DROP CONSTRAINT "logbooks_occurrence_identity_check"/);
+  assert.match(sql, /"labId" IS NOT NULL AND "scheduleId" IS NOT NULL AND "occurrenceDate" IS NOT NULL/);
+  assert.doesNotMatch(sql, /"academicOfferingId" IS NOT NULL/);
+  assert.doesNotMatch(sql, /UPDATE\s+"logbooks"|DELETE\s+FROM\s+"logbooks"/i);
 });

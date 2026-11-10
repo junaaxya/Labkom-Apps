@@ -27,6 +27,7 @@ const schedule = {
 test("ketua kelas can take after assistant checked in the matching logbook", async () => {
   const writes: unknown[] = [];
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
@@ -50,6 +51,27 @@ test("ketua kelas can take after assistant checked in the matching logbook", asy
   }
 });
 
+test("canonical PJ pickup ignores inactive legacy offering but rejects inactive term", async () => {
+  const pj = { ...chair, id: "pj-1", isKetuaKelas: false };
+  const tx = {
+    academicTerm: { findFirst: async (): Promise<{ id: string } | null> => null },
+    key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
+    user: { findUnique: async () => pj },
+    schedule: { findMany: async () => [{ ...schedule, academicOffering: { id: "legacy", isActive: false } }] },
+    smartAcademicPj: { findFirst: async () => ({ studentId: pj.id }) },
+    logbook: { findFirst: async () => ({ id: "logbook-1" }) },
+    labBooking: { findMany: async () => [] },
+    keyBorrowCycle: { findUnique: async () => null, create: async () => ({ id: "cycle-1" }) },
+    keyLog: { create: async () => ({ id: "log-1" }) },
+  };
+  const restore = replace(prisma, "$transaction", async (operation: any) => operation(tx));
+  try {
+    await assert.rejects(KeyService.takeKey("key-1", pj.id, "MAHASISWA", undefined, now), /Semester akademik aktif/);
+    tx.academicTerm.findFirst = async () => ({ id: "term-1" });
+    await KeyService.takeKey("key-1", pj.id, "MAHASISWA", undefined, now);
+  } finally { restore(); }
+});
+
 test("allocated occurrence lets target PJ borrow using allocated schedule and date identity", async () => {
   const allocated = {
     ...schedule,
@@ -68,6 +90,7 @@ test("allocated occurrence lets target PJ borrow using allocated schedule and da
   const cycles: any[] = [];
   const targetPj = { ...chair, id: "pj-target", isKetuaKelas: false, className: null, semester: null };
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => targetPj },
     schedule: { findMany: async () => [allocated] },
@@ -100,6 +123,7 @@ test("active schedule PJ who is not ketua kelas can take after assistant check-i
   const pj = { ...chair, id: "pj-1", isKetuaKelas: false, className: "TI-3A" };
   const writes: unknown[] = [];
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => pj },
     schedule: { findMany: async () => [schedule] },
@@ -122,6 +146,7 @@ test("ordinary student and inactive or other-schedule PJ are rejected", async ()
   for (const latestPj of [null, { studentId: "pj-other" }]) {
     const student = { ...chair, id: "student-1", isKetuaKelas: false };
     const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
       key: { findUnique: async () => key },
       user: { findUnique: async () => student },
       schedule: { findMany: async () => [schedule] },
@@ -142,6 +167,7 @@ test("ordinary student and inactive or other-schedule PJ are rejected", async ()
 test("pickup remains blocked until assistant checks in the matching logbook", async () => {
   let writes = 0;
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => { writes += 1; return { count: 1 }; } },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
@@ -163,6 +189,7 @@ test("take re-resolves occurrence inside Serializable transaction before writing
   let writes = 0;
   let isolation: unknown;
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => { writes += 1; return { count: 1 }; } },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [] },
@@ -194,6 +221,7 @@ test("take retries serialization failures and re-resolves occurrence before retr
   let attempts = 0;
   let scheduleReads = 0;
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key, updateMany: async () => ({ count: 1 }) },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => { scheduleReads += 1; return attempts === 1 ? [schedule] : []; } },
@@ -223,14 +251,16 @@ test("student take rejects missing or mismatched trusted class authority", async
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => ({ ...chair, className: "TI-3B" })),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma.academicTerm, "findFirst", async () => ({ id: "term-1" })),
     replace(prisma, "$transaction", async (operation: (client: object) => Promise<unknown>) => operation({
       key: { findUnique: async () => key },
       user: { findUnique: async () => ({ ...chair, className: "TI-3B" }) },
       schedule: { findMany: async () => [schedule] },
+      academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     })),
   ];
   try {
-    await assert.rejects(KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now), /Otoritas ketua kelas tidak cocok/);
+    await assert.rejects(KeyService.takeKey("key-1", "chair-1", "MAHASISWA", undefined, now), /Otoritas mahasiswa tidak cocok/);
   } finally {
     restoreAll(restores);
   }
@@ -241,6 +271,7 @@ test("eligibility blocks every borrower after occurrence cycle exists", async ()
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => chair),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma.academicTerm, "findFirst", async () => ({ id: "term-1" })),
     replace(prisma.smartAcademicMoveRequest, "findMany", async () => []),
     replace(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
     replace(prisma.logbook, "findFirst", async () => ({ id: "logbook-1" })),
@@ -304,10 +335,12 @@ test("student self-service profile update cannot escalate className or isKetuaKe
     replace(prisma.key, "findUnique", async () => key),
     replace(prisma.user, "findUnique", async () => user),
     replace(prisma.schedule, "findMany", async () => [schedule]),
+    replace(prisma.academicTerm, "findFirst", async () => ({ id: "term-1" })),
     replace(prisma, "$transaction", async (operation: (client: object) => Promise<unknown>) => operation({
       key: { findUnique: async () => key },
       user: { findUnique: async () => user },
       schedule: { findMany: async () => [schedule] },
+      academicTerm: { findFirst: async () => ({ id: "term-1" }) },
       smartAcademicPj: { findFirst: async () => null },
       logbook: { findFirst: async () => ({ id: "logbook-1" }) },
       labBooking: { findMany: async () => [] },
@@ -316,7 +349,7 @@ test("student self-service profile update cannot escalate className or isKetuaKe
   try {
     await assert.rejects(
       KeyService.takeKey("key-1", "student-1", "MAHASISWA", undefined, now),
-      /Hanya PJ aktif untuk jadwal ini atau Ketua Kelas/
+      /Otoritas mahasiswa tidak cocok dengan kelas pada jadwal aktif/
     );
   } finally {
     restoreAll(restores);
@@ -326,6 +359,7 @@ test("student self-service profile update cannot escalate className or isKetuaKe
 test("concurrent student take requests allow exactly one claim to succeed", async () => {
   let claims = 0;
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: {
       findUnique: async () => key,
       updateMany: async () => {
@@ -363,6 +397,7 @@ test("concurrent student take requests allow exactly one claim to succeed", asyn
 
 test("same student cannot retake same occurrence after return", async () => {
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key },
     user: { findUnique: async () => chair },
     schedule: { findMany: async () => [schedule] },
@@ -390,6 +425,7 @@ test("same student cannot retake same occurrence after return", async () => {
 test("distinct class leader cannot take key for completed occurrence of different class", async () => {
   const distinctChair = { ...chair, id: "chair-2", className: "TI-3A" };
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     key: { findUnique: async () => key },
     user: { findUnique: async () => distinctChair },
     schedule: { findMany: async () => [schedule] },

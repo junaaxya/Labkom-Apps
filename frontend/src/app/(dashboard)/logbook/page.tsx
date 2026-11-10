@@ -401,7 +401,7 @@ export default function LogbookPage() {
   const fetchCheckinOptions = useCallback(async () => {
     const [labsResponse, schedulesResponse] = await Promise.all([
       api.get<{ data?: LabLite[] }>("/labs"),
-      api.get<{ data?: CheckinSchedule[] }>("/schedules/today"),
+      api.get<{ data?: CheckinSchedule[] }>("/schedules/today?checkinEligible=true"),
     ]);
     const labs = labsResponse.data || [];
     const schedules = (schedulesResponse.data || []).filter((schedule) => schedule.type === "PRAKTIKUM");
@@ -575,7 +575,7 @@ export default function LogbookPage() {
            {!todayLogbook ? (
              <div className="rounded-xl border-2 border-[#1a1a1a] bg-white p-6 shadow-[4px_4px_0px_#1a1a1a]">
                <p className="mb-4 text-sm font-medium text-[#5a5a5a]">
-                 Belum ada sesi logbook untuk hari ini.
+                 {checkinSchedules.length ? "Belum ada sesi logbook untuk hari ini." : "Belum ada jadwal praktikum beridentitas lengkap pada semester akademik aktif untuk hari ini. Hubungi Koordinator Lab untuk memeriksa jadwal."}
                </p>
                <div className="grid gap-3 sm:grid-cols-2">
                  <label className="text-sm font-bold text-[#1a1a1a]">

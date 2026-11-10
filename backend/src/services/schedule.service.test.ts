@@ -125,9 +125,11 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
   };
   const rows = [
     { id: "exact", isActive: true, status: "SCHEDULED", specificDate: date, day: "SENIN", labId: "lab-1", title: "Exact", lecturerName: null, className: null, semester: null, startTime: "08:00", endTime: "10:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
-    { id: "recurring", isActive: true, status: "ONGOING", specificDate: null, day: "SELASA", labId: "lab-1", title: "Recurring", lecturerName: null, className: null, semester: null, startTime: "10:00", endTime: "12:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "recurring", isActive: true, status: "ONGOING", specificDate: null, day: "SELASA", labId: "lab-1", title: "Recurring", lecturerName: null, className: "TI-3A", semester: "3", startTime: "10:00", endTime: "12:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
     { id: "historic", isActive: true, status: "SCHEDULED", specificDate: new Date("2026-10-06T00:00:00.000Z"), day: "SELASA", labId: "lab-1", title: "Historic", lecturerName: null, className: null, semester: null, startTime: "13:00", endTime: "15:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
     { id: "finished", isActive: true, status: "FINISHED", specificDate: null, day: "SELASA", labId: "lab-1", title: "Finished", lecturerName: null, className: null, semester: null, startTime: "15:00", endTime: "17:00", type: "PRAKTIKUM", academicOffering: null, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "bound", isActive: true, status: "SCHEDULED", specificDate: null, day: "SELASA", labId: "lab-1", title: "Bound", lecturerName: null, className: "TI-3A", semester: "3", startTime: "17:00", endTime: "18:00", type: "PRAKTIKUM", academicOffering: { id: "offering-1", isActive: true }, occurrenceReleases: [], lab: null, assistant: null },
+    { id: "inactive-offering", isActive: true, status: "SCHEDULED", specificDate: null, day: "SELASA", labId: "lab-1", title: "Inactive", lecturerName: null, className: "TI-3A", semester: "3", startTime: "18:00", endTime: "19:00", type: "PRAKTIKUM", academicOffering: { id: "offering-2", isActive: false }, occurrenceReleases: [], lab: null, assistant: null },
   ];
   const scheduleQueries: unknown[] = [];
   const countQueries: unknown[] = [];
@@ -151,6 +153,8 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
     replaceProperty(prisma.schedule, "groupBy", async () => []),
     replaceProperty(prisma.smartAcademicMoveRequest, "findMany", async () => []),
     replaceProperty(prisma.smartAcademicOccurrenceReport, "findMany", async () => []),
+    replaceProperty(prisma.academicOccurrenceSwap, "findMany", async () => []),
+    replaceProperty(prisma.academicTerm, "findFirst", async () => ({ id: "term-1" })),
   ];
 
   try {
@@ -158,11 +162,13 @@ test("today schedules and stats use Jakarta boundaries, operational statuses, ex
     const lastMinute = new Date("2026-10-13T16:59:00.000Z");
     const atFirstMinute = await ScheduleService.getTodaySchedules(undefined, firstMinute);
     const atLastMinute = await ScheduleService.getTodaySchedules(undefined, lastMinute);
+    const eligible = await ScheduleService.getTodaySchedules(undefined, firstMinute, true);
     await ScheduleService.getStats(lastMinute);
 
-    assert.deepEqual(atFirstMinute.map((row: { id: string }) => row.id), ["exact", "recurring"]);
-    assert.deepEqual(atLastMinute.map((row: { id: string }) => row.id), ["exact", "recurring"]);
-    assert.deepEqual(scheduleQueries, [todayWhere, todayWhere, todayWhere]);
+    assert.deepEqual(atFirstMinute.map((row: { id: string }) => row.id), ["exact", "recurring", "bound", "inactive-offering"]);
+    assert.deepEqual(atLastMinute.map((row: { id: string }) => row.id), ["exact", "recurring", "bound", "inactive-offering"]);
+    assert.deepEqual(eligible.map((row: { id: string }) => row.id), ["recurring", "bound", "inactive-offering"]);
+    assert.deepEqual(scheduleQueries, [todayWhere, todayWhere, todayWhere, todayWhere]);
     assert.equal(countQueries.length, 2);
   } finally {
     for (const restore of restores.reverse()) restore();

@@ -199,7 +199,7 @@ export class ScheduleService {
     });
   }
 
-  static async getTodaySchedules(labId?: string, now = new Date()) {
+  static async getTodaySchedules(labId?: string, now = new Date(), checkinEligible = false) {
     const { date } = getJakartaClock(now);
     const occurrences = await resolveActualOccurrences(
       prisma as unknown as Prisma.TransactionClient,
@@ -207,7 +207,11 @@ export class ScheduleService {
       { labId }
     );
 
+    const activeTerm = checkinEligible ? await prisma.academicTerm.findFirst({ where: { isActive: true, OR: [{ startDate: null }, { startDate: { lte: date } }], AND: [{ OR: [{ endDate: null }, { endDate: { gte: date } }] }] }, select: { id: true } }) : null;
     return occurrences
+      .filter((occurrence) => !checkinEligible || (occurrence.schedule.type === "PRAKTIKUM"
+        ? Boolean(activeTerm && occurrence.schedule.title.trim() && occurrence.schedule.className?.trim() && occurrence.schedule.semester?.trim())
+        : Boolean(occurrence.allocationRequestId && occurrence.academicOffering?.isActive)))
       .map((occurrence) => ({
         ...occurrence.schedule,
         labId: occurrence.labId,

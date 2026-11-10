@@ -26,8 +26,14 @@ export async function checkinLogbook(userId: string, input: CheckinLogbookInput,
       if (schedule.type !== "PRAKTIKUM" && !occurrence.allocationRequestId) {
         throw new LogbookCheckinError("Jadwal praktikum aktif diperlukan untuk check-in.");
       }
-      if (!occurrence.academicOffering?.isActive) {
-        throw new LogbookCheckinError("Jadwal harus terhubung dengan penawaran akademik aktif; sesi ad hoc tidak didukung.");
+      if (schedule.type === "PRAKTIKUM") {
+        if (!schedule.title.trim() || !schedule.className?.trim() || !schedule.semester?.trim()) {
+          throw new LogbookCheckinError("Identitas mata kuliah, kelas, dan semester jadwal wajib lengkap.");
+        }
+        const activeTerm = await tx.academicTerm.findFirst({ where: { isActive: true, OR: [{ startDate: null }, { startDate: { lte: clock.date } }], AND: [{ OR: [{ endDate: null }, { endDate: { gte: clock.date } }] }] }, select: { id: true } });
+        if (!activeTerm) throw new LogbookCheckinError("Semester akademik aktif diperlukan untuk check-in.");
+      } else if (!occurrence.academicOffering?.isActive) {
+        throw new LogbookCheckinError("Alokasi sesi harus terhubung dengan penawaran akademik aktif.");
       }
 
       return tx.logbook.create({
@@ -35,7 +41,7 @@ export async function checkinLogbook(userId: string, input: CheckinLogbookInput,
           date: clock.date,
           labId: input.labId,
           scheduleId: schedule.id,
-          academicOfferingId: occurrence.academicOffering.id,
+          academicOfferingId: occurrence.academicOffering?.id ?? null,
           occurrenceDate: clock.date,
           officialCheckinById: userId,
           officialCheckinAt: now,
