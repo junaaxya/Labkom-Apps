@@ -10,6 +10,10 @@ describe("logbook check-in contract", () => {
     assert.match(source, /jakartaDateKey\(new Date\(\)\)/);
     assert.match(source, /schedule\.labId === labId/);
     assert.match(source, /schedule\.type === "PRAKTIKUM"/);
+    assert.match(source, /\/schedules\/today\?checkinEligible=true/);
+    assert.match(source, /Belum ada jadwal praktikum beridentitas lengkap pada semester akademik aktif/);
+    assert.doesNotMatch(source, /Jadwal harus terhubung dengan penawaran akademik aktif/);
+    assert.match(source, /toast\.error\(errMsg\(err, "Gagal check-in hari ini\."\)\)/);
   });
 
   test("preserves existing checkout endpoint", () => {

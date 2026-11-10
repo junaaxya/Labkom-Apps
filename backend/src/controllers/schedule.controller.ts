@@ -117,7 +117,7 @@ export class ScheduleController {
   static async getTodaySchedules(req: Request, res: Response): Promise<void> {
     try {
       const labId = req.query.labId as string | undefined;
-      const schedules = await ScheduleService.getTodaySchedules(labId);
+      const schedules = await ScheduleService.getTodaySchedules(labId, new Date(), req.query.checkinEligible === "true");
       res.json({ success: true, data: schedules });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });

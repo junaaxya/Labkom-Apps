@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { getJakartaClock } from "./jakarta-time";
 import { withSerializableRetry } from "./schedule-availability";
 import { resolveActualOccurrences, type ActualOccurrence } from "./actual-occurrence.service";
+import { matchesAcademicCohort } from "./academic-cohort";
 
 const STAFF_ROLES = new Set(["KOORDINATOR_LAB", "ASISTEN_LAB"]);
 
@@ -37,6 +38,19 @@ export class KeyService {
     user: { id: string; isKetuaKelas: boolean; semester: string | null; className: string | null },
     occurrence: ActualOccurrence
   ): Promise<void> {
+    const schedule = occurrence.schedule;
+    if (schedule.type === "PRAKTIKUM") {
+      if (!matchesAcademicCohort(user, schedule)) throw new Error("Otoritas mahasiswa tidak cocok dengan kelas pada jadwal aktif.");
+      if (user.isKetuaKelas) return;
+      const latestPj = await client.smartAcademicPj.findFirst({
+        where: { scheduleId: schedule.id, isActive: true, student: { role: "MAHASISWA", isActive: true } },
+        orderBy: [{ updatedAt: "desc" }, { assignedAt: "desc" }],
+        select: { studentId: true },
+      });
+      if (latestPj?.studentId !== user.id) throw new Error("Hanya PJ aktif untuk jadwal ini atau Ketua Kelas yang dapat mengambil kunci.");
+      return;
+    }
+
     const offering = occurrence.academicOffering;
     if (offering) {
       const membership = await client.academicClassMembership.findFirst({
@@ -63,7 +77,6 @@ export class KeyService {
       return;
     }
 
-    const schedule = occurrence.schedule;
     if (!user.isKetuaKelas) {
       const latestPj = await client.smartAcademicPj.findFirst({
         where: { scheduleId: schedule.id, isActive: true, student: { role: "MAHASISWA", isActive: true } },
@@ -109,6 +122,13 @@ export class KeyService {
 
     const actual = active[0];
     const schedule = actual.schedule;
+    if (schedule.type === "PRAKTIKUM") {
+      if (!schedule.title.trim() || !schedule.className?.trim() || !schedule.semester?.trim()) throw new Error("Identitas jadwal praktikum belum lengkap.");
+      const activeTerm = await client.academicTerm.findFirst({ where: { isActive: true, OR: [{ startDate: null }, { startDate: { lte: clock.date } }], AND: [{ OR: [{ endDate: null }, { endDate: { gte: clock.date } }] }] }, select: { id: true } });
+      if (!activeTerm) throw new Error("Semester akademik aktif diperlukan untuk mengambil kunci.");
+    } else if (!actual.allocationRequestId || !actual.academicOffering?.isActive) {
+      throw new Error("Alokasi sesi akademik aktif diperlukan untuk mengambil kunci.");
+    }
     if (!STAFF_ROLES.has(role)) {
       await KeyService.assertStudentBorrower(client, user, actual);
     }

@@ -21,6 +21,7 @@ test("check-in HTTP requires valid identity and persisted staff role", async () 
   const writes: Record<string, unknown>[] = [];
   const transactions: unknown[] = [];
   const tx = {
+    academicTerm: { findFirst: async () => ({ id: "term-1" }) },
     logbook: {
       findFirst: async () => null,
       create: async ({ data }: { data: Record<string, unknown> }) => { writes.push(data); return { id: "logbook-1", ...data }; },
@@ -28,8 +29,8 @@ test("check-in HTTP requires valid identity and persisted staff role", async () 
     schedule: {
       findMany: async () => [{
         id: "schedule-1", labId: "lab-1", type: "PRAKTIKUM", status: "ONGOING", isActive: true,
-        day: clock.day, specificDate: null, title: "Praktikum", startTime: "08:00", endTime: "10:00",
-        academicOffering: { id: "offering-1", isActive: true }, occurrenceReleases: [],
+        day: clock.day, specificDate: null, title: "Praktikum", className: "TI-3A", semester: "3", startTime: "08:00", endTime: "10:00",
+        academicOffering: null, occurrenceReleases: [],
       }],
     },
   };
@@ -70,12 +71,12 @@ test("check-in HTTP requires valid identity and persisted staff role", async () 
       const response = await request(userId, body);
       assert.equal(response.status, 201);
       const payload = z.object({ data: z.object({
-        labId: z.string(), scheduleId: z.string(), academicOfferingId: z.string(),
+        labId: z.string(), scheduleId: z.string(), academicOfferingId: z.null(),
         occurrenceDate: z.string(), officialCheckinById: z.string(),
       }) }).parse(await response.json());
       assert.equal(payload.data.labId, "lab-1");
       assert.equal(payload.data.scheduleId, "schedule-1");
-      assert.equal(payload.data.academicOfferingId, "offering-1");
+      assert.equal(payload.data.academicOfferingId, null);
       assert.equal(payload.data.occurrenceDate, clock.date.toISOString());
       assert.equal(payload.data.officialCheckinById, userId);
     }
