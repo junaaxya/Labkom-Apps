@@ -11,7 +11,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 COPY . .
 RUN npx prisma generate
-RUN npm run build
+RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 RUN npm prune --omit=dev
 
 FROM node:20-alpine AS production
