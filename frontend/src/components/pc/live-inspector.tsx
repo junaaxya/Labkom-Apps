@@ -32,8 +32,9 @@ export function LiveInspector({ pcId, pcCode, online }: { pcId: string; pcCode: 
   }, [pcId]);
 
   async function poll<T>(path: string, previous: string | undefined, onResult: (value: T) => void) {
-    for (let i = 0; i < 7; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Agent may wait 30s for command polling, 45s for interactive capture, then retry result delivery.
+    for (let i = 0; i < 60; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       if (!pending.current) return;
       const result = await api.get<{ data: T | null }>(path);
       if (result.data && (result.data as { capturedAt?: string }).capturedAt !== previous) {

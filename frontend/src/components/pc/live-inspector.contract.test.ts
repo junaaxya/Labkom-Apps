@@ -11,8 +11,9 @@ test("PC inspector requests process, webcam, and screen data with bounded pollin
   assert.match(inspector, /KILL_PROCESS/);
   assert.match(inspector, /CAPTURE_WEBCAM/);
   assert.match(inspector, /CAPTURE_SCREEN/);
-  assert.match(inspector, /i < 7/);
-  assert.match(inspector, /1500/);
+  assert.match(inspector, /i < 60/);
+  assert.match(inspector, /2000/);
+  assert.match(inspector, /30s for command polling, 45s for interactive capture/);
   assert.match(inspector, /5000/);
   assert.match(inspector, /download=\{`bukti-/);
   assert.match(inspector, /15 menit/);
